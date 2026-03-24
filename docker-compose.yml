@@ -1,0 +1,28 @@
+services:
+  cbz-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cbz-manager:latest
+    container_name: cbz-manager
+    restart: unless-stopped
+    ports:
+      - "5173:32123"
+    volumes:
+      - cmw_data:/data
+      # Remplacez le chemin ci-dessous par celui de votre dossier de comics
+      # Exemple Mac/Linux : - /Users/votrenom/Comics:/media
+      # Exemple NAS Synology : - /volume1/BD:/media
+      # Remplacez ce chemin par celui de votre dossier de comics
+      # Exemple NAS Synology : - /volume1/BD:/media
+      - /Users/macbookair/Downloads/App/Claude/CBZ Manager/cbz-manager/data/comics:/media
+    env_file:
+      - .env
+    environment:
+      - MEDIA_ROOT=/media
+      - DB_PATH=/data/cbzmanager.db
+      - COVER_CACHE_DIR=/data/covers
+
+volumes:
+  cmw_data:
+    driver: local
