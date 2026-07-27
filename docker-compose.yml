@@ -15,7 +15,7 @@ services:
       # Exemple NAS Synology : - /volume1/BD:/media
       # Remplacez ce chemin par celui de votre dossier de comics
       # Exemple NAS Synology : - /volume1/BD:/media
-      - /Users/macbookair/Downloads/App/Claude/CBZ Manager/cbz-manager/data/comics:/media
+      - /chemin/vers/vos/comics:/media:ro
     env_file:
       - .env
     environment:
