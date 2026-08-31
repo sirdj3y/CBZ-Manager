@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Test v2 — Page Série alternative (sans image fournie)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Tokens repris tels quels de frontend/src/style.css (thème clair) ── */
+  :root {
+    --sidebar-w: 220px;
+    --navbar-h: 52px;
+    --surface: #FEFEFC;
+    --surface-raised: #F8F4EC;
+    --light: #F2EDE2;
+    --border: #E0D8C8;
+    --text: #1E2A42;
+    --muted: #8A8272;
+    --placeholder: #B8AF9C;
+    --primary: #4A6C93;
+    --primary-dark: #35507A;
+    --primary-light: #E4E8F0;
+    --vermilion: #D9411E;
+    --vermilion-dark: #B23417;
+    --vermilion-light: #F7E3DC;
+    --ochre: #E9C46A;
+    --success-text: #1b5e20;
+    --success-bg: #c8e6c9;
+    --success-border: #c5e1a5;
+    --sidebar-bg: #fafafa;
+    --sidebar-hover: #eeeeee;
+    --sidebar-active: #F5E4DC;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.07);
+    --shadow: 0 2px 6px rgba(0,0,0,0.10);
+    --shadow-lg: 0 4px 18px rgba(0,0,0,0.14);
+    --radius: 6px;
+    --radius-sm: 4px;
+    --radius-lg: 10px;
+    --font: 'Work Sans', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: 'Bebas Neue', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+  body { font-family: var(--font); background: var(--light); color: var(--text); line-height: 1.5; }
+  a { color: var(--vermilion); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #bdbdbd; border-radius: 4px; }
+
+  /* Bandeau explicite : ceci est un test, pas l'app réelle */
+  .test-banner {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--text); color: var(--surface);
+    font-size: 0.78rem; font-weight: 600;
+    padding: 7px 16px; text-align: center;
+  }
+
+  .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon svg { width: 1em; height: 1em; display: block; }
+
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar (repris de AppLayout.vue) ── */
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    background: var(--sidebar-bg); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 14px 10px; border-bottom: 1px solid var(--border);
+    min-height: var(--navbar-h);
+  }
+  .brand-icon { width: 48px; height: 48px; object-fit: contain; }
+  .brand-name { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; font-size: 1.15rem; }
+  .brand-version { font-size: 0.7rem; color: var(--muted); }
+  .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; gap: 2px; }
+  .sidebar-nav-bottom { margin-top: auto; padding-bottom: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    font-size: 0.875rem; font-weight: 500; color: var(--text); cursor: pointer;
+  }
+  .nav-item:hover { background: var(--sidebar-hover); }
+  .nav-item-active { background: var(--sidebar-active); color: var(--vermilion); box-shadow: inset 3px 0 0 var(--vermilion); }
+  .nav-item-active .nav-icon { color: var(--vermilion); }
+  .nav-icon { width: 21px; height: 21px; font-size: 21px; color: currentColor; }
+  .nav-label { flex: 1; }
+  .nav-count {
+    font-size: 0.68rem; font-weight: 600; color: var(--muted);
+    background: #EAE3D3; border-radius: var(--radius-sm); padding: 1px 7px;
+  }
+  .nav-item-active .nav-count { color: var(--vermilion); background: var(--vermilion-light); }
+
+  /* ── Main area / Topbar (repris de AppLayout.vue) ── */
+  .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 33px; z-index: 40;
+    display: flex; align-items: center; gap: 10px;
+    height: var(--navbar-h); padding: 0 16px;
+    background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  }
+  .topbar-toggle { color: var(--muted); background: none; border: none; cursor: pointer; padding: 6px; border-radius: var(--radius-sm); }
+  .topbar-toggle:hover { color: var(--text); background: var(--light); }
+  .topbar-search {
+    flex: 1; max-width: 480px; position: relative; display: flex; align-items: center;
+  }
+  .topbar-search .icon { position: absolute; left: 10px; font-size: 0.875rem; color: var(--muted); }
+  .topbar-search-input {
+    width: 100%; padding: 6px 12px 6px 32px; font-family: var(--font); font-size: 0.875rem;
+    color: var(--text); background: var(--light); border: 1px solid var(--border); border-radius: 20px;
+  }
+  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 14px; color: var(--muted); }
+  .topbar-actions button { background: none; border: none; color: inherit; cursor: pointer; padding: 6px; border-radius: var(--radius-sm); font-size: 18px; display: flex; }
+  .topbar-actions button:hover { color: var(--text); background: var(--light); }
+  .topbar-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); color: var(--primary); font-size: 0.95rem;
+  }
+
+  .content { flex: 1; padding: 20px 32px 48px; }
+
+  /* ── Fil d'Ariane (repris de SeriesDetailView.vue) ── */
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: var(--muted); margin-bottom: 16px; }
+  .breadcrumb-link { color: var(--vermilion); }
+  .breadcrumb-current { color: var(--text); font-weight: 500; }
+  .breadcrumb-nav { margin-left: auto; display: flex; gap: 4px; }
+  .breadcrumb-chevron {
+    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    width: 28px; height: 28px; cursor: pointer; font-size: 1.1rem; line-height: 1;
+    color: var(--text); display: flex; align-items: center; justify-content: center;
+  }
+  .breadcrumb-chevron:hover { background: var(--light); }
+
+  /* ── Hero — repli sans image ── */
+  /* Aucune image fournie/disponible pour une série "normale" (juste des CBZ dans un
+     dossier) : le fond redevient un dégradé purement CSS construit avec les couleurs de
+     l'app (vermillon/navy/ochre, jamais de nouvelle couleur), et le titre stylisé devient
+     un simple titre en Bebas Neue — la même police que .series-title aujourd'hui, juste
+     bien plus grande pour occuper le rôle visuel que tenait le logo en v1. Trois variantes
+     de dégradé (voir le script JS en bas de page) tirées d'un hash du nom de la série, pour
+     ne pas avoir un fond strictement identique sur toutes les fiches. */
+  .hero {
+    position: relative; border-radius: 16px; overflow: hidden;
+    background: var(--light); box-shadow: var(--shadow-lg);
+    margin-bottom: 16px;
+  }
+  .hero-bg { position: absolute; inset: 0; }
+  .hero-bg-a {
+    background:
+      radial-gradient(120% 140% at 12% 8%, rgba(217,65,30,.30), transparent 58%),
+      radial-gradient(110% 130% at 92% 105%, rgba(74,108,147,.34), transparent 62%),
+      var(--surface-raised);
+  }
+  .hero-bg-b {
+    background:
+      radial-gradient(120% 140% at 90% 6%, rgba(74,108,147,.34), transparent 58%),
+      radial-gradient(110% 130% at 6% 100%, rgba(233,196,106,.32), transparent 62%),
+      var(--surface-raised);
+  }
+  .hero-bg-c {
+    background:
+      radial-gradient(120% 140% at 50% -6%, rgba(233,196,106,.36), transparent 55%),
+      radial-gradient(110% 130% at 96% 92%, rgba(217,65,30,.26), transparent 60%),
+      var(--surface-raised);
+  }
+  .hero-fade-h {
+    position: absolute; inset: 0;
+    background: linear-gradient(100deg,
+      rgba(242,237,226,.55) 0%, rgba(242,237,226,.4) 45%,
+      rgba(242,237,226,.12) 70%, rgba(242,237,226,0) 92%);
+  }
+  .hero-fade-v {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(242,237,226,.55) 0%, rgba(242,237,226,0) 40%);
+  }
+  .hero-inner { position: relative; padding: 44px 44px 38px; max-width: 640px; }
+  /* Titre de repli — même police/casse que .series-title réel, juste agrandi pour occuper
+     le même rôle visuel que le logo en v1. Pas d'ombre portée : contrairement à v1, le fond
+     n'est plus une photo chargée, la lisibilité n'est jamais un problème ici. */
+  .hero-title-text {
+    font-family: var(--font-display); font-weight: 400; text-transform: uppercase;
+    font-size: clamp(2.2rem, 4.6vw, 3.8rem); line-height: 0.96; letter-spacing: .01em;
+    color: var(--text); margin: 0 0 12px; max-width: 560px;
+  }
+  .hero-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font: 600 0.875rem var(--font); color: var(--text); opacity: .82; margin-bottom: 16px; }
+  /* rgba(--text) explicite plutôt que var(--border) : sur le dégradé du hero, un séparateur
+     couleur bordure (très clair) devenait quasi invisible — repris du modèle fourni, qui
+     utilise une teinte du texte semi-transparente plutôt que la couleur de filet. */
+  .hero-meta-sep { color: rgba(30,42,66,.32); }
+  .hero-status-badge {
+    padding: 2px 9px; border-radius: 20px; border: 1px solid var(--text);
+    font: 700 0.62rem var(--font); letter-spacing: .08em; text-transform: uppercase; opacity: .8;
+  }
+  /* Auteurs/éditeurs — repris de .series-meta-row/.series-meta-label/.series-meta-link
+     (SeriesDetailView.vue) : une ligne par rôle, qui s'enroule naturellement quel que soit
+     le nombre de noms (certaines séries ont une dizaine de dessinateurs/scénaristes) —
+     bien plus robuste qu'une carte à largeur fixe pour ce genre de liste. */
+  .hero-credits { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .hero-credit-row { display: flex; gap: 8px; font-size: 0.8125rem; }
+  .hero-credit-label { color: var(--text); opacity: .55; width: 92px; flex-shrink: 0; }
+  .hero-credit-names { color: var(--text); opacity: .9; }
+  .hero-credit-names a { color: var(--vermilion); }
+  .hero-desc { font-size: 0.9375rem; line-height: 1.6; color: var(--text); opacity: .85; max-width: 520px; margin-bottom: 22px; }
+  .hero-btns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+  .hero-btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
+    font-family: var(--font); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase;
+    border-radius: var(--radius-sm); cursor: pointer; border: 1px solid transparent;
+  }
+  .hero-btn-primary { background: var(--vermilion); color: #fff; box-shadow: 0 2px 10px rgba(217,65,30,.32); }
+  .hero-btn-primary:hover { background: var(--vermilion-dark); }
+  .hero-btn-outline { background: rgba(255,252,246,.86); color: var(--text); border-color: var(--border); }
+  .hero-btn-outline:hover { background: var(--surface); }
+  .hero-btn-icon { padding: 10px; }
+  .hero-progress { max-width: 420px; }
+  .hero-progress-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; font: 600 0.78rem var(--font); color: var(--text); opacity: .75; }
+  .hero-progress-top strong { color: var(--text); opacity: 1; }
+  .hero-progress-track { height: 6px; border-radius: 3px; background: rgba(30,42,66,.14); overflow: hidden; }
+  .hero-progress-fill { height: 100%; border-radius: 3px; background: var(--vermilion); }
+
+  /* ── Cartes d'info (mêmes tokens que .card) ── */
+  .info-cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
+  .info-card {
+    flex: 1; min-width: 180px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); padding: 14px 18px;
+  }
+  .info-card-label { font: 600 0.68rem var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .info-card-value { font: 700 0.9375rem var(--font); }
+  /* Note Bedetheque.com — repris de .rating-star-btn (ContentToolbar.vue) */
+  .info-card-stars { display: flex; align-items: center; gap: 6px; }
+  .info-card-stars-row { display: flex; gap: 1px; font-size: 1rem; line-height: 1; color: var(--border); }
+  .info-card-stars-row span.filled { color: var(--ochre); }
+  .info-card-stars-val { font: 700 0.8125rem var(--font); color: var(--text); }
+
+  /* ── Section titres ── */
+  .section-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .section-title { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; letter-spacing: .04em; font-size: 1.5rem; color: var(--text); }
+  .section-sub { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+
+  /* ── Rail de tomes (mêmes tokens que .tome-card, disposées en scroll horizontal
+       plutôt qu'en grille — c'est le point testé en v1, inchangé ici) ── */
+  .rail {
+    display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 18px;
+    scroll-behavior: smooth; margin-bottom: 8px;
+  }
+  .tome-card {
+    flex: none; width: 180px; scroll-snap-align: start; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow-sm); transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .tome-card:hover { transform: translateY(-3px); box-shadow: 0 0 0 1.5px var(--primary), var(--shadow-lg); }
+  .tome-cover {
+    position: relative; aspect-ratio: 0.71;
+    background: repeating-linear-gradient(135deg, var(--light) 0 9px, var(--surface-raised) 9px 18px);
+  }
+  .tome-badge {
+    position: absolute; top: 7px; right: 7px;
+    padding: 2px 7px; border-radius: 4px; background: rgba(30,42,66,.85); color: #fff;
+    font: 700 0.68rem var(--font-display); letter-spacing: .06em;
+  }
+  .tome-progress-track { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(30,42,66,.1); }
+  .tome-progress-fill { height: 100%; background: var(--vermilion); }
+  .tome-info { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .tome-title { font: 700 0.82rem/1.35 var(--font); color: var(--text); min-height: 34px; }
+  .tome-sub { display: flex; align-items: center; gap: 7px; }
+  .fmt-badge-cbz {
+    padding: 1px 6px; border-radius: 4px; background: var(--success-bg); color: var(--success-text);
+    border: 1px solid var(--success-border); font: 700 0.62rem var(--font); letter-spacing: .04em;
+  }
+  .tome-pages { font: 600 0.7rem var(--font); color: var(--muted); }
+  .tome-state { margin-left: auto; font: 700 0.68rem var(--font); }
+  .tome-more-card {
+    flex: none; width: 180px; border-radius: var(--radius); border: 1.5px dashed var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 4px; cursor: pointer; color: var(--muted); font: 700 0.78rem var(--font);
+  }
+  .tome-more-card:hover { border-color: var(--vermilion); color: var(--vermilion); }
+  .tome-more-card span { font: 600 0.7rem var(--font); color: inherit; opacity: .75; }
+
+  /* ── Sélecteur de série (propre à ce test v2) — permet de vérifier que le repli
+       fonctionne pour plusieurs noms différents, avec des dégradés différents à chaque
+       fois, sans devoir dupliquer le fichier. */
+  .demo-switcher {
+    position: fixed; bottom: 16px; right: 16px; z-index: 90;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-lg); padding: 8px 10px; display: flex; gap: 6px; align-items: center;
+    font: 600 0.75rem var(--font); color: var(--muted);
+  }
+  .demo-switcher button {
+    font: 600 0.75rem var(--font); padding: 4px 9px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--light); color: var(--text); cursor: pointer;
+  }
+  .demo-switcher button.active { background: var(--vermilion); color: #fff; border-color: var(--vermilion); }
+</style>
+</head>
+<body>
+
+  <div class="test-banner">🧪 Page de test v2 — même mise en page que la v1, mais sans logo ni fond fournis : repli sur un dégradé CSS (couleurs de l'app) + titre typographique. N'affecte pas l'application réelle.</div>
+
+  <div class="app-shell">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/favicon.png" class="brand-icon" alt="CBZ Manager">
+        <div>
+          <div class="brand-name">CBZ Manager</div>
+          <div class="brand-version">v1.15.1</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+          <span class="nav-label">Accueil</span>
+        </div>
+        <div class="nav-item nav-item-active">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="18" x="3" y="3" rx="1"/><path d="M7 3v18"/><path d="M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6Z"/></svg></span>
+          <span class="nav-label">Séries</span>
+          <span class="nav-count">102</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg></span>
+          <span class="nav-label">Albums</span>
+          <span class="nav-count">2 244</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
+          <span class="nav-label">Smart list</span>
+          <span class="nav-count">4</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></span>
+          <span class="nav-label">Auteurs</span>
+          <span class="nav-count">226</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></span>
+          <span class="nav-label">Albums manquants</span>
+          <span class="nav-count">22</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>
+          <span class="nav-label">Statistiques</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 21H3"/></svg></span>
+          <span class="nav-label">Importer</span>
+        </div>
+      </nav>
+      <nav class="sidebar-nav sidebar-nav-bottom">
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <span class="nav-label">Configuration</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- ── Main ── -->
+    <div class="main-area">
+      <header class="topbar">
+        <button class="topbar-toggle"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></span></button>
+        <div class="topbar-search">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></span>
+          <input class="topbar-search-input" type="search" placeholder="Rechercher…" disabled>
+        </div>
+        <div class="topbar-actions">
+          <button title="Mode sombre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg></button>
+          <button title="Nouveautés"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></button>
+          <button title="Scanner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+          <div class="topbar-avatar">A</div>
+        </div>
+      </header>
+
+      <main class="content">
+
+        <nav class="breadcrumb">
+          <a class="breadcrumb-link" href="#">Séries</a>
+          <span>/</span>
+          <span class="breadcrumb-current" id="crumbName">Le Scrameustache</span>
+          <div class="breadcrumb-nav">
+            <button class="breadcrumb-chevron" title="Série précédente">‹</button>
+            <button class="breadcrumb-chevron" title="Série suivante">›</button>
+          </div>
+        </nav>
+
+        <!-- ── Hero ── -->
+        <section class="hero">
+          <div class="hero-bg" id="heroBg"></div>
+          <div class="hero-fade-h"></div>
+          <div class="hero-fade-v"></div>
+          <div class="hero-inner">
+            <h1 class="hero-title-text" id="heroTitle">Le Scrameustache</h1>
+
+            <div class="hero-meta" id="heroMeta">
+              <span>Aventure, Science-fiction</span><span class="hero-meta-sep">•</span>
+              <span>1972 – 2019</span><span class="hero-meta-sep">•</span>
+              <span>14 tomes</span><span class="hero-meta-sep">•</span>
+              <span class="hero-status-badge">Série finie</span>
+            </div>
+
+            <div class="hero-credits" id="heroCredits"></div>
+
+            <p class="hero-desc" id="heroDesc">Les aventures de Khena, cadet de l'espace, et de son compagnon Scrameustache, petit être extraterrestre facétieux venu d'une lointaine planète. Signé Gos.</p>
+
+            <div class="hero-btns">
+              <button class="hero-btn hero-btn-primary">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/></svg></span>
+                Reprendre T09
+              </button>
+              <button class="hero-btn hero-btn-outline">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></span>
+                Éditer
+              </button>
+              <button class="hero-btn hero-btn-outline">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></span>
+                Métadonnées
+              </button>
+              <button class="hero-btn hero-btn-outline hero-btn-icon">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></span>
+              </button>
+            </div>
+
+            <div class="hero-progress">
+              <div class="hero-progress-top">
+                <span><strong>8 tomes lus</strong> sur 14</span>
+                <span>57 %</span>
+              </div>
+              <div class="hero-progress-track"><div class="hero-progress-fill" style="width:57%"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Infos ── -->
+        <section class="info-cards" id="infoCards">
+          <div class="info-card">
+            <div class="info-card-label">Classification</div>
+            <div class="info-card-value" id="infoCategory">BD franco-belge</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Public</div>
+            <div class="info-card-value" id="infoAgeRating">Tout public</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Note Bedetheque.com</div>
+            <div class="info-card-stars">
+              <span class="info-card-stars-row" id="infoStars"></span>
+              <span class="info-card-stars-val" id="infoStarsVal">4.2/5</span>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Fiche externe</div>
+            <div class="info-card-value"><a href="#">Bedetheque.com ↗</a></div>
+          </div>
+        </section>
+
+        <!-- ── Rail de tomes ── -->
+        <section>
+          <div class="section-heading">
+            <h2 class="section-title">Les 14 tomes</h2>
+            <span class="section-sub">Ordre de parution</span>
+          </div>
+
+          <div class="rail" id="tomeRail"></div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Sélecteur — propre à ce fichier de test, pas un composant de l'app -->
+  <div class="demo-switcher">
+    <span>Série :</span>
+    <button data-name="Le Scrameustache" class="active">Le Scrameustache</button>
+    <button data-name="XIII">XIII</button>
+    <button data-name="Les Tuniques Bleues">Les Tuniques Bleues</button>
+    <button data-name="Naruto">Naruto</button>
+  </div>
+
+<script>
+  // Données fictives générées ici plutôt qu'à la main dans le HTML — 14 cartes identiques
+  // sinon très répétitives à écrire/relire.
+  const titles = [
+    ["Le trésor du lac perdu", 68, 100],
+    ["Panique au grand magasin", 44, 100],
+    ["La revanche de Gripsou", 52, 100],
+    ["Vacances mouvementées", 40, 100],
+    ["Le mystère de la ferme", 36, 100],
+    ["Chasse au canard sauvage", 48, 100],
+    ["Un pique-nique explosif", 32, 100],
+    ["La fortune de Picsou", 56, 100],
+    ["Le concours de pêche", 40, 42],
+    ["Sauve qui peut !", 36, 0],
+    ["L'invention ratée", 44, 0],
+    ["Le camping impossible", 40, 0],
+    ["Drôle de voisinage", 36, 0],
+    ["La course folle", 48, 0],
+  ]
+  const rail = document.getElementById('tomeRail')
+  titles.forEach((t, i) => {
+    const [title, pages, pct] = t
+    const code = 'T' + String(i + 1).padStart(2, '0')
+    const state = pct === 100 ? 'Lu' : pct > 0 ? 'En cours' : 'Non lu'
+    const color = pct === 100 ? 'var(--success-text)' : pct > 0 ? 'var(--vermilion)' : 'var(--muted)'
+    const card = document.createElement('div')
+    card.className = 'tome-card'
+    card.innerHTML = `
+      <div class="tome-cover">
+        <div class="tome-badge">${code}</div>
+        <div class="tome-progress-track"><div class="tome-progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="tome-info">
+        <div class="tome-title">${title}</div>
+        <div class="tome-sub">
+          <span class="fmt-badge-cbz">CBZ</span>
+          <span class="tome-pages">${pages} pages</span>
+          <span class="tome-state" style="color:${color}">${state}</span>
+        </div>
+      </div>`
+    rail.appendChild(card)
+  })
+  const more = document.createElement('div')
+  more.className = 'tome-more-card'
+  more.innerHTML = 'Voir les 14 tomes<span>en grille</span>'
+  rail.appendChild(more)
+
+  // Repli sans image : trois variantes de dégradé (a/b/c) choisies par un hash simple du
+  // nom de la série — même mécanisme que l'app pourrait appliquer à n'importe quelle série
+  // sans fond/logo dédié, pour éviter que toutes les fiches se ressemblent à l'identique.
+  const VARIANTS = ['hero-bg-a', 'hero-bg-b', 'hero-bg-c']
+  function variantFor(name) {
+    let h = 0
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+    return VARIANTS[h % VARIANTS.length]
+  }
+
+  // Données par série du sélecteur — "Les Tuniques Bleues" a volontairement une longue
+  // liste de dessinateurs/scénaristes (plusieurs équipes se sont succédé sur la série au
+  // fil des décennies) pour vérifier que les lignes crédits s'enroulent proprement, le cas
+  // que la carte à largeur fixe ne supportait pas.
+  const SERIES = {
+    'Le Scrameustache': {
+      genres: ['Aventure', 'Science-fiction'], yearStart: 1972, yearEnd: 2019, tomes: 14, status: 'Série finie',
+      desc: "Les aventures de Khena, cadet de l'espace, et de son compagnon Scrameustache, petit être extraterrestre facétieux venu d'une lointaine planète. Signé Gos.",
+      pencillers: ['Gos'], writers: ['Gos'], publishers: ['Dupuis'],
+      category: 'BD franco-belge', ageRating: 'Tout public', rating: 4.2,
+    },
+    'XIII': {
+      genres: ['Thriller', 'Espionnage', 'Action'], yearStart: 1984, yearEnd: 2007, tomes: 19, status: 'Série finie',
+      desc: "Un homme sans mémoire, une balle dans la tête, un tatouage énigmatique... la course contre la montre pour découvrir qui il est vraiment.",
+      pencillers: ['William Vance', 'Youri Jigounov'], writers: ['Jean Van Hamme'], publishers: ['Dargaud'],
+      category: 'BD franco-belge', ageRating: 'Ados / Adultes', rating: 4.6,
+    },
+    'Les Tuniques Bleues': {
+      genres: ['Humour', 'Guerre', 'Historique'], yearStart: 1968, yearEnd: null, tomes: 68, status: 'Série en cours',
+      desc: "Les mésaventures du caporal Blutch et du sergent Chesterfield, deux soldats nordistes que tout oppose, sur fond de guerre de Sécession.",
+      pencillers: ['Willy Lambil', 'Bercovici', 'Munuera', 'Fenech', 'Bravo', 'Bertschy'],
+      writers: ['Raoul Cauvin', 'BeKa', 'Kris', 'Wilbur'],
+      publishers: ['Dupuis'],
+      category: 'BD franco-belge', ageRating: 'Tout public', rating: 4.3,
+    },
+    'Naruto': {
+      genres: ['Shônen', 'Action', 'Aventure'], yearStart: 1999, yearEnd: 2014, tomes: 72, status: 'Série finie',
+      desc: "Naruto Uzumaki, jeune ninja turbulent, rêve de devenir le plus grand ninja de son village pour se faire reconnaître de tous.",
+      pencillers: ['Masashi Kishimoto'], writers: ['Masashi Kishimoto'], publishers: ['Kana'],
+      category: 'Manga', ageRating: '12 ans et +', rating: 4.7,
+    },
+  }
+
+  function creditRow(label, names) {
+    if (!names.length) return ''
+    const links = names.map(n => `<a href="#">${n}</a>`).join(', ')
+    return `<div class="hero-credit-row"><span class="hero-credit-label">${label}</span><span class="hero-credit-names">${links}</span></div>`
+  }
+
+  // "1942 – 1966" pour une série finie (années de début et de fin), "depuis 1942" pour une
+  // série en cours (pas de fin à afficher).
+  function yearsLabel(s) {
+    return s.status === 'Série en cours' ? `depuis ${s.yearStart}` : `${s.yearStart} – ${s.yearEnd}`
+  }
+
+  function applySeries(name) {
+    const s = SERIES[name]
+    document.getElementById('heroTitle').textContent = name
+    document.getElementById('crumbName').textContent = name
+
+    const bg = document.getElementById('heroBg')
+    bg.classList.remove(...VARIANTS)
+    bg.classList.add(variantFor(name))
+
+    document.getElementById('heroMeta').innerHTML = `
+      <span>${s.genres.join(', ')}</span><span class="hero-meta-sep">•</span>
+      <span>${yearsLabel(s)}</span><span class="hero-meta-sep">•</span>
+      <span>${s.tomes} tomes</span><span class="hero-meta-sep">•</span>
+      <span class="hero-status-badge">${s.status}</span>`
+
+    document.getElementById('heroCredits').innerHTML =
+      creditRow(s.pencillers.length > 1 ? 'Dessinateurs' : 'Dessinateur', s.pencillers) +
+      creditRow(s.writers.length > 1 ? 'Scénaristes' : 'Scénariste', s.writers) +
+      creditRow(s.publishers.length > 1 ? 'Éditeurs' : 'Éditeur', s.publishers)
+
+    document.getElementById('heroDesc').textContent = s.desc
+
+    document.getElementById('infoCategory').textContent = s.category
+    document.getElementById('infoAgeRating').textContent = s.ageRating
+
+    const full = Math.round(s.rating)
+    document.getElementById('infoStars').innerHTML =
+      [1, 2, 3, 4, 5].map(n => `<span class="${n <= full ? 'filled' : ''}">★</span>`).join('')
+    document.getElementById('infoStarsVal').textContent = s.rating.toFixed(1) + '/5'
+  }
+
+  applySeries('Le Scrameustache')
+  document.querySelectorAll('.demo-switcher button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.demo-switcher button').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      applySeries(btn.dataset.name)
+    })
+  })
+</script>
+
+</body>
+</html>

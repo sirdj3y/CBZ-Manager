@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Test — Page Album alternative (Thorgal)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Tokens repris tels quels de frontend/src/style.css (thème clair) ── */
+  :root {
+    --sidebar-w: 220px;
+    --navbar-h: 52px;
+    --surface: #FEFEFC;
+    --surface-raised: #F8F4EC;
+    --light: #F2EDE2;
+    --border: #E0D8C8;
+    --text: #1E2A42;
+    --muted: #8A8272;
+    --placeholder: #B8AF9C;
+    --primary: #4A6C93;
+    --primary-dark: #35507A;
+    --primary-light: #E4E8F0;
+    --vermilion: #D9411E;
+    --vermilion-dark: #B23417;
+    --vermilion-light: #F7E3DC;
+    --ochre: #E9C46A;
+    --star-empty: #E0D8C8;
+    --star-filled: #D9411E;
+    --success-text: #1b5e20;
+    --success-bg: #c8e6c9;
+    --success-border: #c5e1a5;
+    --sidebar-bg: #fafafa;
+    --sidebar-hover: #eeeeee;
+    --sidebar-active: #F5E4DC;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.07);
+    --shadow: 0 2px 6px rgba(0,0,0,0.10);
+    --shadow-lg: 0 4px 18px rgba(0,0,0,0.14);
+    --radius: 6px;
+    --radius-sm: 4px;
+    --radius-lg: 10px;
+    --font: 'Work Sans', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: 'Bebas Neue', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+  body { font-family: var(--font); background: var(--light); color: var(--text); line-height: 1.5; }
+  a { color: var(--vermilion); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #bdbdbd; border-radius: 4px; }
+
+  .test-banner {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--text); color: var(--surface);
+    font-size: 0.78rem; font-weight: 600;
+    padding: 7px 16px; text-align: center;
+  }
+
+  .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon svg { width: 1em; height: 1em; display: block; }
+
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar / Topbar (identiques aux deux pages précédentes) ── */
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    background: var(--sidebar-bg); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 14px 10px; border-bottom: 1px solid var(--border);
+    min-height: var(--navbar-h);
+  }
+  .brand-icon { width: 48px; height: 48px; object-fit: contain; }
+  .brand-name { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; font-size: 1.15rem; }
+  .brand-version { font-size: 0.7rem; color: var(--muted); }
+  .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; gap: 2px; }
+  .sidebar-nav-bottom { margin-top: auto; padding-bottom: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    font-size: 0.875rem; font-weight: 500; color: var(--text); cursor: pointer;
+  }
+  .nav-item:hover { background: var(--sidebar-hover); }
+  .nav-item-active { background: var(--sidebar-active); color: var(--vermilion); box-shadow: inset 3px 0 0 var(--vermilion); }
+  .nav-item-active .nav-icon { color: var(--vermilion); }
+  .nav-icon { width: 21px; height: 21px; font-size: 21px; color: currentColor; }
+  .nav-label { flex: 1; }
+  .nav-count {
+    font-size: 0.68rem; font-weight: 600; color: var(--muted);
+    background: #EAE3D3; border-radius: var(--radius-sm); padding: 1px 7px;
+  }
+
+  .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 33px; z-index: 40;
+    display: flex; align-items: center; gap: 10px;
+    height: var(--navbar-h); padding: 0 16px;
+    background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  }
+  .topbar-toggle { color: var(--muted); background: none; border: none; cursor: pointer; padding: 6px; border-radius: var(--radius-sm); }
+  .topbar-toggle:hover { color: var(--text); background: var(--light); }
+  .topbar-search { flex: 1; max-width: 480px; position: relative; display: flex; align-items: center; }
+  .topbar-search .icon { position: absolute; left: 10px; font-size: 0.875rem; color: var(--muted); }
+  .topbar-search-input {
+    width: 100%; padding: 6px 12px 6px 32px; font-family: var(--font); font-size: 0.875rem;
+    color: var(--text); background: var(--light); border: 1px solid var(--border); border-radius: 20px;
+  }
+  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 14px; color: var(--muted); }
+  .topbar-actions button { background: none; border: none; color: inherit; cursor: pointer; padding: 6px; border-radius: var(--radius-sm); font-size: 18px; display: flex; }
+  .topbar-actions button:hover { color: var(--text); background: var(--light); }
+  .topbar-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); color: var(--primary); font-size: 0.95rem;
+  }
+
+  .content { flex: 1; padding: 20px 32px 48px; }
+
+  /* ── Fil d'Ariane (identique aux pages précédentes) ── */
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: var(--muted); margin-bottom: 16px; }
+  .breadcrumb-link { color: var(--vermilion); }
+  .breadcrumb-current { color: var(--text); font-weight: 500; }
+  .breadcrumb-nav { margin-left: auto; display: flex; gap: 4px; }
+  .breadcrumb-chevron {
+    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    width: 28px; height: 28px; cursor: pointer; font-size: 1.1rem; line-height: 1;
+    color: var(--text); display: flex; align-items: center; justify-content: center;
+  }
+  .breadcrumb-chevron:hover { background: var(--light); }
+
+  /* ── Hero album ── */
+  /* Contrairement à la fiche série, pas de photo pleine largeur : un album n'a pas de fond
+     dédié à fournir (impossible d'imaginer une illustration par album). On garde juste une
+     touche de couleur discrète (le même dégradé/la même variante que la série parente,
+     voir le script en bas — cohérence visuelle entre une série et ses tomes), très atténuée,
+     posée sur une carte normale plutôt qu'en fond plein cadre. */
+  .tome-hero {
+    position: relative; overflow: hidden;
+    background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg);
+    margin-bottom: 16px;
+  }
+  .tome-hero-wash { position: absolute; inset: 0; opacity: .5; }
+  .tome-hero-inner { position: relative; display: flex; gap: 36px; padding: 40px; align-items: flex-start; }
+
+  /* Cover + actions secondaires */
+  .tome-cover-wrap { flex: none; width: 220px; }
+  .tome-cover-box {
+    aspect-ratio: 0.71; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow);
+    background: repeating-linear-gradient(135deg, var(--light) 0 9px, var(--surface-raised) 9px 18px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.6rem; color: var(--placeholder);
+  }
+  .tome-cover-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .tome-cover-actions .hero-btn { flex: 1; justify-content: center; padding: 9px 6px; font-size: 0.72rem; }
+
+  /* Colonne info */
+  .tome-info { flex: 1; min-width: 0; }
+  .tome-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .tome-eyebrow-logo { height: 24px; width: auto; display: block; }
+  .tome-eyebrow-sep { width: 1px; height: 14px; background: rgba(30,42,66,.25); }
+  .tome-eyebrow-num { font: 700 0.72rem var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+
+  .tome-title {
+    font-family: var(--font-display); font-weight: 400; text-transform: uppercase;
+    font-size: clamp(1.8rem, 3.2vw, 2.5rem); line-height: 1; letter-spacing: .01em;
+    color: var(--text); margin-bottom: 14px;
+  }
+
+  .tome-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font: 600 0.875rem var(--font); color: var(--text); opacity: .82; margin-bottom: 18px; }
+  .tome-meta-sep { color: rgba(30,42,66,.32); }
+  .tome-fmt-badge {
+    padding: 2px 9px; border-radius: 5px; background: var(--success-bg); color: var(--success-text);
+    border: 1px solid var(--success-border); font: 700 0.72rem var(--font);
+  }
+
+  /* Crédits — en colonnes compactes plutôt qu'en lignes pleine largeur (voir la fiche
+     série) : un album précis a rarement plus d'un ou deux noms par rôle, contrairement au
+     cumul sur toute une série. Chaque colonne s'enroule quand même si besoin. */
+  .tome-credits { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 18px; }
+  .tome-credit-col { min-width: 120px; }
+  .tome-credit-label { display: block; font: 600 0.66rem var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .tome-credit-value { font: 700 0.8125rem var(--font); }
+  .tome-credit-value a { color: var(--vermilion); }
+
+  .tome-desc { font-size: 0.9375rem; line-height: 1.6; color: var(--text); opacity: .85; max-width: 560px; margin-bottom: 22px; }
+
+  .hero-btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
+    font-family: var(--font); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase;
+    border-radius: var(--radius-sm); cursor: pointer; border: 1px solid transparent;
+  }
+  .hero-btn-primary { background: var(--vermilion); color: #fff; box-shadow: 0 2px 10px rgba(217,65,30,.32); }
+  .hero-btn-primary:hover { background: var(--vermilion-dark); }
+  .hero-btn-outline { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .hero-btn-outline:hover { background: var(--light); }
+  .hero-btn-icon { padding: 10px; }
+  .tome-actions-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+
+  /* Progression + notes, côte à côte comme sur le modèle fourni */
+  .tome-progress-row { display: flex; align-items: flex-end; gap: 40px; flex-wrap: wrap; }
+  .tome-progress { flex: 1; min-width: 220px; max-width: 420px; }
+  .tome-progress-top { display: flex; justify-content: space-between; font: 600 0.78rem var(--font); color: var(--text); opacity: .75; margin-bottom: 7px; }
+  .tome-progress-top strong { opacity: 1; }
+  .tome-progress-track { height: 6px; border-radius: 3px; background: rgba(30,42,66,.14); overflow: hidden; }
+  .tome-progress-fill { height: 100%; border-radius: 3px; background: var(--vermilion); }
+
+  .tome-ratings { display: flex; gap: 28px; }
+  .tome-rating-block { display: flex; flex-direction: column; gap: 5px; }
+  .tome-rating-label { font: 600 0.64rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  /* "Ma note" — étoiles discrètes pleines/vides, même principe que .rating-star-btn
+     (ContentToolbar.vue) : une note personnelle est toujours un entier 1-5. */
+  .tome-rating-stars { font-size: 1.05rem; line-height: 1; letter-spacing: 1px; color: var(--star-empty); }
+  .tome-rating-stars span.filled { color: var(--star-filled); }
+  /* "Bedetheque.com" — remplissage proportionnel (ex. 4,3/5), même technique que
+     .bd-stars/.bd-stars-fill (TomeDetailView.vue) : une note communautaire est décimale,
+     un remplissage par étoile entière serait imprécis. */
+  .tome-bd-stars { position: relative; display: inline-block; font-size: 1.05rem; line-height: 1; }
+  .tome-bd-stars-bg { color: var(--star-empty); }
+  .tome-bd-stars-fill { position: absolute; inset: 0; overflow: hidden; color: var(--star-filled); }
+  .tome-rating-val { font: 700 0.8rem var(--font); color: var(--text); }
+
+  /* ── Cartes d'info (mêmes tokens que .card) ── */
+  .info-cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .info-card {
+    flex: 1; min-width: 150px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); padding: 14px 18px;
+  }
+  .info-card-label { font: 600 0.68rem var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .info-card-value { font: 700 0.9375rem var(--font); }
+
+  @media (max-width: 700px) {
+    .tome-hero-inner { flex-direction: column; align-items: center; }
+    .tome-cover-wrap { width: 200px; }
+  }
+
+  .demo-note {
+    max-width: 640px; margin: 0 auto 20px; text-align: center;
+    font-size: 0.8rem; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+  <div class="test-banner">🧪 Page de test — fiche album sur le même principe que la fiche série (v2), fond image non réutilisé ici (pas d'illustration par album), juste une touche de couleur reprise de la série. Données fictives « Thorgal ». N'affecte pas l'application réelle.</div>
+
+  <div class="app-shell">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/favicon.png" class="brand-icon" alt="CBZ Manager">
+        <div>
+          <div class="brand-name">CBZ Manager</div>
+          <div class="brand-version">v1.15.1</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+          <span class="nav-label">Accueil</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="18" x="3" y="3" rx="1"/><path d="M7 3v18"/><path d="M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6Z"/></svg></span>
+          <span class="nav-label">Séries</span>
+          <span class="nav-count">102</span>
+        </div>
+        <div class="nav-item nav-item-active">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg></span>
+          <span class="nav-label">Albums</span>
+          <span class="nav-count">2 244</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
+          <span class="nav-label">Smart list</span>
+          <span class="nav-count">4</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></span>
+          <span class="nav-label">Auteurs</span>
+          <span class="nav-count">226</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></span>
+          <span class="nav-label">Albums manquants</span>
+          <span class="nav-count">22</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>
+          <span class="nav-label">Statistiques</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 21H3"/></svg></span>
+          <span class="nav-label">Importer</span>
+        </div>
+      </nav>
+      <nav class="sidebar-nav sidebar-nav-bottom">
+        <div class="nav-item">
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <span class="nav-label">Configuration</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- ── Main ── -->
+    <div class="main-area">
+      <header class="topbar">
+        <button class="topbar-toggle"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></span></button>
+        <div class="topbar-search">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg></span>
+          <input class="topbar-search-input" type="search" placeholder="Rechercher…" disabled>
+        </div>
+        <div class="topbar-actions">
+          <button title="Mode sombre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg></button>
+          <button title="Nouveautés"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></button>
+          <button title="Scanner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+          <div class="topbar-avatar">A</div>
+        </div>
+      </header>
+
+      <main class="content">
+
+        <p class="demo-note">Reprend les mêmes principes que la fiche série v2 (dégradé, boutons, cartes d'info) — la touche de couleur du bandeau ci-dessous est la même variante que « Thorgal » aurait sur sa fiche série.</p>
+
+        <nav class="breadcrumb">
+          <a class="breadcrumb-link" href="#">Séries</a>
+          <span>/</span>
+          <a class="breadcrumb-link" href="#">Thorgal</a>
+          <span>/</span>
+          <span class="breadcrumb-current">Entre terre et lumière</span>
+          <div class="breadcrumb-nav">
+            <button class="breadcrumb-chevron" title="Album précédent">‹</button>
+            <button class="breadcrumb-chevron" title="Album suivant">›</button>
+          </div>
+        </nav>
+
+        <!-- ── Hero album ── -->
+        <section class="tome-hero">
+          <div class="tome-hero-wash" id="tomeWash"></div>
+          <div class="tome-hero-inner">
+
+            <div class="tome-cover-wrap">
+              <div class="tome-cover-box">📖</div>
+              <div class="tome-cover-actions">
+                <button class="hero-btn hero-btn-outline">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                  Marquer lu
+                </button>
+                <button class="hero-btn hero-btn-outline">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M6 12H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-2"/><path d="m8 11 4 4 4-4"/></svg></span>
+                  Exporter
+                </button>
+              </div>
+            </div>
+
+            <div class="tome-info">
+              <div class="tome-eyebrow">
+                <img class="tome-eyebrow-logo" src="assets/donald-logo.png" alt="Thorgal">
+                <span class="tome-eyebrow-sep"></span>
+                <span class="tome-eyebrow-num">Tome 13 sur 41</span>
+              </div>
+
+              <h1 class="tome-title">Entre terre et lumière</h1>
+
+              <div class="tome-meta">
+                <span>1988</span><span class="tome-meta-sep">•</span>
+                <span>48 pages</span><span class="tome-meta-sep">•</span>
+                <span>Heroic fantasy</span><span class="tome-meta-sep">•</span>
+                <span class="tome-fmt-badge">CBZ · 40,6 Mo</span>
+              </div>
+
+              <div class="tome-credits">
+                <div class="tome-credit-col">
+                  <span class="tome-credit-label">Dessinateur</span>
+                  <span class="tome-credit-value"><a href="#">Grzegorz Rosiński</a></span>
+                </div>
+                <div class="tome-credit-col">
+                  <span class="tome-credit-label">Scénariste</span>
+                  <span class="tome-credit-value"><a href="#">Jean Van Hamme</a></span>
+                </div>
+                <div class="tome-credit-col">
+                  <span class="tome-credit-label">Éditeur</span>
+                  <span class="tome-credit-value"><a href="#">Le Lombard</a></span>
+                </div>
+              </div>
+
+              <p class="tome-desc">Thorgal a perdu la mémoire. Recueilli par un village de pêcheurs, il ignore tout d'Aaricia et de ses enfants, tandis que la mer et les dieux resserrent leur étau autour des siens.</p>
+
+              <div class="tome-actions-row">
+                <button class="hero-btn hero-btn-primary">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/></svg></span>
+                  Reprendre la lecture · p. 26
+                </button>
+                <button class="hero-btn hero-btn-outline">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></span>
+                  Éditer
+                </button>
+                <button class="hero-btn hero-btn-outline hero-btn-icon">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></span>
+                </button>
+              </div>
+
+              <div class="tome-progress-row">
+                <div class="tome-progress">
+                  <div class="tome-progress-top">
+                    <span>Page 26 sur 48</span>
+                    <span>55 %</span>
+                  </div>
+                  <div class="tome-progress-track"><div class="tome-progress-fill" style="width:55%"></div></div>
+                </div>
+
+                <div class="tome-ratings">
+                  <div class="tome-rating-block">
+                    <span class="tome-rating-label">Ma note</span>
+                    <span class="tome-rating-stars">
+                      <span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span>★</span>
+                    </span>
+                  </div>
+                  <div class="tome-rating-block">
+                    <span class="tome-rating-label">Bedetheque.com</span>
+                    <span class="tome-bd-stars">
+                      <span class="tome-bd-stars-bg">★★★★★</span>
+                      <span class="tome-bd-stars-fill" style="width:86%">★★★★★</span>
+                    </span>
+                    <span class="tome-rating-val">4,3/5 · 61 avis</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Infos fichier ── -->
+        <section class="info-cards">
+          <div class="info-card">
+            <div class="info-card-label">Ajouté</div>
+            <div class="info-card-value">25 mars 2026</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Modifié</div>
+            <div class="info-card-value">27 août 2026</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Format</div>
+            <div class="info-card-value">CBZ · JPEG</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Résolution</div>
+            <div class="info-card-value">1600 × 2200</div>
+          </div>
+        </section>
+        <section class="info-cards">
+          <div class="info-card">
+            <div class="info-card-label">Fichier</div>
+            <div class="info-card-value">40,6 Mo</div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+<script>
+  // Même variante de dégradé que la fiche série (hash du nom de la série, pas de l'album) —
+  // cohérence visuelle entre une série et ses tomes sans rien avoir à fournir de plus.
+  const VARIANTS = ['hero-bg-a', 'hero-bg-b', 'hero-bg-c']
+  const GRADIENTS = {
+    'hero-bg-a': 'radial-gradient(120% 160% at 100% 0%, rgba(217,65,30,.28), transparent 55%), radial-gradient(110% 140% at 100% 100%, rgba(74,108,147,.24), transparent 60%)',
+    'hero-bg-b': 'radial-gradient(120% 160% at 100% 0%, rgba(74,108,147,.28), transparent 55%), radial-gradient(110% 140% at 100% 100%, rgba(233,196,106,.26), transparent 60%)',
+    'hero-bg-c': 'radial-gradient(120% 160% at 100% 0%, rgba(233,196,106,.3), transparent 55%), radial-gradient(110% 140% at 100% 100%, rgba(217,65,30,.2), transparent 60%)',
+  }
+  function variantFor(name) {
+    let h = 0
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+    return VARIANTS[h % VARIANTS.length]
+  }
+  document.getElementById('tomeWash').style.background = GRADIENTS[variantFor('Thorgal')]
+</script>
+
+</body>
+</html>
