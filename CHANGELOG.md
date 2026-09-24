@@ -12,6 +12,8 @@
 
 - **Diagnostic : données orphelines** : détecte les données rattachées à un album, une série ou un compte qui n'existe plus (progression et notes, temps de lecture, listes intelligentes, séries masquées, albums manquants, métadonnées, cases détectées), une ligne par type, avec un bouton « Nettoyer ». Nettoie ce que les bugs de suppression ont pu laisser dans une base existante.
 
+- **Labo shadcn-vue** (`/labo/shadcn`, non lié dans le menu) : essai des composants shadcn-vue avec les couleurs de l'app sur la vraie bibliothèque — tableau des séries, menu d'actions, dialogue, panneau latéral, recherche ⌘K. Isolé du reste de l'app.
+
 ### Corrections
 
 - **Numéros de tome décimaux ou à suffixe tronqués** (« 13.5 » → « 13 », « 7bis » → « 07 ») au renommage, à l'import et au remplissage du champ Numéro depuis un scraper : un tome 13.5 prenait le nom et le numéro du tome 13.

@@ -1,11 +1,18 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
 
 const version = readFileSync(new URL('../VERSION', import.meta.url), 'utf-8').trim()
 
 export default defineConfig({
-  plugins: [vue()],
+  // Tailwind ne sert qu'au bac à sable shadcn-vue (src/labs/shadcn/) : son CSS n'est importé que
+  // par cette page, sans la remise à zéro globale (preflight) — le reste de l'app est inchangé.
+  plugins: [vue(), tailwindcss()],
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },

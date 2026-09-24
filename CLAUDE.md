@@ -93,6 +93,9 @@ Library is organized as **Series → Tomes (albums)**. A series = a folder on di
 - **Routing:** `vue-router` with HTML5 history. SPA fallback is handled by the backend.
 - **AutocompleteInput:** multi-value comma-separated input (`components/ui/AutocompleteInput.vue`). The autocomplete pool for Writer/Penciller merges both fields (an author like Peyo who writes and draws appears in both).
 
+### shadcn-vue sandbox (`frontend/src/labs/shadcn/`, route `/labo/shadcn`, issue #6)
+Trial only, not linked in the menu. Tailwind v4 is used **only** there: `shadcn.css` is imported by `ShadcnLabView.vue` alone, without preflight, utilities generated only for that folder (`source(none)` + `@source "./"`) and unlayered (the app's global `* { padding: 0; margin: 0 }` in `style.css` is unlayered and would win over layered utilities). shadcn colors map to the app's tokens in `@theme inline`; dark mode follows `data-theme` on `<html>`. Add components with `npx shadcn-vue@latest add <name>` (`frontend/components.json`, JS, alias `@` → `src`). Never import `shadcn.css` elsewhere, or Tailwind classes start applying across the app.
+
 ### File naming convention (scanner)
 The scanner (`services/scanner.py`) parses filenames via `services/filename_parser.py`. Recommended pattern: `{Série} - T{Numéro} - {Titre}.cbz`. Examples recognized:
 - `Akira - T01 - Akira.cbz` → series=Akira, number=01, title=Akira

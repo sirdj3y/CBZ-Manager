@@ -32,6 +32,8 @@ const router = createRouter({
     { path: '/logs',       name: 'logs',         component: () => import('../views/LogsView.vue'), meta: { permission: 'library.settings' } },
     { path: '/import',     name: 'import',       component: () => import('../views/ImportView.vue'), meta: { permission: 'library.import' } },
     { path: '/authors',    name: 'authors',      component: () => import('../views/AuthorsView.vue'), meta: { permission: 'library.read' } },
+    // Bac à sable shadcn-vue (essai, non lié dans le menu) — voir src/labs/shadcn/
+    { path: '/labo/shadcn', name: 'labo-shadcn',  component: () => import('../labs/shadcn/ShadcnLabView.vue'), meta: { permission: 'library.read' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
