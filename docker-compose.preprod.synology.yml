@@ -22,7 +22,7 @@ services:
       - MEDIA_ROOT=/media
       - DB_PATH=/data/cbzmanager.db
       - COVER_CACHE_DIR=/data/covers
-      - PUID=1026
+      - PUID=1030   # propriétaire des fichiers de BD-preprod (prod : 1026)
       - PGID=100
       - TZ=Europe/Paris
     labels:
