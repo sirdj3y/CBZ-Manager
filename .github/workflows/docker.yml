@@ -6,7 +6,11 @@ name: Image Docker
 on:
   push:
     branches: ["**"]
+    # Doc, maquettes et fichiers compose ne changent pas l'image : pas de rebuild,
+    # donc pas de redémarrage inutile par Watchtower.
+    paths-ignore: ["**.md", "design-tests/**", "docker-compose*.yml", ".env.example"]
   pull_request:
+    paths-ignore: ["**.md", "design-tests/**", "docker-compose*.yml", ".env.example"]
   workflow_dispatch:
 
 concurrency:

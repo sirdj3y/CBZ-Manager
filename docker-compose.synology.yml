@@ -1,0 +1,42 @@
+# Déploiement Synology (DS423+) — à coller dans Container Manager → Projet → Créer,
+# chemin du projet : /volume1/docker/cbz-manager
+#
+# L'image est construite par GitHub Actions à chaque push sur main et publiée sur GHCR.
+# Watchtower vérifie toutes les 5 minutes et redémarre cbz-manager sur la nouvelle image.
+# Prérequis (une fois, en SSH) : sudo docker login ghcr.io -u sirdj3y  (token classic read:packages)
+
+services:
+  cbz-manager:
+    image: ghcr.io/sirdj3y/cbz-manager:latest
+    container_name: cbz-manager
+    restart: unless-stopped
+    ports:
+      - "5173:32123"
+    volumes:
+      - /volume1/docker/cbz-manager/data:/data
+      - /volume1/divers/BD:/media
+    env_file:
+      - .env
+    environment:
+      - MEDIA_ROOT=/media
+      - DB_PATH=/data/cbzmanager.db
+      - COVER_CACHE_DIR=/data/covers
+      - PUID=1026
+      - PGID=100
+      - TZ=Europe/Paris
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: cbz-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Identifiants GHCR enregistrés par le docker login (lecture seule)
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      - TZ=Europe/Paris
+      - WATCHTOWER_LABEL_ENABLE=true   # ne surveille que les conteneurs étiquetés (pas tout le NAS)
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true        # supprime l'ancienne image après mise à jour
