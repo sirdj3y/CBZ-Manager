@@ -15,6 +15,9 @@ if [ "$(id -u appuser)" != "$PUID" ]; then
 fi
 
 mkdir -p /data
+# Sauvegarde de la base si la version a changé, avant que l'app n'en modifie le schéma
+# (data/backups/, 5 dernières). Avant le chown, qui rend aussi les sauvegardes à appuser.
+python /app/backend/db_backup.py
 chown -R appuser:appuser /data
 
 exec gosu appuser "$@"

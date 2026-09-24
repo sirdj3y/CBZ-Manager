@@ -148,34 +148,27 @@ Pour relancer sans reconstruire : `docker compose up`
 
 ---
 
-## Déploiement sur un NAS / serveur distant
+## Déploiement sur un NAS (Synology)
 
-### 1. Transférer le projet
+L'image est construite par GitHub Actions et publiée sur GHCR (`ghcr.io/sirdj3y/cbz-manager`) — rien à builder sur le NAS :
 
-```bash
-rsync -av --exclude '.venv' --exclude 'node_modules' --exclude 'data' \
-  /chemin/local/cbz-manager/ user@serveur:/chemin/docker/cbz-manager/
-```
+| Branche | Image | Déployée sur |
+|---|---|---|
+| `main` | `:latest` + `:<version>` | production |
+| `develop` | `:preprod` | préproduction (port 5174, bibliothèque de test) |
 
-### 2. Configurer le volume
+Sur le NAS, Container Manager → **Projet → Créer**, avec `docker-compose.synology.yml` (prod, inclut Watchtower) ou `docker-compose.preprod.synology.yml` (préprod). Watchtower vérifie toutes les 5 minutes et redémarre l'app sur la nouvelle image.
 
-Ouvrez `docker-compose.yml` et définissez le chemin vers votre dossier de comics :
+Prérequis, une fois en SSH : `sudo docker login ghcr.io -u <utilisateur>` avec un token GitHub *classic* `read:packages` (l'onglet Registre de Container Manager ne sait pas dialoguer avec ghcr.io, c'est normal).
 
-```yaml
-- /chemin/vers/vos/comics:/media:ro
-```
+### Sauvegarde automatique de la base
 
-> Pour restreindre l'app à un sous-dossier, configurez `LIBRARY_SUBDIR` depuis la page **Configuration** de l'app.
+À chaque démarrage sur une **nouvelle version**, la base est copiée dans `data/backups/cbzmanager-v<version précédente>-<date>.db` avant que l'app n'en modifie le schéma (5 dernières conservées). Un simple redémarrage n'en crée pas. Les fichiers de BD eux-mêmes ne sont pas concernés : Hyper Backup / instantanés Btrfs pour ceux-là.
 
-Le volume `./data:/data` (base de données + cache des couvertures) n'a besoin d'aucune configuration : il se crée automatiquement dans `data/` à côté de `docker-compose.yml` sur le NAS/serveur. Sur Synology avec Container Manager, ce dossier apparaît normalement dans File Station et peut être inclus dans Hyper Backup comme n'importe quel autre dossier.
-
-### 3. Lancer
-
-```bash
-docker compose up -d --build
-```
-
-L'app est disponible sur `http://adresse-serveur:5173` depuis n'importe quel appareil du réseau.
+**Revenir à la version précédente :**
+1. Container Manager : arrêter le projet, remplacer `:latest` par la version voulue (ex. `:1.24.0`) dans le YAML.
+2. File Station : copier la sauvegarde de cette version à la place de `data/cbzmanager.db`, supprimer `cbzmanager.db-wal` et `cbzmanager.db-shm` s'ils existent.
+3. Relancer le projet.
 
 ---
 
