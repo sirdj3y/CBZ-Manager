@@ -15,8 +15,6 @@ services:
     volumes:
       - /volume1/docker/cbz-manager/data:/data
       - /volume1/divers/BD:/media
-    env_file:
-      - .env
     environment:
       - MEDIA_ROOT=/media
       - DB_PATH=/data/cbzmanager.db
