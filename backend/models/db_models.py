@@ -145,6 +145,8 @@ class Tome(Base):
     # resteraient orphelines et pourraient se rattacher à tort à un nouveau tome recréé
     # avec le même id.
     page_panels: Mapped[list["TomePagePanels"]] = relationship("TomePagePanels", cascade="all, delete-orphan")
+    # Idem pour le temps de lecture (statistiques) — test : tests/test_deletion_cleanup.py.
+    reading_activity: Mapped[list["ReadingActivity"]] = relationship("ReadingActivity", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_tomes_series_id", "series_id"),
@@ -409,6 +411,12 @@ class User(Base):
     profile: Mapped["Profile | None"] = relationship("Profile")
     tome_data: Mapped[list["UserTomeData"]] = relationship("UserTomeData", cascade="all, delete-orphan")
     hidden_series: Mapped[list["UserHiddenSeries"]] = relationship("UserHiddenSeries", cascade="all, delete-orphan")
+    # Le ON DELETE CASCADE des clés étrangères n'est pas appliqué par SQLite ici (pas de PRAGMA
+    # foreign_keys=ON) : sans ces relations, le temps de lecture et les listes intelligentes
+    # d'un compte supprimé restaient en base, et passaient au prochain compte créé avec le
+    # même id. Test : tests/test_deletion_cleanup.py.
+    reading_activity: Mapped[list["ReadingActivity"]] = relationship("ReadingActivity", cascade="all, delete-orphan")
+    smart_lists: Mapped[list["SmartList"]] = relationship("SmartList", cascade="all, delete-orphan")
 
 
 class UserHiddenSeries(Base):

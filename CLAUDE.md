@@ -119,6 +119,25 @@ The scanner (`services/scanner.py`) parses filenames via `services/filename_pars
 
 ---
 
+## Rules — check before touching these areas
+
+These come from real bugs; each one has bitten before.
+
+- **New metadata field shown/editable in the UI → also add it to the Smart List catalog**, in `backend/services/smart_lists.py`: an entry in `FIELDS` *and* the name in `_METADATA_TEXT_COLUMNS` (a field in `FIELDS` but missing from that whitelist silently never filters). The frontend fetches the catalog from `GET /api/smart-lists/fields`, nothing to touch there.
+- **New table pointing at `tomes`, `series` or `users` → declare the cascade on the parent's ORM relationship** (`relationship("X", cascade="all, delete-orphan")` on `Tome`/`Series`/`User` in `backend/models/db_models.py`). SQLite does **not** enforce `ondelete="CASCADE"` here (no `PRAGMA foreign_keys=ON`), and it reuses freed ids: a forgotten row silently attaches to the next album/account created (seen with reading progress, then reading time and smart lists). Add the case to `tests/test_deletion_cleanup.py`. Delete through the ORM (`db.delete(obj)`), never a bulk SQL `delete(Tome)` — it skips the cascades.
+- **Writing a comic file in place → temp file with a unique name + `shutil.move`, under `get_file_lock(path)`** (`services/file_locks.py`), as `metadata_writer.py` and `converter_service.py` do. Writing straight to the source corrupted CBZs racing with the scanner.
+- **Never run a full scan to get one tome's id** — call `scanner._process_file()` on that file (import used to rescan 2000+ files per upload).
+- **RAR:** the image needs `unrar` (non-free), never `unrar-free` (no RAR5).
+- **`backend/static/` stays in `.dockerignore`** — otherwise a stale local frontend build ships in the image.
+
+### Synology gotchas (DS423+)
+
+- Container user must own the files: **prod `PUID=1026`/`PGID=100`** (owner of `/volume1/divers/BD`), **preprod `PUID=1030`** (owner of `/volume1/divers/BD-preprod`, copied with another account). The app detects a mismatch and says which values to use (startup log + banner). Compose files must pass `PUID`/`PGID` through — once hardcoded to 1000, `.env` values were silently ignored.
+- No `.env` on the NAS: everything is in the compose (`env_file: .env` makes project creation fail there).
+- Container Manager: the **Registre** tab can't talk to ghcr.io (expected — pulls use the SSH `docker login`). A project whose container was never created fails on **Démarrer** ("no container found"): delete and recreate it with "Démarrer le projet une fois sa création terminée" ticked.
+
+---
+
 ## Repository & deployment
 
 **GitHub:** `https://github.com/sirdj3y/CBZ-Manager.git` (private repo)  

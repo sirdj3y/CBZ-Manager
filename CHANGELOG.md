@@ -14,6 +14,8 @@
 
 - **Numéros de tome décimaux ou à suffixe tronqués** (« 13.5 » → « 13 », « 7bis » → « 07 ») au renommage, à l'import et au remplissage du champ Numéro depuis un scraper : un tome 13.5 prenait le nom et le numéro du tome 13.
 
+- **Données orphelines à la suppression** : supprimer un album laissait son temps de lecture en base, et supprimer un compte laissait son temps de lecture et ses listes intelligentes. SQLite réutilisant les identifiants, ces données pouvaient réapparaître sur le prochain album ou compte créé (même famille de bug que la progression de lecture corrigée en août).
+
 ### Technique
 
 - Build du frontend sous Node 22 (Node 20 n'est plus maintenu).
