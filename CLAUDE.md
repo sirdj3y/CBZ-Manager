@@ -38,6 +38,8 @@ Both are bind mounts to plain host folders (`docker-compose.yml` default: `./dat
 
 The container runs as a non-root user (`appuser`), not root. `docker-entrypoint.sh` runs as root at container start, adjusts `appuser`'s UID/GID from the `PUID`/`PGID` env vars (default 1000:1000, linuxserver.io convention), `chown -R`s `/data`, then `exec gosu appuser "$@"` to drop privileges before running uvicorn. When touching the Dockerfile/entrypoint, keep this drop-privileges flow intact — don't add a bare `USER` directive instead, it would hardcode one UID and break the "match your NAS user" use case.
 
+Before the `chown`, the entrypoint runs `backend/db_backup.py` (stdlib only, never fails the start): if `VERSION` differs from `data/.last_version`, it copies the DB with SQLite's backup API to `data/backups/` (5 kept) — before `init_db()` runs its `ALTER TABLE`s. Watchtower deploys unattended, so keep this step ahead of the app start.
+
 App listens on port `32123` internally. `docker-compose.yml` maps it to the host.
 
 ### Environment variables
