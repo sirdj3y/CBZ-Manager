@@ -20,7 +20,7 @@ In DEV_MODE: CORS is enabled for `localhost:5173`, Swagger UI is available at `/
 ### Docker (production — Synology DS423+)
 Images are built by GitHub Actions (`.github/workflows/docker.yml`, linux/amd64 — DS423+ is Intel x86_64) and published to GHCR — no more local `buildx` + `docker save` to `.tar.gz`:
 - push to `main` → `ghcr.io/sirdj3y/cbz-manager:latest` + `:<VERSION>` → **production**, pulled automatically by Watchtower on the NAS within ~5 min
-- push to `develop` → `:preprod` → **preprod** container on the NAS (port 5174, own data copy, library mounted `:ro`)
+- push to `develop` → `:preprod` → **preprod** container on the NAS (port 5174, own empty data, dedicated test library `/volume1/divers/BD-preprod`, read-write)
 - other branches / PRs → build only (checks the Dockerfile), nothing published
 - `*.md`, `design-tests/`, `docker-compose*.yml` changes don't trigger a build
 
