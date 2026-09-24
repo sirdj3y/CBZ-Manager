@@ -149,10 +149,6 @@ Session logs are saved in `divers/backups/cbz-manager-session-<DATE>.html`. Old 
 
 ---
 
-## Known backlog (as of v1.5.5)
+## Backlog — GitHub issues
 
-- Import cancellation cleanup (files + folder) — endpoint exists but non-functional
-- Full folder drag & drop at import step 1
-- Library sub-folder support (nested series)
-- Exclude specific folders from scan
-- Dynamic statistics page
+The plan lives in the open issues (`gh issue list`), not in this file nor in memory. Before starting a feature or fix, make sure an issue describes it (create or update one — check for duplicates); anything agreed but not started gets an issue too. Reference it in commits and close it with `Closes #n` in the commit that finishes it — note the issue only closes automatically once that commit reaches `main` (prod), so work merged on `develop` stays open until the next release. Label `plus tard` = accepted idea, not a priority.
