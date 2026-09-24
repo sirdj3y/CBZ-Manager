@@ -17,6 +17,13 @@ DEV_MODE=true .venv/bin/uvicorn backend.main:app --reload --port 8000
 ```
 In DEV_MODE: CORS is enabled for `localhost:5173`, Swagger UI is available at `/api/docs`, and SQLAlchemy logs queries.
 
+### Tests
+```bash
+.venv/bin/python -m pytest          # backend — from repo root (tests/, pytest.ini)
+cd frontend && npm test             # frontend — vitest (frontend/tests/)
+```
+CI runs both before every image build (`.github/workflows/docker.yml`, job `tests`, Python 3.11 like the image, Node 22); a failure blocks publication, so nothing untested reaches preprod or prod. **Every fix or feature adds or extends a test** — a regression test for a bug fix (see the `Achille Talon` case in `tests/test_filename_parser.py`, `13.5`/`7bis` in `frontend/tests/renamePattern.test.js`). `tests/conftest.py` points MEDIA_ROOT/DB_PATH/COVER_CACHE_DIR at a temp dir *before* importing `backend` (settings are read at import), generates real CBZ/PDF files, and gives a `client` fixture (full app with lifespan, logged-in admin) and a `scanned` one (library already scanned — TestClient runs the scan's background task before returning).
+
 ### Docker (production — Synology DS423+)
 Images are built by GitHub Actions (`.github/workflows/docker.yml`, linux/amd64 — DS423+ is Intel x86_64) and published to GHCR — no more local `buildx` + `docker save` to `.tar.gz`:
 - push to `main` → `ghcr.io/sirdj3y/cbz-manager:latest` + `:<VERSION>` → **production**, pulled automatically by Watchtower on the NAS within ~5 min

@@ -2,6 +2,24 @@
 
 ---
 
+## Non publié (branche develop)
+
+### Nouveau
+
+- **Déploiement automatique** : image construite par GitHub Actions et publiée sur GHCR, mise à jour du NAS par Watchtower (branche `main` → prod, `develop` → préprod sur le port 5174).
+- **Sauvegarde automatique de la base** au démarrage d'une nouvelle version, avant toute modification de schéma (`data/backups/`, 5 dernières conservées).
+- **Tests automatisés** : 50 tests backend (pytest : analyse des noms de fichiers, sécurité des archives, écriture ComicInfo, sauvegarde, parcours API connexion → scan → édition) et 35 tests frontend (vitest : règles Smart List, modèle de renommage, tri des tomes, recherche). Ils bloquent la publication de l'image en cas d'échec.
+
+### Corrections
+
+- **Numéros de tome décimaux ou à suffixe tronqués** (« 13.5 » → « 13 », « 7bis » → « 07 ») au renommage, à l'import et au remplissage du champ Numéro depuis un scraper : un tome 13.5 prenait le nom et le numéro du tome 13.
+
+### Technique
+
+- Build du frontend sous Node 22 (Node 20 n'est plus maintenu).
+
+---
+
 ## v1.24.0 — 2026-09-17 — Réglages d'image du lecteur, reprise de lecture repensée, finitions
 
 ### Nouveau

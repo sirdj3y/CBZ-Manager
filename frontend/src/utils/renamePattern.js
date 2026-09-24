@@ -6,14 +6,16 @@ export const RENAME_TOKENS = [
   '{Fichier}', '{Série}', '{Numéro}', '{Titre}', '{Année}', '{Dessinateur}', '{Scénariste}', '{Éditeur}',
 ]
 
+// Complète à 2 chiffres un numéro à un seul chiffre ("1" → "01") en gardant tout suffixe
+// ("7bis" → "07bis", "13.5" → "13.5") : le couper donnerait à un tome 13.5 le même nom et le
+// même numéro que le tome 13. Un numéro non numérique ("HS1", "INT") est rendu tel quel.
 export function formatTomeNumber(n) {
   if (!n) return ''
-  const extracted = String(n).replace(/\D.*/, '').trim()
-  if (!extracted) return String(n)
-  const num = parseInt(extracted, 10)
-  if (isNaN(num)) return String(n)
-  if (/^\d+$/.test(extracted) && num < 10 && extracted.length === 1) return String(num).padStart(2, '0')
-  return extracted
+  const s = String(n).trim()
+  const m = s.match(/^(\d+)(.*)$/)
+  if (!m) return s
+  const [, digits, rest] = m
+  return (digits.length === 1 ? digits.padStart(2, '0') : digits) + rest
 }
 
 export function applyRenameRules(s, rules) {
