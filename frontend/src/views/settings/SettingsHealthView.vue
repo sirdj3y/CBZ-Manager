@@ -80,6 +80,26 @@ async function deleteDuplicate(tomeId) {
   }
 }
 
+// Données orphelines : une ligne par type (pas d'album associé), nettoyée d'un coup côté
+// serveur — voir backend/services/orphaned_data.py.
+async function cleanOrphans(issue) {
+  const id = issue.orphan_key
+  deletingIds.value.add(id)
+  deletingIds.value = new Set(deletingIds.value)
+  try {
+    const { data } = await client.delete(`/api/health-check/orphaned-data/${id}`)
+    result.value.issues = result.value.issues.filter(i => i.orphan_key !== id)
+    result.value.summary.warning = Math.max(0, result.value.summary.warning - 1)
+    result.value.summary.total = Math.max(0, result.value.summary.total - 1)
+    notif.success(`${data.deleted} ligne(s) orpheline(s) supprimée(s)`)
+  } catch (e) {
+    notif.error(e.response?.data?.detail || 'Erreur lors du nettoyage')
+  } finally {
+    deletingIds.value.delete(id)
+    deletingIds.value = new Set(deletingIds.value)
+  }
+}
+
 onMounted(async () => {
   await analyze()
   try {
@@ -152,7 +172,7 @@ const filteredIssues = computed(() => {
       <div class="health-header">
         <div>
           <h1 class="settings-heading">Diagnostic</h1>
-          <p class="page-hint">Analyse complète de la bibliothèque : fichiers manquants, métadonnées absentes, doublons (comparaison du contenu réel des fichiers), etc.</p>
+          <p class="page-hint">Analyse complète de la bibliothèque : fichiers manquants, métadonnées absentes, doublons (comparaison du contenu réel des fichiers), données orphelines, etc.</p>
         </div>
         <button class="btn btn-primary btn-sm" :disabled="isScanning()" @click="startFullScan">
           {{ isScanning() ? 'Analyse en cours…' : 'Lancer une analyse complète' }}
@@ -235,7 +255,7 @@ const filteredIssues = computed(() => {
             <tr v-if="!filteredIssues.length">
               <td colspan="7" class="health-no-match">Aucune entrée ne correspond à ces filtres.</td>
             </tr>
-            <tr v-for="issue in filteredIssues" :key="`${issue.type}-${issue.tome_id}`">
+            <tr v-for="issue in filteredIssues" :key="`${issue.type}-${issue.tome_id ?? issue.orphan_key}`">
               <td>
                 <span :class="['sev-badge', `sev-${issue.severity}`]">{{ SEVERITY_LABEL[issue.severity] }}</span>
               </td>
@@ -247,9 +267,10 @@ const filteredIssues = computed(() => {
                 <span v-else class="issue-na">—</span>
               </td>
               <td>
-                <span class="issue-tome" @click="router.push(`/tomes/${issue.tome_id}`)" title="Voir l'album">
+                <span v-if="issue.tome_id" class="issue-tome" @click="router.push(`/tomes/${issue.tome_id}`)" title="Voir l'album">
                   {{ issue.tome_title }}
                 </span>
+                <span v-else>{{ issue.tome_title }}</span>
               </td>
               <td class="issue-format">
                 <span v-if="issue.file_format" class="format-badge">{{ issue.file_format.toUpperCase() }}</span>
@@ -264,6 +285,15 @@ const filteredIssues = computed(() => {
                   @click="deleteDuplicate(issue.tome_id)"
                 >
                   {{ deletingIds.has(issue.tome_id) ? 'Suppression…' : 'Supprimer' }}
+                </button>
+                <button
+                  v-else-if="issue.type === 'orphaned_data'"
+                  class="btn btn-danger btn-xs"
+                  :disabled="deletingIds.has(issue.orphan_key)"
+                  title="Supprime ces lignes de la base — elles ne se rattachent plus à rien"
+                  @click="cleanOrphans(issue)"
+                >
+                  {{ deletingIds.has(issue.orphan_key) ? 'Nettoyage…' : 'Nettoyer' }}
                 </button>
               </td>
             </tr>

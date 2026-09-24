@@ -12,6 +12,7 @@ from ..models.schemas import DuplicateScanStartOut, DuplicateScanStatusOut
 from ..config import settings
 from ..services.storage_check import check_media_identity
 from ..services.duplicates import scan_duplicates, get_duplicate_groups
+from ..services import orphaned_data
 from .auth import get_client_ip
 
 # La suppression d'un tome orphelin (DELETE /tome/{id}) exige explicitement library.delete
@@ -311,6 +312,23 @@ async def run_health_check(db: AsyncSession = Depends(get_db)):
                 "detail": f"Même contenu que {n - 1} autre(s) fichier(s)",
             })
 
+    # Données personnelles/techniques rattachées à un album, une série ou un compte supprimé
+    # (voir services/orphaned_data.py) — une ligne par type, pas par album : il n'y a plus
+    # d'album à afficher, et le nettoyage se fait par type.
+    for orphan in await orphaned_data.find_orphans(db):
+        issues.append({
+            "type": "orphaned_data",
+            "severity": "warning",
+            "label": "Données orphelines",
+            "orphan_key": orphan["key"],
+            "tome_id": None,
+            "tome_title": orphan["label"],
+            "series_id": None,
+            "series_title": "",
+            "file_format": None,
+            "detail": orphan["detail"],
+        })
+
     summary = {
         "error": sum(1 for i in issues if i["severity"] == "error"),
         "warning": sum(1 for i in issues if i["severity"] == "warning"),
@@ -330,3 +348,17 @@ async def delete_orphan_tome(tome_id: int, db: AsyncSession = Depends(get_db), c
     await db.delete(tome)
     await db.commit()
     return {"ok": True}
+
+
+@router.delete("/orphaned-data/{key}")
+async def delete_orphaned_data(key: str, request: Request, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_permission("library.delete"))):
+    """Supprime les lignes orphelines d'un type (clé issue de GET /api/health-check). Ne touche
+    à aucun fichier : ces lignes ne se rattachent plus à rien d'existant."""
+    try:
+        deleted = await orphaned_data.delete_orphans(db, key)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Type de données inconnu")
+    from ..services.activity import log as activity_log
+    await activity_log(db, "cleanup_orphans", f"Diagnostic — {deleted} ligne(s) orpheline(s) supprimée(s) ({key})", user=current_user, ip=get_client_ip(request))
+    await db.commit()
+    return {"deleted": deleted}

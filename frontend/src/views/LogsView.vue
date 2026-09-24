@@ -38,6 +38,7 @@ const ACTION_LABELS = {
   profile_delete: 'Suppression profil',
   restore_backup: 'Restauration sauvegarde',
   clear_logs: 'Historique effacé',
+  cleanup_orphans: 'Nettoyage diagnostic',
 }
 
 const ACTION_ICONS = {
@@ -59,6 +60,7 @@ const ACTION_ICONS = {
   profile_delete: 'filter',
   restore_backup: 'database',
   clear_logs: 'history',
+  cleanup_orphans: 'health',
 }
 
 function fmtDate(iso) {
