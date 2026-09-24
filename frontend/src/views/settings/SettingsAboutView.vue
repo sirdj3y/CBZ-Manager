@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import AppLayout from '../../components/layout/AppLayout.vue'
 import { settingsApi } from '../../api/settings'
+import authorAvatar from '../../assets/images/author-avatar.jpg'
 
 const about = ref(null)
 const appVersion = __APP_VERSION__
@@ -37,10 +38,11 @@ function fmtSize(bytes) {
         <div class="card-body">
           <div class="settings-section-title">Auteur</div>
           <div class="author-block">
-            <div class="author-avatar">S</div>
+            <img :src="authorAvatar" alt="sirdj3y" class="author-avatar" />
             <div class="author-info">
               <div class="author-name">sirdj3y</div>
               <div class="author-desc">Développeur de CBZManager. Qui est-il ? D'où vient-il ?</div>
+              <a href="https://github.com/sirdj3y" target="_blank" rel="noopener" class="author-github">github.com/sirdj3y</a>
             </div>
           </div>
         </div>
@@ -78,10 +80,11 @@ function fmtSize(bytes) {
 <style scoped>
 .settings-main {
   flex: 1; padding: 24px 20px;
-  max-width: 680px; margin: 0 auto; width: 100%;
+  max-width: 1100px; margin: 0 auto; width: 100%;
 }
 .settings-heading {
-  font-size: 1.4rem; font-weight: 700;
+  font-family: var(--font-display); font-weight: 400; text-transform: uppercase;
+  font-size: 1.4rem;
   margin-bottom: 20px; color: var(--text);
 }
 .settings-section { margin-bottom: 16px; }
@@ -95,12 +98,12 @@ function fmtSize(bytes) {
 }
 .author-avatar {
   width: 44px; height: 44px; border-radius: 50%;
-  background: var(--primary); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.2rem; font-weight: 700; flex-shrink: 0;
+  object-fit: cover; flex-shrink: 0;
 }
 .author-name { font-weight: 600; font-size: 0.95rem; color: var(--text); margin-bottom: 2px; }
 .author-desc { font-size: 0.8rem; color: var(--muted); }
+.author-github { font-size: 0.8rem; color: var(--vermilion); text-decoration: none; margin-top: 3px; display: inline-block; }
+.author-github:hover { text-decoration: underline; }
 
 .about-tagline { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 .about-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }

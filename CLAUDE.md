@@ -1,0 +1,126 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+### Frontend (from `frontend/`)
+```bash
+npm run dev      # Dev server on :5173 with HMR
+npm run build    # Production build → outputs to ../backend/static/
+npm run preview  # Preview production build
+```
+
+### Backend (from repo root)
+```bash
+DEV_MODE=true .venv/bin/uvicorn backend.main:app --reload --port 8000
+```
+In DEV_MODE: CORS is enabled for `localhost:5173`, Swagger UI is available at `/api/docs`, and SQLAlchemy logs queries.
+
+### Docker (production — Synology DS423+)
+```bash
+# Build image for Synology (amd64 mandatory — DS423+ is Intel x86_64)
+docker buildx build --platform linux/amd64 -t cbz-manager:latest --load .
+
+# Export for Synology — divers/ vit à côté du repo (../divers depuis la racine du repo), pas dedans
+docker save cbz-manager:latest | gzip > ../divers/Images/cbz-manager-v<VERSION>-synology-amd64-<DATE>.tar.gz
+```
+The Dockerfile is a two-stage build: Node 20 builds the frontend, then Python 3.11-slim runs the backend. The frontend build outputs directly to `backend/static/` (configured in `vite.config.js`). `unrar` (non-free, from Debian bookworm non-free) is installed for RAR5/CBR support — `unrar-free` is not sufficient.
+
+Docker volumes to map on Synology (or any deployment):
+- `/media` ← comics folder (read-only ok)
+- `/data` ← database + cover cache (read-write required)
+
+Both are bind mounts to plain host folders (`docker-compose.yml` default: `./data:/data`), not named Docker volumes — deliberately, so the data is visible/backupable like any other folder (matches how Synology Container Manager, Portainer, Unraid etc. present volume mapping to users). Don't reintroduce a named volume for `/data`.
+
+The container runs as a non-root user (`appuser`), not root. `docker-entrypoint.sh` runs as root at container start, adjusts `appuser`'s UID/GID from the `PUID`/`PGID` env vars (default 1000:1000, linuxserver.io convention), `chown -R`s `/data`, then `exec gosu appuser "$@"` to drop privileges before running uvicorn. When touching the Dockerfile/entrypoint, keep this drop-privileges flow intact — don't add a bare `USER` directive instead, it would hardcode one UID and break the "match your NAS user" use case.
+
+App listens on port `32123` internally. `docker-compose.yml` maps it to the host.
+
+### Environment variables
+Key vars (`.env` or Docker env — `LIBRARY_SUBDIR` is also configurable from the app's Settings UI):
+| Variable | Default | Description |
+|---|---|---|
+| `MEDIA_ROOT` | `/media` | Comics folder mount point |
+| `LIBRARY_SUBDIR` | — | Optional subfolder within MEDIA_ROOT |
+| `DB_PATH` | `/data/cbzmanager.db` | SQLite database |
+| `COVER_CACHE_DIR` | `/data/covers` | Cover cache |
+| `GOOGLE_BOOKS_API_KEY` | — | Optional scraping |
+| `COMICVINE_API_KEY` | — | Optional scraping |
+| `DEV_MODE` | `false` | Enables CORS + Swagger at `/api/docs` |
+| `PORT` | `32123` | Internal listen port |
+
+---
+
+## Architecture
+
+### Data model
+Library is organized as **Series → Tomes (albums)**. A series = a folder on disk; tomes = comic files within. SQLite tables: `series`, `tomes`, `metadata` (ComicInfo.xml fields, 1:1 with tome), `reading_progress`, `convert_jobs`, `convert_job_tomes`, `activity_log`, `scan_jobs`.
+
+`backend/models/db_models.py` — all ORM models  
+`backend/database.py` — async SQLAlchemy engine (WAL mode), `get_db()` dependency, manual `ALTER TABLE` migrations at startup
+
+### Backend structure (`backend/`)
+- `main.py` — FastAPI app wiring: lifespan, CORS, routers, SPA fallback (`/{full_path:path}` serves `backend/static/index.html`)
+- `config.py` — Pydantic Settings, env-loaded, cached via `@lru_cache`
+- `routers/library.py` — series CRUD, scan trigger (`/api/scan`), scan SSE stream (`/api/scan/{id}/stream`)
+- `routers/tomes.py` — tome CRUD, metadata read/write
+- `routers/converter.py` — conversion job management, abort
+- `routers/import_router.py` — multipart file upload, triggers immediate DB insert then async conversion
+- `routers/reader.py` — page-by-page image serving from zip/rar/pdf
+- `services/scanner.py` — walks LIBRARY_PATH, upserts Series/Tome/Metadata into DB, extracts cover cache
+- `services/converter_service.py` — CBR/PDF→CBZ conversion with quality presets (Light/Medium/HQ/Original); PDF uses native image extraction via PyMuPDF (`page.get_images()`) to avoid double JPEG compression; in-memory `_progress` dict for real-time conversion progress
+- `services/cover_cache.py` — extracts first image from comic file, writes to `COVER_CACHE_DIR/{tome_id}.jpg`
+- `services/metadata_writer.py` — writes/updates `ComicInfo.xml` inside a CBZ
+
+### Frontend structure (`frontend/src/`)
+- **Stores (Pinia):** `library.js` is the main store — holds all series, scan progress via SSE, filters, author autocomplete pool (`authors` = objects with counts; `authorNames` computed = flat string arrays for autocomplete). `tomes.js` holds all tomes flat. `reader.js` manages reading state.
+- **API layer** (`api/`): thin wrappers over axios. `api/client.js` is the base axios instance. All API calls go through here.
+- **Views** (`views/`): one Vue SFC per route. Main views: `HomeView`, `SeriesView`, `SeriesDetailView`, `BooksView`, `ImportView`, `AuthorsView`, `ReaderView`, `StatsView`, settings sub-views.
+- **Components** (`components/`): organized by domain — `library/` (SeriesCard, CoverPickerModal), `metadata/` (MetadataForm), `converter/` (ConverterModal), `rename/` (RenameModal), `layout/` (AppLayout, Notification), `ui/` (AutocompleteInput).
+- **Routing:** `vue-router` with HTML5 history. SPA fallback is handled by the backend.
+- **AutocompleteInput:** multi-value comma-separated input (`components/ui/AutocompleteInput.vue`). The autocomplete pool for Writer/Penciller merges both fields (an author like Peyo who writes and draws appears in both).
+
+### File naming convention (scanner)
+The scanner (`services/scanner.py`) parses filenames via `services/filename_parser.py`. Recommended pattern: `{Série} - T{Numéro} - {Titre}.cbz`. Examples recognized:
+- `Akira - T01 - Akira.cbz` → series=Akira, number=01, title=Akira
+- `Blacksad - T03 - Âme rouge.cbz` → series=Blacksad, number=3, title=Âme rouge
+
+### Reader keyboard shortcuts
+`→`/`Space` next page, `←` previous, `↑` fit width, `↓` fit height, `d` cycle mode (page → double → scroll), `f` fullscreen, `Esc` close. Zoom (1×-2.5×, via trackpad/Ctrl+wheel pinch or the toolbar slider) always applies on whichever axis `fit` currently frames (width or height) — never a no-op regardless of fit/mode.
+
+### Key cross-cutting patterns
+
+**Scan flow:** `library.triggerScan()` → POST `/api/scan` → receives `job_id` → opens EventSource on `/api/scan/{id}/stream` → SSE pushes `{processed, total, status}` → on `done`, re-fetches series.
+
+**Conversion flow:** Upload file (multipart) → backend inserts tome in DB immediately, returns `tome_id` → frontend polls `/api/convert/{job_id}` every second → progress comes from `_progress` in-memory store (not DB). Jobs are purged from `_progress` after 5 minutes.
+
+**Cover URLs:** Served at `/api/covers/{tome_id}` with `Cache-Control: no-cache` + ETag. Frontend appends `?v={cover_url_version}` to bust cache after cover changes.
+
+**Metadata writing:** `ComicInfo.xml` is written directly into the CBZ archive. For CBR/PDF imports, a `.meta.json` sidecar is created at upload time; the converter reads it post-conversion, writes the XML, then deletes the sidecar.
+
+**Dropdown menus in horizontal scroll rows:** `position: fixed` + `<Teleport to="body">` is required. `overflow-x: auto` on `.scroll-row` forces `overflow-y: auto` per CSS spec, clipping `position: absolute` children. Always use `getBoundingClientRect()` to calculate fixed-position coordinates. `SeriesCard` (in a CSS grid, not a scroll row) can use `position: absolute` directly.
+
+**Author filter OR logic:** In `BooksView.vue`, if `writer === penciller` in the active filters (polyvalent author like Peyo), the query uses OR instead of AND.
+
+**Version:** Single source of truth is the `VERSION` file at repo root. Vite reads it at build time (`vite.config.js`) and injects `__APP_VERSION__`. Backend doesn't read it directly. When bumping version, update `VERSION`, `CHANGELOG.md`, and `frontend/package.json`.
+
+---
+
+## Repository & deployment
+
+**GitHub:** `https://github.com/sirdj3y/CBZ-Manager.git` (private repo, branch `main`)  
+**Git identity:** `sirdj3y <241156680+sirdj3y@users.noreply.github.com>` (GitHub noreply address — keep email private)  
+**`.gitignore` excludes:** `backups/`, `.venv/`, `node_modules/`, `backend/static/`, `data/`
+
+Session logs are saved in `divers/backups/cbz-manager-session-<DATE>.html`. Docker images in `divers/Images/`.
+
+---
+
+## Known backlog (as of v1.5.5)
+
+- Import cancellation cleanup (files + folder) — endpoint exists but non-functional
+- Full folder drag & drop at import step 1
+- Library sub-folder support (nested series)
+- Exclude specific folders from scan
+- Dynamic statistics page

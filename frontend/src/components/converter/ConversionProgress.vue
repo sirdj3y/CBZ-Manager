@@ -2,7 +2,13 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import client from '../../api/client'
 
-const props = defineProps({ jobId: { type: Number, required: true } })
+// labels : { tomeId: nom à afficher } — l'id de tome seul (clé technique interne, sans
+// rapport avec le numéro de tome affiché ailleurs dans l'app) prêtait à confusion affiché
+// tel quel ("Tome 89"), pris pour un numéro de volume délirant.
+const props = defineProps({
+  jobId: { type: Number, required: true },
+  labels: { type: Object, default: () => ({}) },
+})
 const emit = defineEmits(['done'])
 
 const tomes = ref({})
@@ -16,7 +22,10 @@ onMounted(() => {
     const data = JSON.parse(e.data)
     tomes.value = data.tomes
     overall.value = data.status
-    if (data.status === 'done') {
+    // "error" est désormais un statut terminal distinct de "done" (voir routers/converter.py
+    // ::convert_stream) — un lot avec au moins un tome en erreur ne doit plus s'afficher
+    // comme un succès complet, mais reste terminal : le flux se ferme dans les deux cas.
+    if (data.status === 'done' || data.status === 'error') {
       source.close()
       setTimeout(() => emit('done'), 1500)
     }
@@ -45,7 +54,7 @@ const statusLabel = { pending: 'En attente', running: 'En cours…', done: '✓ 
   <div class="progress-body">
     <div v-for="(t, tomeId) in tomes" :key="tomeId" class="progress-item">
       <div class="progress-item-header">
-        <span class="progress-tome-label">Tome {{ tomeId }}</span>
+        <span class="progress-tome-label">{{ labels[tomeId] || 'Fichier' }}</span>
         <span :class="['progress-status', `progress-status-${t.status}`]">{{ statusLabel[t.status] }}</span>
       </div>
       <div class="progress-track">
@@ -56,8 +65,8 @@ const statusLabel = { pending: 'En attente', running: 'En cours…', done: '✓ 
       </div>
     </div>
 
-    <p :class="['progress-overall', { 'progress-overall-done': overall === 'done' }]">
-      {{ overall === 'done' ? '✓ Conversion terminée !' : 'Conversion en cours…' }}
+    <p :class="['progress-overall', { 'progress-overall-done': overall === 'done', 'progress-overall-error': overall === 'error' }]">
+      {{ overall === 'done' ? '✓ Conversion terminée !' : overall === 'error' ? '✕ Terminée avec des erreurs (voir le détail ci-dessus)' : 'Conversion en cours…' }}
     </p>
 
     <div v-if="overall === 'running'" class="progress-footer">
@@ -131,6 +140,10 @@ const statusLabel = { pending: 'En attente', running: 'En cours…', done: '✓ 
 }
 .progress-overall-done {
   color: var(--success);
+  font-weight: 600;
+}
+.progress-overall-error {
+  color: var(--danger);
   font-weight: 600;
 }
 

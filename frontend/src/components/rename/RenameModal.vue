@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { tomesApi } from '../../api/tomes'
+import { settingsApi } from '../../api/settings'
+import { RENAME_TOKENS, applyRenamePattern } from '../../utils/renamePattern'
 
 const props = defineProps({
   tomes: { type: Array, required: true },
@@ -8,13 +10,15 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'done'])
 
-const TOKENS = ['{Fichier}', '{Série}', '{Numéro}', '{Titre}', '{Année}', '{Dessinateur}', '{Scénariste}', '{Éditeur}']
+const TOKENS = RENAME_TOKENS
 
 const rules = ref([
   { enabled: false, search: '', replace: '' },
 ])
 const showRules = ref(true)
-const pattern = ref('{Série} - {Numéro} - {Titre}')
+// Valeur de repli le temps que le vrai motif configuré (Paramètres > Bibliothèque) soit
+// chargé en onMounted — doit rester cohérente avec son défaut (backend/config.py).
+const pattern = ref('{Série} - T{Numéro} - {Titre}')
 const inputRef = ref(null)
 const saving = ref(false)
 const result = ref(null)
@@ -24,6 +28,12 @@ const overrides = ref({})
 
 onMounted(async () => {
   window.addEventListener('keydown', onKey)
+  // Motif réellement configuré (Paramètres > Bibliothèque) — auparavant ignoré ici, cette
+  // modale utilisait son propre défaut local différent (sans "T" devant {Numéro}), produisant
+  // des noms de fichiers incohérents avec celui utilisé à l'import.
+  settingsApi.get().then(({ data }) => {
+    if (data.rename_pattern) pattern.value = data.rename_pattern
+  }).catch(() => {})
   await Promise.all(props.tomes.map(async t => {
     try {
       const { data } = await tomesApi.getMetadata(t.id)
@@ -39,55 +49,22 @@ function onKey(e) {
   if (e.key === 'Escape') emit('close')
 }
 
-function applyRules(s) {
-  for (const rule of rules.value) {
-    if (!rule.enabled || !rule.search) continue
-    s = s.split(rule.search).join(rule.replace)
-  }
-  return s
-}
-
-function formatNumber(n) {
-  if (!n) return ''
-  const extracted = n.replace(/\D.*/, '').trim()
-  if (!extracted) return n
-  const num = parseInt(extracted, 10)
-  if (isNaN(num)) return n
-  if (/^\d+$/.test(extracted) && num < 10 && extracted.length === 1) {
-    return String(num).padStart(2, '0')
-  }
-  return extracted
-}
-
 function applyPatternJS(pat, tome) {
   const ext = tome.filename.includes('.') ? '.' + tome.filename.split('.').pop() : ''
   const stem = tome.filename.includes('.')
     ? tome.filename.slice(0, tome.filename.lastIndexOf('.'))
     : tome.filename
   const m = metaMap.value[tome.id] || {}
-  let r = pat
-  r = r.replace(/{Fichier}/g, stem)
-  r = r.replace(/{Filename}/g, stem)
-  r = r.replace(/{Série}/g, m.Series || props.seriesName || '')
-  r = r.replace(/{Series}/g, m.Series || props.seriesName || '')
-  r = r.replace(/{Numéro}/g, formatNumber(m.Number || tome.number || ''))
-  r = r.replace(/{Number}/g, formatNumber(m.Number || tome.number || ''))
-  r = r.replace(/{Titre}/g, m.Title || tome.title || '')
-  r = r.replace(/{Title}/g, m.Title || tome.title || '')
-  r = r.replace(/{Année}/g, m.Year || '')
-  r = r.replace(/{Year}/g, m.Year || '')
-  r = r.replace(/{Dessinateur}/g, m.Penciller || tome.penciller || '')
-  r = r.replace(/{Scénariste}/g, m.Writer || tome.writer || '')
-  r = r.replace(/{Writer}/g, m.Writer || tome.writer || '')
-  r = r.replace(/{Éditeur}/g, m.Publisher || tome.publisher || '')
-  r = r.replace(/{Publisher}/g, m.Publisher || tome.publisher || '')
-  r = r.replace(/[<>:"/\\|?*]/g, '_')
-  r = r.replace(/\s{2,}/g, ' ').trim()
-  r = r.replace(/_+/g, '_').replace(/^_+|_+$/g, '').trim()
-  if (!r) r = stem
-  // Appliquer les règles après sanitisation pour préserver les remplacements manuels
-  r = applyRules(r)
-  return r + ext
+  return applyRenamePattern(pat, {
+    stem, ext,
+    series: m.Series || props.seriesName || '',
+    number: m.Number || tome.number || '',
+    title: m.Title || tome.title || '',
+    year: m.Year || '',
+    penciller: m.Penciller || tome.penciller || '',
+    writer: m.Writer || tome.writer || '',
+    publisher: m.Publisher || tome.publisher || '',
+  }, rules.value)
 }
 
 const sortedTomes = computed(() =>
@@ -437,9 +414,9 @@ async function doRename() {
 }
 
 .regex-badge.active {
-  background: var(--primary);
+  background: var(--vermilion);
   color: #fff;
-  border-color: var(--primary);
+  border-color: var(--vermilion);
 }
 
 .add-rule-btn {
@@ -476,11 +453,11 @@ async function doRename() {
   border-radius: 4px;
   background: var(--light);
   cursor: pointer;
-  color: var(--primary);
+  color: var(--vermilion);
   font-family: monospace;
 }
 
-.token-btn:hover { background: var(--primary-light); }
+.token-btn:hover { background: var(--vermilion-light); }
 
 .preview-table-wrap {
   overflow-x: auto;

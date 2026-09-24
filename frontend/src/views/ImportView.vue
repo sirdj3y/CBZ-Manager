@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import imgLight from '../assets/images/quality-light.jpg'
 import imgOriginal from '../assets/images/quality-originale.jpg'
 import { useRouter, useRoute } from 'vue-router'
@@ -8,9 +8,17 @@ import ScraperModal from '../components/metadata/ScraperModal.vue'
 import SvgIcon from '../components/SvgIcon.vue'
 import AutocompleteInput from '../components/ui/AutocompleteInput.vue'
 import { importApi } from '../api/import'
+import { libraryApi } from '../api/library'
+import { scraperApi } from '../api/scraper'
+import { missingAlbumsApi } from '../api/missingAlbums'
 import client from '../api/client'
 import { useNotificationStore } from '../stores/notifications'
 import { useLibraryStore } from '../stores/library'
+import { mapWithConcurrency } from '../utils/concurrency'
+import { applyRenamePattern, formatTomeNumber } from '../utils/renamePattern'
+import { normalizeSearch, sortTitle } from '../utils/text'
+import { settingsApi } from '../api/settings'
+import { tomesApi } from '../api/tomes'
 
 const router = useRouter()
 const route = useRoute()
@@ -22,11 +30,131 @@ const step = ref(1)
 
 // ── Étape 1 — Sélection ─────────────────────────────────────────────────────
 const fileInput = ref(null)
+const folderInput = ref(null)
 const rawFiles = ref([])
 const existingSeries = ref([])
-const destMode = ref('new')
+// destMode reste 'new' | 'existing', mais n'est plus choisi via des onglets — c'est une
+// conséquence de la sélection faite dans le champ de recherche unique ci-dessous.
+// null tant qu'aucune destination n'a été choisie.
+const destMode = ref(null)
 const destSeriesId = ref(null)
 const destSeriesName = ref('')
+// URL Bedetheque.com saisie pour une nouvelle série — permet de compléter les métadonnées
+// de tous les albums en une fois à l'étape 2 (voir completeFromBedetheque), puis d'attacher
+// l'URL à la série une fois créée (voir startImport) pour bénéficier aussi du suivi des
+// albums manquants, comme une série dont l'URL est renseignée depuis sa fiche.
+const newSeriesBedethequeUrl = ref('')
+
+// Modèle de renommage configuré dans Configuration → Bibliothèque (fetch dans ── Init
+// ── plus bas). Vide = pas de renommage.
+const renamePattern = ref('')
+
+// Recherche de série (combobox unique : input texte + liste filtrée + "créer nouvelle série")
+const seriesSearch = ref('')
+const showSeriesDropdown = ref(false)
+const showCreateSeriesConfirm = ref(false)
+const pendingNewSeriesName = ref('')
+
+const filteredExistingSeries = computed(() => {
+  const q = normalizeSearch(seriesSearch.value.trim())
+  if (!q) return existingSeries.value
+  return existingSeries.value.filter(s => normalizeSearch(s.name).includes(q))
+})
+
+// On ne propose "créer une nouvelle série" que s'il n'existe pas déjà une série au nom
+// identique (à accents/casse près) — évite de créer un doublon par accident.
+const canOfferCreateNew = computed(() => {
+  const q = seriesSearch.value.trim()
+  if (!q) return false
+  const nq = normalizeSearch(q)
+  return !existingSeries.value.some(s => normalizeSearch(s.name) === nq)
+})
+
+function onSeriesSearchInput() {
+  // Si l'utilisateur retape après avoir choisi une destination, on invalide la sélection
+  // précédente tant qu'il n'en reconfirme pas une (existante ou nouvelle).
+  if (destMode.value === 'existing') {
+    const cur = existingSeries.value.find(s => s.id === destSeriesId.value)
+    if (!cur || cur.name !== seriesSearch.value) { destSeriesId.value = null; destMode.value = null }
+  } else if (destMode.value === 'new') {
+    if (destSeriesName.value !== seriesSearch.value) { destSeriesName.value = ''; destMode.value = null; newSeriesBedethequeUrl.value = '' }
+  }
+  showSeriesDropdown.value = true
+}
+
+function onSeriesSearchBlur() {
+  // Délai pour laisser le @mousedown d'une option s'exécuter avant la fermeture
+  setTimeout(() => { showSeriesDropdown.value = false }, 150)
+}
+
+function selectExistingSeries(s) {
+  destMode.value = 'existing'
+  destSeriesId.value = s.id
+  destSeriesName.value = ''
+  newSeriesBedethequeUrl.value = ''
+  seriesSearch.value = s.name
+  showSeriesDropdown.value = false
+  // Préremplir les métadonnées par lot (étape 2) avec ce qu'on sait déjà de la série
+  batchRow.value.Series = s.name
+  if (s.writers?.length)    batchRow.value.Writer    = s.writers.join(', ')
+  if (s.pencillers?.length) batchRow.value.Penciller = s.pencillers.join(', ')
+  if (s.publishers?.length) batchRow.value.Publisher = s.publishers.join(', ')
+}
+
+// Séries dont le nom contient (ou est contenu dans) la saisie sans l'égaler exactement —
+// ex. "Agent 212" tapé alors que "L'agent 212" existe déjà. Piège réel repéré en usage :
+// la recherche affichait à la fois la bonne suggestion existante ET le bouton "créer une
+// nouvelle série", menant à créer par erreur un doublon plutôt que d'ajouter à l'existante.
+const similarSeriesForNew = ref([])
+// URL retenue dans la popup de confirmation de création — copiée dans newSeriesBedethequeUrl
+// seulement si l'utilisateur confirme (voir confirmCreateSeries). Peut venir d'une carte
+// suggérée (bedeSuggestions) ou d'une saisie manuelle.
+const pendingNewSeriesBedethequeUrl = ref('')
+// Suggestions Bedetheque (nom + nombre d'albums + statut + années) pour aider à choisir la
+// bonne série sans avoir à ouvrir Bedetheque.com — voir bedetheque-suggest côté backend.
+const bedeSuggestions = ref([])       // candidats enrichis (nom, nb albums, statut, années)
+const bedeSuggestLoading = ref(false)
+// Champ URL manuel replié tant que l'utilisateur ne le demande pas explicitement — cliquer
+// sur une carte suggérée ne doit pas faire apparaître l'URL en clair (alourdit la popup).
+const showManualBedeUrl = ref(false)
+
+function askCreateSeries() {
+  pendingNewSeriesName.value = seriesSearch.value.trim()
+  pendingNewSeriesBedethequeUrl.value = ''
+  showManualBedeUrl.value = false
+  similarSeriesForNew.value = filteredExistingSeries.value
+  showSeriesDropdown.value = false
+  showCreateSeriesConfirm.value = true
+
+  bedeSuggestions.value = []
+  bedeSuggestLoading.value = true
+  scraperApi.bedethequeSuggest(pendingNewSeriesName.value)
+    .then(({ data }) => { bedeSuggestions.value = data })
+    .catch(() => { bedeSuggestions.value = [] })
+    .finally(() => { bedeSuggestLoading.value = false })
+}
+
+function pickSimilarSeries(s) {
+  selectExistingSeries(s)
+  showCreateSeriesConfirm.value = false
+}
+
+async function confirmCreateSeries() {
+  destMode.value = 'new'
+  destSeriesName.value = pendingNewSeriesName.value
+  destSeriesId.value = null
+  newSeriesBedethequeUrl.value = pendingNewSeriesBedethequeUrl.value.trim()
+  seriesSearch.value = pendingNewSeriesName.value
+  showCreateSeriesConfirm.value = false
+  // Si des fichiers sont déjà sélectionnés (cas courant — la destination se choisit après),
+  // valider la popup suffit à avancer directement, sans clic "Suivant →" en plus.
+  // goToStep2() ne fait rien si aucun fichier n'est encore sélectionné.
+  await goToStep2()
+}
+
+function cancelCreateSeries() {
+  showCreateSeriesConfirm.value = false
+}
 
 const ALLOWED = new Set(['.cbz', '.cbr', '.pdf', '.zip', '.rar'])
 const dragging = ref(false)
@@ -61,7 +189,9 @@ function onFilesSelected(e) {
   rawFiles.value = filterFiles(files)
   initSelection(rawFiles.value)
   const folder = detectFolderName(files)
-  if (folder && !destSeriesName.value) destSeriesName.value = folder
+  // Pré-remplit juste le champ de recherche — l'utilisateur choisit ensuite une série
+  // existante correspondante ou confirme la création via le combobox.
+  if (folder && !seriesSearch.value) seriesSearch.value = folder
 }
 
 function onDrop(e) {
@@ -71,7 +201,7 @@ function onDrop(e) {
     rawFiles.value = filterFiles(files)
     initSelection(rawFiles.value)
     const folder = detectFolderName(files)
-    if (folder && !destSeriesName.value) destSeriesName.value = folder
+    if (folder && !seriesSearch.value) seriesSearch.value = folder
   }
 }
 
@@ -84,24 +214,88 @@ function toggleAllStep1(checked) {
   rawFileSelection.value = sel
 }
 
+// ── Étape 1 — indicateur de conflit/doublon (avant même de passer à l'étape 2) ──────
+// rawFileWarnings[filename] = { conflict, duplicate }. conflict = deux fichiers
+// sélectionnés donneraient le même nom une fois renommés. duplicate = ce nom existe
+// déjà dans la destination choisie.
+const rawFileWarnings = ref({})
+let step1WarnTimer = null
+
+function scheduleStep1Warnings() {
+  clearTimeout(step1WarnTimer)
+  step1WarnTimer = setTimeout(refreshStep1Warnings, 400)
+}
+
+async function refreshStep1Warnings() {
+  const selected = rawFiles.value.filter(f => rawFileSelection.value[f.name])
+  if (!selected.length) { rawFileWarnings.value = {}; return }
+
+  const sid = destMode.value === 'existing' ? destSeriesId.value : null
+  const sname = destMode.value === 'new' ? destSeriesName.value.trim() : null
+  const seriesFallback = destMode.value === 'new' ? destSeriesName.value.trim()
+    : existingSeries.value.find(s => s.id === destSeriesId.value)?.name || ''
+
+  const computedNames = await mapWithConcurrency(selected, 6, async f => {
+    let p = {}
+    try {
+      const { data } = await importApi.parseFilename(f.name)
+      p = data
+    } catch { /* ignoré */ }
+    const ext = f.name.includes('.') ? '.' + f.name.split('.').pop() : ''
+    const stem = f.name.includes('.') ? f.name.slice(0, f.name.lastIndexOf('.')) : f.name
+    const finalName = renamePattern.value
+      ? applyRenamePattern(renamePattern.value, {
+          stem, ext,
+          series: p.series || seriesFallback,
+          number: p.number || '',
+          title: p.title || '',
+          year: p.year || '',
+          penciller: p.penciller || '',
+          writer: p.writer || '',
+          publisher: p.publisher || '',
+        }, [])
+      : f.name
+    return { name: f.name, finalName }
+  })
+
+  // Conflit : deux fichiers sélectionnés qui donneraient le même nom final
+  const counts = {}
+  for (const { finalName } of computedNames) counts[finalName] = (counts[finalName] || 0) + 1
+
+  const warnings = {}
+  await mapWithConcurrency(computedNames, 6, async ({ name, finalName }) => {
+    const conflict = counts[finalName] > 1
+    let duplicate = false
+    if (sid || sname) {
+      try {
+        const { data } = await importApi.checkFile(finalName, sid, sname)
+        duplicate = data.duplicate
+      } catch { /* ignoré */ }
+    }
+    if (conflict || duplicate) warnings[name] = { conflict, duplicate }
+  })
+  rawFileWarnings.value = warnings
+}
+
+watch([rawFiles, rawFileSelection, destMode, destSeriesId, destSeriesName, renamePattern], scheduleStep1Warnings, { deep: true })
+
 async function goToStep2() {
   if (!rawFiles.value.length) return
-  if (destMode.value === 'new' && !destSeriesName.value.trim()) return
-  if (destMode.value === 'existing' && !destSeriesId.value) return
+  if (!destMode.value) return
 
   // Filtrer uniquement les fichiers cochés en étape 1
   const selectedFiles = rawFiles.value.filter(f => rawFileSelection.value[f.name])
   if (!selectedFiles.length) return
 
-  // Récupérer les infos parsées de chaque fichier
-  const parsed = await Promise.all(selectedFiles.map(async f => {
+  // Récupérer les infos parsées de chaque fichier (concurrence bornée — un dossier de
+  // 150+ fichiers ne doit pas taper le backend avec 150 requêtes simultanées)
+  const parsed = await mapWithConcurrency(selectedFiles, 6, async f => {
     try {
       const { data } = await importApi.parseFilename(f.name)
       return data
     } catch { return {} }
-  }))
+  })
 
-  overrides.value = {}
   const mapped = selectedFiles.map((f, i) => ({
     file: f,
     originalName: f.name,
@@ -117,167 +311,88 @@ async function goToStep2() {
   await checkDuplicates()
   step.value = 2
 
-  // Charger les résolutions en arrière-plan (CBZ/CBR uniquement)
+  // Série (nouvelle avec URL saisie, ou existante déjà identifiée sur Bedetheque) :
+  // préremplissage automatique sans clic supplémentaire — nextTick pour laisser le watcher
+  // sur `items` initialiser metaRows avant que completeFromBedetheque() ne le lise.
+  if (currentBedethequeSource()) {
+    await nextTick()
+    completeFromBedetheque()
+  }
+
+  // Charger les résolutions en arrière-plan (CBZ/CBR uniquement, fichiers sélectionnés seulement).
+  // Mutation directe de la clé (imageSizes.value reste le même objet réactif) au lieu de
+  // recopier tout l'objet à chaque résolution — évite un coût O(n²) sur un gros import.
   imageSizes.value = {}
-  for (const f of rawFiles.value) {
-    const ext = '.' + f.name.split('.').pop().toLowerCase()
+  for (const item of items.value) {
+    const ext = '.' + item.originalName.split('.').pop().toLowerCase()
     if (ext === '.cbz' || ext === '.cbr' || ext === '.zip') {
-      importApi.getImageSize(f).then(({ data }) => {
-        if (data.width) imageSizes.value = { ...imageSizes.value, [f.name]: data }
+      importApi.getImageSize(item.file).then(({ data }) => {
+        if (data.width) imageSizes.value[item.originalName] = data
       }).catch(() => {})
     }
   }
 }
 
-// ── Étape 2 — Renommage ──────────────────────────────────────────────────────
+// ── Étape 2 — Renommage (silencieux, pattern fixé dans Configuration) ────────
 const items = ref([])
 // imageSizes[originalName] = { width, height } | null
 const imageSizes = ref({})
-const pattern = ref('{Série} - T{Numéro} - {Titre}')
-const patternInputRef = ref(null)
-const TOKENS = ['{Fichier}', '{Série}', '{Numéro}', '{Titre}', '{Année}', '{Dessinateur}', '{Scénariste}', '{Éditeur}']
-const rules = ref([{ enabled: false, search: '', replace: '' }])
-const showRules = ref(false)
-const showMeta = ref(true)
 
-function toggleBlock(block) {
-  const next = { meta: false, rules: false, convert: false }
-  // Si déjà ouvert → fermer, sinon ouvrir uniquement celui-ci
-  if (block === 'meta')    next.meta    = !showMeta.value
-  if (block === 'rules')   next.rules   = !showRules.value
-  if (block === 'convert') next.convert = !showConvert.value
-  showMeta.value    = next.meta
-  showRules.value   = next.rules
-  showConvert.value = next.convert
-}
-const overrides = ref({})
-
-const hasDuplicates = computed(() => items.value.some(i => i.duplicate))
-
-function formatNumber(n) {
-  if (!n) return ''
-  const extracted = String(n).replace(/\D.*/, '').trim()
-  if (!extracted) return String(n)
-  const num = parseInt(extracted, 10)
-  if (isNaN(num)) return String(n)
-  if (/^\d+$/.test(extracted) && num < 10 && extracted.length === 1) return String(num).padStart(2, '0')
-  return extracted
-}
-
-function applyRules(s) {
-  for (const rule of rules.value) {
-    if (!rule.enabled || !rule.search) continue
-    s = s.split(rule.search).join(rule.replace)
-  }
-  return s
-}
-
-function applyPattern(pat, item) {
-  const ext = item.originalName.includes('.') ? '.' + item.originalName.split('.').pop() : ''
+// Applique le modèle configuré dans Configuration → Bibliothèque. Pattern vide = nom
+// d'origine conservé tel quel.
+function applyPattern(item) {
+  // Un fichier coché pour conversion sera réellement enregistré en .cbz (voir
+  // converter_service.py, qui remplace le tome en place avec la nouvelle extension) —
+  // l'aperçu doit refléter ce résultat final, pas l'extension du fichier source (PDF/CBR).
+  const willConvert = !!convertChecked.value[item.originalName]
+  const ext = willConvert ? '.cbz' : (item.originalName.includes('.') ? '.' + item.originalName.split('.').pop() : '')
   const stem = item.originalName.includes('.') ? item.originalName.slice(0, item.originalName.lastIndexOf('.')) : item.originalName
   // Priorité : metaRows (édités) > parsed > fallback
   const m = metaRows.value[item.originalName] || {}
   const p = item.parsed || {}
+  const isOneshot = !!oneshotRows.value[item.originalName]
+  // Miroir de apply_pattern() côté backend (routers/tomes.py) : un one-shot n'a ni série
+  // ni numéro, le modèle configuré (avec {Série}/{Numéro}) n'a pas de sens pour lui.
+  const pattern = isOneshot ? '{Titre}' : renamePattern.value
+  if (!pattern) return item.originalName
   const seriesName = destMode.value === 'new' ? destSeriesName.value.trim()
     : existingSeries.value.find(s => s.id === destSeriesId.value)?.name || ''
-  let r = pat
-  r = r.replace(/{Fichier}/g, stem)
-  r = r.replace(/{Série}/g, m.Series || p.series || seriesName || '')
-  r = r.replace(/{Numéro}/g, formatNumber(m.Number || p.number || ''))
-  r = r.replace(/{Titre}/g, m.Title || p.title || '')
-  r = r.replace(/{Année}/g, m.Year || p.year || '')
-  r = r.replace(/{Dessinateur}/g, m.Penciller || p.penciller || '')
-  r = r.replace(/{Scénariste}/g, m.Writer || p.writer || '')
-  r = r.replace(/{Éditeur}/g, m.Publisher || p.publisher || '')
-  r = r.replace(/[<>:"/\\|?*]/g, '_')
-  // Supprimer les séparateurs orphelins dus aux tokens vides : " - - " → " - ", " - " en début/fin
-  r = r.replace(/(\s*-\s*){2,}/g, ' - ')
-  r = r.replace(/^\s*-\s*/, '').replace(/\s*-\s*$/, '')
-  r = r.replace(/\s{2,}/g, ' ').trim()
-  r = r.replace(/_+/g, '_').replace(/^_+|_+$/g, '').trim()
-  if (!r) r = stem
-  r = applyRules(r)
-  return r + ext
+  return applyRenamePattern(pattern, {
+    stem, ext,
+    series: isOneshot ? '' : (m.Series || p.series || seriesName || ''),
+    number: isOneshot ? '' : (m.Number || p.number || ''),
+    title: m.Title || p.title || '',
+    year: m.Year || p.year || '',
+    penciller: m.Penciller || p.penciller || '',
+    writer: m.Writer || p.writer || '',
+    publisher: m.Publisher || p.publisher || '',
+  }, [])
 }
 
-const preview = computed(() => {
-  const rows = items.value.map(item => {
-    const computed_ = applyPattern(pattern.value, item)
-    const final = overrides.value[item.originalName] !== undefined ? overrides.value[item.originalName] : computed_
-    return { item, computed: computed_, final }
-  })
-  const finalNames = rows.map(r => r.final)
-  return rows.map((r, i) => {
-    const unchanged = r.final === r.item.originalName && overrides.value[r.item.originalName] === undefined
-    const conflict = finalNames.filter((n, j) => n === r.final && j !== i).length > 0
-    return { ...r, unchanged, conflict }
-  })
-})
-
-function applyPatternToAll() {
-  overrides.value = {}
-}
-
-function onFinalNameInput(item, value) {
-  const row = preview.value.find(r => r.item.originalName === item.originalName)
-  if (row && value === row.computed) {
-    const o = { ...overrides.value }
-    delete o[item.originalName]
-    overrides.value = o
-  } else {
-    overrides.value = { ...overrides.value, [item.originalName]: value }
-  }
-  item.finalName = value
-}
-
-function onFinalNameBlur(item, value) {
-  if (!value.trim()) {
-    const o = { ...overrides.value }
-    delete o[item.originalName]
-    overrides.value = o
-    item.finalName = applyPattern(pattern.value, item)
-  }
-  onRenameBlur(item)
+// Nom réellement écrit sur disque au moment de l'upload initial — toujours l'extension
+// d'origine du fichier sélectionné, jamais .cbz par anticipation (contrairement à
+// applyPattern/item.finalName, qui prévisualise volontairement le résultat final). Sinon
+// des octets encore au format source (CBR/PDF) atterrissent sous un nom .cbz, et toute
+// lecture de ce fichier avant l'issue de la conversion (ou si elle échoue) se fie à tort à
+// cette extension au lieu du contenu réel — la conversion elle-même se charge de renommer
+// le fichier en .cbz une fois le contenu réellement réencodé (voir convertOne/converter_service.py).
+function uploadFilename(item) {
+  if (!convertChecked.value[item.originalName]) return item.finalName
+  const originalExt = item.originalName.includes('.') ? '.' + item.originalName.split('.').pop() : ''
+  const stem = item.finalName.includes('.') ? item.finalName.slice(0, item.finalName.lastIndexOf('.')) : item.finalName
+  return stem + originalExt
 }
 
 async function checkDuplicates() {
   const sid = destMode.value === 'existing' ? destSeriesId.value : null
   const sname = destMode.value === 'new' ? destSeriesName.value.trim() : null
-  // Sync finalName from preview before checking
-  preview.value.forEach(r => { r.item.finalName = r.final })
-  await Promise.all(items.value.map(async item => {
+  for (const item of items.value) item.finalName = applyPattern(item)
+  await mapWithConcurrency(items.value, 6, async item => {
     try {
       const { data } = await importApi.checkFile(item.finalName, sid, sname)
       item.duplicate = data.duplicate
     } catch { item.duplicate = false }
-  }))
-}
-
-async function onRenameBlur(item) {
-  const sid = destMode.value === 'existing' ? destSeriesId.value : null
-  const sname = destMode.value === 'new' ? destSeriesName.value.trim() : null
-  try {
-    const { data } = await importApi.checkFile(item.finalName, sid, sname)
-    item.duplicate = data.duplicate
-  } catch { item.duplicate = false }
-}
-
-function insertToken(token) {
-  if (!patternInputRef.value) { pattern.value += token; return }
-  patternInputRef.value.focus()
-  const start = patternInputRef.value.selectionStart ?? pattern.value.length
-  const end = patternInputRef.value.selectionEnd ?? pattern.value.length
-  pattern.value = pattern.value.slice(0, start) + token + pattern.value.slice(end)
-  const pos = start + token.length
-  patternInputRef.value.setSelectionRange(pos, pos)
-}
-
-function addRule() {
-  rules.value.push({ enabled: true, search: '', replace: '' })
-}
-
-function removeRule(i) {
-  rules.value.splice(i, 1)
+  })
 }
 
 // Navigation clavier verticale dans les tableaux (↑/↓)
@@ -295,26 +410,36 @@ function onTableKeydown(e) {
 }
 
 // ── Étape 2 — Métadonnées ────────────────────────────────────────────────────
-const META_FIELDS = ['Series', 'Number', 'Title', 'Writer', 'Penciller', 'Publisher', 'LanguageISO']
-const META_LABELS = { Series: 'Série', Number: 'N°', Title: 'Titre', Writer: 'Scénariste', Penciller: 'Dessinateur', Publisher: 'Éditeur', LanguageISO: 'Langue' }
-const BATCH_FIELDS = ['Series', 'Writer', 'Penciller', 'Publisher', 'LanguageISO']
-const batchRow = ref({ Series: '', Writer: '', Penciller: '', Publisher: '', LanguageISO: '' })
+const META_FIELDS = ['Series', 'Number', 'Year', 'Title', 'Penciller', 'Writer', 'Publisher', 'LanguageISO']
+const META_LABELS = { Series: 'Série', Number: 'N°', Year: 'Année', Title: 'Titre', Writer: 'Scénariste', Penciller: 'Dessinateur', Publisher: 'Éditeur', LanguageISO: 'Langue' }
+const BATCH_FIELDS = ['Series', 'Penciller', 'Writer', 'Publisher', 'LanguageISO']
+const batchRow = ref({ Series: '', Penciller: '', Writer: '', Publisher: '', LanguageISO: '' })
 const batchOnlyEmpty = ref(true)
 // Valeurs originales avant tout remplissage par lot (pour distinguer "vide d'origine" de "rempli par le lot")
 const metaOriginal = ref({})
 
 // metaRows[originalName][field] = valeur saisie
 const metaRows = ref({})
+// oneshotRows[originalName] = bool — indépendant de metaRows (pas un champ ComicInfo.xml,
+// un fait sur le tome, voir Tome.is_oneshot). Conserve la valeur déjà cochée d'un fichier
+// existant plutôt que de tout réinitialiser à chaque recalcul de la liste (ex. réordonnancement).
+const oneshotRows = ref({})
 
 watch(items, (newItems) => {
   const next = {}
+  const nextOneshot = {}
   const seriesName = destMode.value === 'new'
     ? destSeriesName.value.trim()
     : existingSeries.value.find(s => s.id === destSeriesId.value)?.name || ''
   for (const item of newItems) {
     const p = item.parsed || {}
+    const alreadyOneshot = oneshotRows.value[item.originalName] || false
     next[item.originalName] = {
-      Series: p.series || seriesName,
+      // Un one-shot n'a pas de série — sans ce garde, un fichier déjà coché one-shot
+      // récupérait quand même le nom du dossier de destination à chaque recalcul de la
+      // liste (ex. réordonnancement), pas seulement à la création de la ligne, jusqu'à ce
+      // que la case soit explicitement décochée puis recochée (voir onOneshotToggle).
+      Series: alreadyOneshot ? '' : (p.series || seriesName),
       Number: p.number || '',
       Title: p.title || '',
       Writer: p.writer || '',
@@ -322,15 +447,46 @@ watch(items, (newItems) => {
       Publisher: p.publisher || '',
       LanguageISO: p.languageiso || 'fr',
     }
+    nextOneshot[item.originalName] = alreadyOneshot
   }
   metaRows.value = next
+  oneshotRows.value = nextOneshot
   // Snapshot des valeurs originales pour le filtre "seulement si vide"
   metaOriginal.value = JSON.parse(JSON.stringify(next))
 }, { immediate: true })
 
+const allOneshot = computed(() => items.value.length > 0 && items.value.every(item => oneshotRows.value[item.originalName]))
+
+// Un one-shot n'appartient à aucune série — dès que la case est cochée, on vide le champ
+// Série de la ligne (il avait pu être pré-rempli par le nom du dossier de destination ou une
+// recherche en ligne précédente), plutôt que de compter uniquement sur le blocage du scraper.
+function onOneshotToggle(item) {
+  if (oneshotRows.value[item.originalName]) {
+    const row = metaRows.value[item.originalName]
+    if (row) row.Series = ''
+  }
+}
+
+function toggleAllOneshot() {
+  const next = !allOneshot.value
+  const nextRows = { ...oneshotRows.value }
+  for (const item of items.value) {
+    nextRows[item.originalName] = next
+    if (next) {
+      const row = metaRows.value[item.originalName]
+      if (row) row.Series = ''
+    }
+  }
+  oneshotRows.value = nextRows
+}
+
 function applyBatch() {
   const next = { ...metaRows.value }
   for (const item of items.value) {
+    // Le traitement par lot n'a pas de sens pour un one-shot : ni la série (il n'en a pas),
+    // ni les autres champs (dessinateur/scénariste/éditeur/langue), un dossier one-shot
+    // regroupant typiquement des albums indépendants sans rapport entre eux.
+    if (oneshotRows.value[item.originalName]) continue
     const row = next[item.originalName]
     if (!row) continue
     const orig = metaOriginal.value[item.originalName] || {}
@@ -351,18 +507,22 @@ function applyBatch() {
 watch(batchRow, applyBatch, { deep: true })
 watch(batchOnlyEmpty, applyBatch)
 
-// Quand les métadonnées changent, recalculer l'aperçu du renommage
-watch([pattern, rules, metaRows], applyPatternToAll, { deep: true })
-
 // Scraper par fichier
 const scraperTarget = ref(null) // { originalName, series, number }
 
 function openScraper(item) {
   const row = metaRows.value[item.originalName] || {}
+  const isOneshot = !!oneshotRows.value[item.originalName]
+  // Repli sur le nom de fichier (sans extension) si aucun titre n'a pu être parsé — mieux
+  // qu'un champ de recherche vide, et surtout jamais le nom de la série/du dossier pour un
+  // one-shot (voir ScraperModal.vue, qui n'utilise plus jamais Série/Numéro dans ce cas).
+  const stem = item.originalName.includes('.') ? item.originalName.slice(0, item.originalName.lastIndexOf('.')) : item.originalName
   scraperTarget.value = {
     originalName: item.originalName,
     series: row.Series || '',
     number: row.Number || '',
+    title: row.Title || (isOneshot ? stem : ''),
+    isOneshot,
   }
 }
 
@@ -371,10 +531,77 @@ function applyScraperResult(result) {
   const row = metaRows.value[scraperTarget.value.originalName]
   if (!row) return
   if (result.title)            row.Title     = result.title
-  if (result.authors?.length)  row.Writer    = result.authors.join(', ')
+  // Un one-shot n'a pas de série : Bedetheque crée pourtant une page "série" du même nom
+  // que l'album pour chaque one-shot — on ignore ce champ pour ne pas la faire fuiter ici.
+  if (result.series && !scraperTarget.value.isOneshot) row.Series = result.series
+  if (result.number)           row.Number    = formatTomeNumber(result.number)
+  if (result.source === 'bedetheque' && result.authors?.length) {
+    // Bedetheque distingue scénariste et dessinateur (contrairement à Google Books/ComicVine)
+    row.Writer    = result.authors[0] || ''
+    row.Penciller = result.authors[1] || result.authors[0] || ''
+  } else if (result.authors?.length) {
+    row.Writer    = result.authors.join(', ')
+  }
   if (result.publisher)        row.Publisher = result.publisher
   if (result.year)             row.Year      = String(result.year)
+  // Lien vers la fiche de cet album précisément — capturé dès l'import plutôt que
+  // seulement au prochain passage dans la popup d'édition (voir MetadataForm.vue).
+  if (result.url)              row.Web       = result.url
   scraperTarget.value = null
+}
+
+// Complétion globale — une seule requête pour toute la page série Bedetheque, puis
+// association par numéro d'album à chaque ligne du tableau, au lieu de rechercher fichier
+// par fichier via openScraper() (qui reste le repli manuel si un album n'est pas trouvé ici).
+// Nouvelle série : URL saisie à la création. Série existante : URL déjà confirmée en base,
+// pas besoin de la re-saisir à chaque import dans cette série.
+const bedeBulkLoading = ref(false)
+
+function currentBedethequeSource() {
+  if (destMode.value === 'new') {
+    const url = newSeriesBedethequeUrl.value.trim()
+    return url ? { url: url, seriesId: null } : null
+  }
+  if (destMode.value === 'existing') {
+    const s = existingSeries.value.find(s => s.id === destSeriesId.value)
+    if (s?.bedetheque_url && s.bedetheque_match_status === 'found') {
+      return { url: null, seriesId: s.id }
+    }
+  }
+  return null
+}
+
+async function completeFromBedetheque() {
+  const source = currentBedethequeSource()
+  if (!source || bedeBulkLoading.value) return
+  bedeBulkLoading.value = true
+  try {
+    const { data: albums } = await scraperApi.bedethequeBulk(source.url, source.seriesId)
+    const byNumber = {}
+    for (const a of albums) { if (a.number) byNumber[a.number] = a }
+
+    let matched = 0
+    for (const item of items.value) {
+      const row = metaRows.value[item.originalName]
+      if (!row) continue
+      const num = (row.Number || item.parsed?.number || '').trim()
+      const album = num ? byNumber[num] : null
+      if (!album) continue
+      matched++
+      if (album.title)     row.Title     = album.title
+      if (album.writer)    row.Writer    = album.writer
+      if (album.penciller) row.Penciller = album.penciller
+      if (album.publisher) row.Publisher = album.publisher
+    }
+    metaRows.value = { ...metaRows.value }
+    notif.success(matched
+      ? `${matched}/${items.value.length} album(s) complété(s) depuis Bedetheque.com`
+      : 'Aucun album correspondant trouvé sur cette page Bedetheque.com')
+  } catch (e) {
+    notif.error(e.response?.data?.detail || 'Erreur lors de la récupération sur Bedetheque.com')
+  } finally {
+    bedeBulkLoading.value = false
+  }
 }
 
 function formatSize(bytes) {
@@ -409,7 +636,6 @@ function onInfoLeave() {
   showQualityCompare.value = false
 }
 
-const showConvert = ref(false)
 const convertPreset = ref(null) // null = aucune qualité sélectionnée par défaut
 // convertChecked[originalName] = true/false
 const convertChecked = ref({})
@@ -418,6 +644,20 @@ const convertChecked = ref({})
 const convertibleItems = computed(() =>
   items.value.filter(i => CONVERT_EXTS.has('.' + i.originalName.split('.').pop().toLowerCase()))
 )
+
+// Nom affiché dans le bloc conversion — doit refléter le renommage en direct, pas le
+// nom d'origine, sinon le fichier affiché ne correspond pas à ce qui sera importé.
+function currentFinalName(item) {
+  return applyPattern(item)
+}
+
+// Nom (sans extension) affiché dans le tableau Métadonnées — l'extension d'origine n'a
+// pas de sens ici : elle ne correspond ni au fichier d'origine (le nom a changé) ni au
+// futur fichier si une conversion est prévue (ex: .pdf → .cbz).
+function currentFinalStem(item) {
+  const name = currentFinalName(item)
+  return name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : name
+}
 
 
 // Initialiser convertChecked quand les items changent, et ouvrir le bloc si des fichiers convertibles
@@ -450,11 +690,16 @@ const itemsMetaLost = computed(() => {
   })
 })
 
-// Quand on sélectionne un preset, cocher automatiquement tous les fichiers
+// Quand on sélectionne un preset, cocher automatiquement les fichiers qui nécessitent
+// une conversion (CBR/PDF) mais pas les CBZ/ZIP déjà dans le bon format
+const AUTO_CONVERT_EXTS = new Set(['.cbr', '.rar', '.pdf'])
 watch(convertPreset, (val) => {
   if (!val) return
   const next = {}
-  for (const item of convertibleItems.value) next[item.originalName] = true
+  for (const item of convertibleItems.value) {
+    const ext = '.' + item.originalName.split('.').pop().toLowerCase()
+    next[item.originalName] = AUTO_CONVERT_EXTS.has(ext)
+  }
   convertChecked.value = next
 })
 
@@ -476,6 +721,7 @@ const uploadDone = ref(0)
 const uploading = ref(false)
 const importedSeriesId = ref(null)
 const allDoneFlag = ref(false)
+const finalizing = ref(false)
 const cancelRequested = ref(false)
 const activeJobIds = ref([])
 
@@ -486,10 +732,20 @@ const fileStatuses = ref([])
 const uploadErrors = computed(() => fileStatuses.value.filter(f => f.uploadStatus === 'error'))
 const allDone = computed(() => allDoneFlag.value)
 
+// Si l'utilisateur quitte la page pendant un import/conversion en cours, on annule
+// proprement (comme le bouton "Annuler") au lieu de laisser startImport() continuer
+// en tâche de fond sans plus aucune UI pour le suivre.
+onUnmounted(() => {
+  if (uploading.value && !allDoneFlag.value) {
+    cancelAll()
+  }
+})
+
 async function startImport() {
   uploading.value = true
   uploadDone.value = 0
   allDoneFlag.value = false
+  finalizing.value = false
   cancelRequested.value = false
   activeJobIds.value = []
   step.value = 3
@@ -497,7 +753,7 @@ async function startImport() {
   const sid = destMode.value === 'existing' ? destSeriesId.value : null
   const sname = destMode.value === 'new' ? destSeriesName.value.trim() : null
 
-  preview.value.forEach(r => { r.item.finalName = r.final })
+  for (const item of items.value) item.finalName = applyPattern(item)
 
   const willConvert = (item) => {
     const ext = '.' + item.originalName.split('.').pop().toLowerCase()
@@ -535,12 +791,14 @@ async function startImport() {
     // Upload
     fileStatuses.value[i].uploadStatus = 'running'
     let destPath = null
+    let uploadedTomeId = null
     try {
       const meta = metaRows.value[item.originalName] || {}
-      const { data } = await importApi.uploadFile(item.file, item.finalName, sid, sname, meta)
+      const { data } = await importApi.uploadFile(item.file, uploadFilename(item), sid, sname, meta, !!oneshotRows.value[item.originalName])
       fileStatuses.value[i].uploadStatus = 'ok'
       fileStatuses.value[i].destPath = data.path
       destPath = data.path
+      uploadedTomeId = data.tome_id || null
     } catch (e) {
       fileStatuses.value[i].uploadStatus = 'error'
       fileStatuses.value[i].uploadError = e.response?.data?.detail || e.message || 'Erreur'
@@ -552,11 +810,12 @@ async function startImport() {
 
     // Conversion immédiate si nécessaire
     if (willConvert(item) && destPath) {
-      await convertOne(i, destPath)
+      await convertOne(i, destPath, uploadedTomeId)
     }
   }
 
-  // Nettoyage si annulation : supprimer les fichiers uploadés
+  // Nettoyage si annulation : supprimer les fichiers déjà uploadés, leur entrée DB
+  // (tome + série si elle devient vide) et resynchroniser la bibliothèque
   if (cancelRequested.value) {
     const uploadedPaths = fileStatuses.value
       .filter(f => f.destPath)
@@ -564,29 +823,50 @@ async function startImport() {
     if (uploadedPaths.length) {
       const isNewSeries = destMode.value === 'new'
       try {
-        await client.post('/api/import/cancel-cleanup', {
+        const { data } = await client.post('/api/import/cancel-cleanup', {
           paths: uploadedPaths,
           is_new_series: isNewSeries,
           new_series_name: isNewSeries ? destSeriesName.value.trim() : null,
         })
+        if (data?.deleted_count) {
+          notif.info(`Import annulé — ${data.deleted_count} fichier(s) supprimé(s)`)
+        }
       } catch { /* ignoré */ }
+      await libraryStore.fetchSeries()
     }
     allDoneFlag.value = true
     return
   }
 
-  // Scan final
-  await libraryStore.triggerScan()
-  await waitForScan()
+  // Scan final — tous les fichiers sont déjà uploadés/convertis à ce stade, il ne reste
+  // qu'à réindexer la bibliothèque. "finalizing" distingue cette phase de l'upload/conversion
+  // proprement dits : jusqu'ici l'en-tête restait bloqué sur "Import en cours…" et le bouton
+  // Annuler restait affiché sans plus rien de significatif à annuler pendant ce temps.
+  finalizing.value = true
+  try {
+    await libraryStore.triggerScan()
+    await waitForScan()
+  } finally {
+    finalizing.value = false
+  }
 
   // Trouver l'ID de la série importée
   const seriesName = sname || existingSeries.value.find(s => s.id === sid)?.name
   if (seriesName) {
-    const { data } = await importApi.getSeries()
+    const { data } = await libraryApi.getSeries()
     const found = data.find(s => s.name === seriesName)
     if (found) importedSeriesId.value = found.id
   } else if (sid) {
     importedSeriesId.value = sid
+  }
+
+  // Attache l'URL Bedetheque saisie en étape 1 à la série nouvellement créée — même
+  // endpoint que "Corriger l'URL" sur la fiche série, ce qui déclenche aussi le suivi des
+  // albums manquants si applicable.
+  if (destMode.value === 'new' && newSeriesBedethequeUrl.value.trim() && importedSeriesId.value) {
+    try {
+      await missingAlbumsApi.setBedethequeUrl(importedSeriesId.value, newSeriesBedethequeUrl.value.trim())
+    } catch { /* ignoré — l'import reste réussi même si cette étape échoue */ }
   }
 
   allDoneFlag.value = true
@@ -594,20 +874,20 @@ async function startImport() {
   notif.success(`Import terminé — ${okCount} fichier(s) importé(s)`)
 }
 
-async function convertOne(idx, destPath) {
-  // Déclencher un scan pour indexer le fichier uploadé
-  await libraryStore.triggerScan()
-  await waitForScan()
+async function convertOne(idx, destPath, uploadedTomeId = null) {
+  // Utiliser le tome_id retourné par l'upload — évite un scan complet de la bibliothèque
+  let tomeId = uploadedTomeId
 
-  // Lookup avec retry au cas où le scan serait encore en cours
-  let tomeId = null
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const { data } = await importApi.lookupTomes([destPath])
-      tomeId = data[destPath]
-    } catch { break }
-    if (tomeId) break
-    await new Promise(r => setTimeout(r, 800))
+  if (!tomeId) {
+    // Fallback : lookup avec scan à la volée si le tome n'est pas encore en DB
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const { data } = await importApi.lookupTomes([destPath])
+        tomeId = data[destPath]
+      } catch { break }
+      if (tomeId) break
+      await new Promise(r => setTimeout(r, 1000))
+    }
   }
   if (!tomeId) { fileStatuses.value[idx].convertStatus = 'error'; return }
 
@@ -641,6 +921,14 @@ async function convertOne(idx, destPath) {
         if (data.status === 'error' && cancelRequested.value) {
           fileStatuses.value[idx].cancelled = true
         }
+        if (data.status === 'done') {
+          // La conversion a renommé/déplacé le fichier (ex : .cbr -> .cbz) : recharger le
+          // chemin réel pour qu'une annulation juste après cible le bon fichier.
+          try {
+            const { data: tomeData } = await tomesApi.getTome(tomeId)
+            if (tomeData.filepath) fileStatuses.value[idx].destPath = tomeData.filepath
+          } catch { /* ignoré */ }
+        }
         break
       }
     } catch { fileStatuses.value[idx].convertStatus = 'error'; break }
@@ -665,8 +953,8 @@ async function cancelAll() {
 async function waitForScan() {
   // Attendre d'abord que le scan démarre (statut != idle/done initial)
   await new Promise(r => setTimeout(r, 800))
-  // Attendre max 30s que le scan se termine
-  for (let i = 0; i < 60; i++) {
+  // Attendre max 150s que le scan se termine
+  for (let i = 0; i < 300; i++) {
     await new Promise(r => setTimeout(r, 500))
     if (libraryStore.scanProgress.status === 'done' || libraryStore.scanProgress.status === 'error') break
   }
@@ -685,8 +973,13 @@ function goToSeries() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-importApi.getSeries().then(({ data }) => { existingSeries.value = data })
+// /api/series a déjà writers/pencillers/publishers agrégés — réutilisés pour préremplir
+// les métadonnées par lot quand on choisit une série existante (cf. selectExistingSeries).
+libraryApi.getSeries().then(({ data }) => {
+  existingSeries.value = [...data].sort((a, b) => sortTitle(a.name).localeCompare(sortTitle(b.name), 'fr', { sensitivity: 'base' }))
+})
 libraryStore.fetchAuthors()
+settingsApi.get().then(({ data }) => { renamePattern.value = data.rename_pattern || '' })
 
 const AUTOCOMPLETE_FIELDS = new Set(['Writer', 'Penciller', 'Publisher'])
 const authorPool = computed(() => {
@@ -699,23 +992,33 @@ function fieldSuggestions(f) {
   return []
 }
 
+function resetImport() {
+  step.value = 1
+  rawFiles.value = []
+  rawFileSelection.value = {}
+  rawFileWarnings.value = {}
+  items.value = []
+  fileStatuses.value = []
+  destMode.value = null
+  destSeriesName.value = ''
+  destSeriesId.value = null
+  newSeriesBedethequeUrl.value = ''
+  seriesSearch.value = ''
+  showSeriesDropdown.value = false
+  showCreateSeriesConfirm.value = false
+  similarSeriesForNew.value = []
+  uploading.value = false
+  allDoneFlag.value = false
+  cancelRequested.value = false
+  activeJobIds.value = []
+  importedSeriesId.value = null
+  convertPreset.value = null
+  convertChecked.value = {}
+}
+
 // Reset à l'étape 1 si on navigue vers /import depuis une autre étape
 watch(() => route.path, (path) => {
-  if (path === '/import' && step.value > 1) {
-    step.value = 1
-    rawFiles.value = []
-    rawFileSelection.value = {}
-    items.value = []
-    fileStatuses.value = []
-    destMode.value = 'new'
-    destSeriesName.value = ''
-    destSeriesId.value = null
-    uploading.value = false
-    allDoneFlag.value = false
-    cancelRequested.value = false
-    activeJobIds.value = []
-    importedSeriesId.value = null
-  }
+  if (path === '/import' && step.value > 1) resetImport()
 })
 </script>
 
@@ -724,7 +1027,7 @@ watch(() => route.path, (path) => {
     <main class="import-main">
       <!-- Header -->
       <div class="import-header">
-        <h1 class="import-title">Importer une série</h1>
+        <h1 class="import-title">Importer des albums</h1>
         <!-- Steps indicator -->
         <div class="steps">
           <div v-for="n in 3" :key="n" :class="['step', { active: step === n, done: step > n }]">
@@ -747,18 +1050,31 @@ watch(() => route.path, (path) => {
             @dragleave.prevent="dragging = false"
             @drop.prevent="onDrop"
           >
+            <!-- Fichiers individuels : input "normal", pas de webkitdirectory (qui force
+                 un sélecteur de dossier et ignore le filtre `accept`). -->
             <input
               ref="fileInput"
               type="file"
               multiple
               accept=".cbz,.cbr,.pdf,.zip,.rar"
+              style="display:none"
+              @change="onFilesSelected"
+            />
+            <!-- Dossier complet : input séparé avec webkitdirectory. -->
+            <input
+              ref="folderInput"
+              type="file"
+              multiple
               webkitdirectory
               style="display:none"
               @change="onFilesSelected"
             />
-            <SvgIcon :name="dragging ? 'upload' : 'folder-open'" class="drop-icon" />
+            <SvgIcon :name="dragging ? 'upload' : 'folder-up'" class="drop-icon" />
             <p class="drop-label">{{ dragging ? 'Déposer les fichiers ici' : 'Cliquer ou glisser-déposer des fichiers' }}</p>
-            <p class="drop-hint">Formats acceptés : CBZ, CBR, PDF — dossier ou fichiers individuels</p>
+            <p class="drop-hint">
+              Formats acceptés : CBZ, CBR, PDF — ou
+              <button type="button" class="link-btn" @click.stop="folderInput.click()">choisir un dossier</button>
+            </p>
           </div>
 
           <div v-if="rawFiles.length" class="files-preview">
@@ -773,6 +1089,14 @@ watch(() => route.path, (path) => {
                 <label class="files-item-label">
                   <input type="checkbox" v-model="rawFileSelection[f.name]" />
                   <span class="files-name" :class="{ 'files-name-unchecked': !rawFileSelection[f.name] }">{{ f.name }}</span>
+                  <span
+                    v-if="rawFileWarnings[f.name]"
+                    class="files-warn-icon"
+                    :title="[
+                      rawFileWarnings[f.name].conflict ? 'Conflit : un autre fichier sélectionné aurait le même nom une fois renommé' : '',
+                      rawFileWarnings[f.name].duplicate ? 'Un fichier de ce nom existe déjà dans la destination' : '',
+                    ].filter(Boolean).join(' — ')"
+                  >⚠</span>
                 </label>
                 <span class="files-size">{{ formatSize(f.size) }}</span>
               </li>
@@ -781,29 +1105,41 @@ watch(() => route.path, (path) => {
 
           <h2 class="section-title" style="margin-top: 24px">2. Choisir la destination</h2>
 
-          <div class="dest-tabs">
-            <button :class="['dest-tab', { active: destMode === 'new' }]" @click="destMode = 'new'">Nouvelle série</button>
-            <button :class="['dest-tab', { active: destMode === 'existing' }]" @click="destMode = 'existing'">Série existante</button>
-          </div>
-
-          <div v-if="destMode === 'new'" class="field">
-            <label class="form-label">Nom de la nouvelle série</label>
-            <input v-model="destSeriesName" type="text" class="form-control" placeholder="ex: Astérix" />
-          </div>
-
-          <div v-if="destMode === 'existing'" class="field">
-            <label class="form-label">Série existante</label>
-            <select v-model="destSeriesId" class="form-control">
-              <option :value="null">— Choisir une série —</option>
-              <option v-for="s in existingSeries" :key="s.id" :value="s.id">{{ s.name }}</option>
-            </select>
+          <div class="field series-search-field">
+            <label class="form-label">Série</label>
+            <input
+              type="text"
+              class="form-control"
+              v-model="seriesSearch"
+              placeholder="Rechercher ou créer une série…"
+              @focus="showSeriesDropdown = true"
+              @input="onSeriesSearchInput"
+              @blur="onSeriesSearchBlur"
+            />
+            <p v-if="destMode === 'existing'" class="dest-status">✓ Série existante « {{ seriesSearch }} »</p>
+            <template v-else-if="destMode === 'new'">
+              <p class="dest-status">✓ Nouvelle série « {{ seriesSearch }} »</p>
+              <p v-if="newSeriesBedethequeUrl" class="dest-status-hint">🔗 {{ newSeriesBedethequeUrl }}</p>
+            </template>
+            <ul v-if="showSeriesDropdown" class="series-dropdown">
+              <li
+                v-for="s in filteredExistingSeries"
+                :key="s.id"
+                :class="{ 'series-option-active': s.id === destSeriesId }"
+                @mousedown.prevent="selectExistingSeries(s)"
+              >{{ s.name }}</li>
+              <li v-if="canOfferCreateNew" class="series-option-create" @mousedown.prevent="askCreateSeries">
+                + Créer une nouvelle série « {{ seriesSearch.trim() }} »
+              </li>
+              <li v-if="!filteredExistingSeries.length && !canOfferCreateNew" class="series-option-empty">Aucune série trouvée</li>
+            </ul>
           </div>
 
           <div class="step-actions">
             <button @click="router.push('/series')" class="btn btn-ghost btn-sm">Annuler</button>
             <button
               class="btn btn-primary btn-sm"
-              :disabled="!selectedRawCount || (destMode === 'new' && !destSeriesName.trim()) || (destMode === 'existing' && !destSeriesId)"
+              :disabled="!selectedRawCount || !destMode"
               @click="goToStep2"
             >Suivant →</button>
           </div>
@@ -815,12 +1151,8 @@ watch(() => route.path, (path) => {
         <div class="card-body">
 
           <!-- ① Bloc métadonnées -->
-          <div class="collapsible-block">
-            <button class="collapsible-toggle" type="button" @click="toggleBlock('meta')">
-              <span class="toggle-arrow" :class="{ open: showMeta }">▶</span>
-              Métadonnées <span class="collapsible-hint">(optionnel — écrit dans le CBZ)</span>
-            </button>
-            <div v-if="showMeta" class="collapsible-body">
+          <div class="import-section">
+            <h2 class="section-title">Métadonnées</h2>
 
               <!-- Édition par lot -->
               <div class="batch-row">
@@ -839,6 +1171,10 @@ watch(() => route.path, (path) => {
                   <input type="checkbox" v-model="batchOnlyEmpty" />
                   Seulement si vide
                 </label>
+                <label class="batch-only-empty" title="Sans rapport avec les autres tomes du dossier — voir Tome.is_oneshot">
+                  <input type="checkbox" :checked="allOneshot" @change="toggleAllOneshot" />
+                  Tout marquer one-shot
+                </label>
               </div>
 
               <!-- Tableau métadonnées par fichier -->
@@ -848,12 +1184,13 @@ watch(() => route.path, (path) => {
                     <tr>
                       <th class="col-meta-file">Fichier</th>
                       <th v-for="f in META_FIELDS" :key="f" :class="`col-meta-${f.toLowerCase()}`">{{ META_LABELS[f] }}</th>
+                      <th class="col-meta-oneshot" title="Album indépendant, sans rapport avec les autres tomes du dossier">One-shot</th>
                       <th class="col-meta-scrape"></th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="item in items" :key="item.originalName">
-                      <td class="td-meta-file" :title="item.originalName">{{ item.originalName }}</td>
+                      <td class="td-meta-file" :title="currentFinalName(item)">{{ currentFinalStem(item) }}</td>
                       <td v-for="f in META_FIELDS" :key="f" class="td-meta">
                         <template v-if="metaRows[item.originalName]">
                           <AutocompleteInput
@@ -871,94 +1208,23 @@ watch(() => route.path, (path) => {
                           />
                         </template>
                       </td>
+                      <td class="td-meta-oneshot">
+                        <input type="checkbox" v-model="oneshotRows[item.originalName]" @change="onOneshotToggle(item)" title="Album one-shot" />
+                      </td>
                       <td class="td-meta-scrape">
-                        <button class="scrape-btn" type="button" title="Rechercher en ligne" @click="openScraper(item)">🔍</button>
+                        <button class="scrape-btn" type="button" title="Rechercher en ligne" @click="openScraper(item)"><SvgIcon name="search" /></button>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-            </div>
           </div>
 
-          <!-- ② Bloc renommage -->
-          <div class="collapsible-block">
-            <button class="collapsible-toggle" type="button" @click="toggleBlock('rules')">
-              <span class="toggle-arrow" :class="{ open: showRules }">▶</span>
-              Renommer les fichiers <span class="collapsible-hint">(optionnel)</span>
-            </button>
-            <div v-if="showRules" class="collapsible-body">
-              <div class="field-row">
-                <label class="form-label">Modèle :</label>
-                <input
-                  ref="patternInputRef"
-                  v-model="pattern"
-                  type="text"
-                  class="form-control pattern-input"
-                  placeholder="{Série} - {Numéro} - {Titre}"
-                />
-              </div>
-              <div class="tokens-row">
-                <button v-for="t in TOKENS" :key="t" class="token-btn" type="button" @click="insertToken(t)">{{ t }}</button>
-              </div>
-              <div class="sub-section">
-                <p class="sub-section-label">Rechercher / Remplacer</p>
-                <div v-for="(rule, i) in rules" :key="i" class="rule-row">
-                  <input type="checkbox" v-model="rule.enabled" class="rule-checkbox" />
-                  <input type="text" v-model="rule.search" class="form-control rule-input" placeholder="Rechercher" />
-                  <span class="rule-arrow">→</span>
-                  <input type="text" v-model="rule.replace" class="form-control rule-input" placeholder="vide = supprimer" />
-                  <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="removeRule(i)">🗑</button>
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm add-rule-btn" @click="addRule">+ Ajouter une règle</button>
-              </div>
-              <div v-if="hasDuplicates" class="alert-warning">
-                ⚠ Certains fichiers existent déjà dans la destination. Ils seront écrasés.
-              </div>
-              <div class="inner-table-wrap">
-                <table class="inner-table">
-                  <thead>
-                    <tr>
-                      <th class="col-original">Nom actuel</th>
-                      <th class="col-rename">Nouveau nom</th>
-                      <th class="col-size">Taille</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="row in preview"
-                      :key="row.item.originalName"
-                      :class="{ 'row-unchanged': row.unchanged, 'row-duplicate': row.item.duplicate }"
-                    >
-                      <td class="td-original" :title="row.item.originalName">{{ row.item.originalName }}</td>
-                      <td class="td-final">
-                        <span v-if="row.conflict" class="conflict-icon" title="Conflit : deux fichiers auraient le même nom">⚠</span>
-                        <input
-                          type="text"
-                          class="rename-input"
-                          :class="{ 'rename-input-conflict': row.conflict }"
-                          :value="row.final"
-                          @input="onFinalNameInput(row.item, $event.target.value)"
-                          @blur="onFinalNameBlur(row.item, $event.target.value)"
-                          @keydown="onTableKeydown"
-                        />
-                        <span v-if="row.item.duplicate" class="badge-dup">doublon</span>
-                      </td>
-                      <td class="td-size">{{ formatSize(row.item.size) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <div class="section-divider" />
 
-          <!-- ③ Bloc conversion -->
-          <div class="collapsible-block">
-            <button class="collapsible-toggle" type="button" @click="toggleBlock('convert')">
-              <span class="toggle-arrow" :class="{ open: showConvert }">▶</span>
-              Convertir / Recompresser en CBZ <span class="collapsible-hint">(optionnel)</span>
-            </button>
-            <div v-if="showConvert" class="collapsible-body">
+          <!-- ② Bloc conversion -->
+          <div class="import-section">
+            <h2 class="section-title">Convertir / Recompresser en CBZ <span class="collapsible-hint">(optionnel)</span></h2>
               <!-- Indicateur si aucune qualité / aucun fichier coché -->
               <div v-if="!convertPreset || convertCount === 0" class="convert-no-convert">
                 ✓ Les fichiers seront importés sans modification
@@ -1005,7 +1271,7 @@ watch(() => route.path, (path) => {
                         />
                       </th>
                       <th>Fichier</th>
-                      <th style="width:55px">Format</th>
+                      <th style="width:95px">Format</th>
                       <th style="width:90px">Résolution</th>
                       <th class="col-size">Taille actuelle</th>
                       <th class="col-size">Taille estimée</th>
@@ -1014,8 +1280,14 @@ watch(() => route.path, (path) => {
                   <tbody>
                     <tr v-for="item in convertibleItems" :key="item.originalName">
                       <td><input type="checkbox" v-model="convertChecked[item.originalName]" /></td>
-                      <td>{{ item.originalName }}</td>
-                      <td><span :class="['fmt-badge', `fmt-${item.originalName.split('.').pop().toLowerCase()}`]">{{ item.originalName.split('.').pop().toUpperCase() }}</span></td>
+                      <td>{{ currentFinalName(item) }}</td>
+                      <td>
+                        <span :class="['fmt-badge', `fmt-${item.originalName.split('.').pop().toLowerCase()}`]">{{ item.originalName.split('.').pop().toUpperCase() }}</span>
+                        <template v-if="convertChecked[item.originalName]">
+                          <span class="fmt-arrow">→</span>
+                          <span class="fmt-badge fmt-cbz">CBZ</span>
+                        </template>
+                      </td>
                       <td class="td-size">
                         <span v-if="imageSizes[item.originalName]">{{ imageSizes[item.originalName].width }}×{{ imageSizes[item.originalName].height }}</span>
                         <span v-else class="td-muted">—</span>
@@ -1033,9 +1305,7 @@ watch(() => route.path, (path) => {
                   </tbody>
                 </table>
               </div>
-            </div>
           </div>
-
 
           <div class="step-actions">
             <button @click="step = 1" class="btn btn-ghost btn-sm">← Retour</button>
@@ -1053,6 +1323,9 @@ watch(() => route.path, (path) => {
         v-if="scraperTarget"
         :series="scraperTarget.series"
         :number="scraperTarget.number"
+        :series-id="scraperTarget.isOneshot ? null : (destMode === 'existing' ? destSeriesId : null)"
+        :title="scraperTarget.title"
+        :is-oneshot="scraperTarget.isOneshot"
         @select="applyScraperResult"
         @close="scraperTarget = null"
       />
@@ -1060,7 +1333,7 @@ watch(() => route.path, (path) => {
       <!-- ── Étape 3 ── -->
       <div v-if="step === 3" class="card step-card">
         <div class="card-body">
-          <h2 class="section-title">{{ allDone ? 'Import terminé' : 'Import en cours…' }}</h2>
+          <h2 class="section-title">{{ allDone ? 'Import terminé' : finalizing ? 'Mise à jour de la bibliothèque…' : 'Import en cours…' }}</h2>
 
           <!-- Liste des fichiers -->
           <div class="import-file-list" style="margin-bottom: 16px">
@@ -1109,8 +1382,8 @@ watch(() => route.path, (path) => {
           </div>
 
           <!-- Actions : Annuler pendant le traitement, Voir la série quand terminé -->
-          <div class="step-actions" style="display:flex; justify-content:flex-end; margin-top:16px;">
-            <button v-if="uploading && !allDone" class="btn btn-danger btn-sm" @click="cancelAll" :disabled="cancelRequested">
+          <div class="step-actions step-actions-final">
+            <button v-if="uploading && !allDone && !finalizing" class="btn btn-danger btn-sm" @click="cancelAll" :disabled="cancelRequested">
               {{ cancelRequested ? 'Annulation…' : 'Annuler' }}
             </button>
             <template v-if="allDone">
@@ -1118,12 +1391,79 @@ watch(() => route.path, (path) => {
                 {{ fileStatuses.filter(f => f.uploadStatus === 'ok').length }} fichier(s) importé(s)
                 <template v-if="uploadErrors.length"> — {{ uploadErrors.length }} erreur(s)</template>
               </p>
-              <button @click="goToSeries" class="btn btn-primary btn-sm">Voir la série →</button>
+              <div class="step-actions-buttons">
+                <button @click="resetImport" class="btn btn-ghost btn-sm">Importer d'autres albums</button>
+                <button @click="goToSeries" class="btn btn-primary btn-sm">Voir la série →</button>
+              </div>
             </template>
           </div>
         </div>
       </div>
     </main>
+
+    <!-- Modale confirmation création série -->
+    <Teleport to="body">
+      <div v-if="showCreateSeriesConfirm" class="modal-backdrop" @click.self="cancelCreateSeries">
+        <div class="modal-box">
+          <p class="modal-title">Créer une nouvelle série ?</p>
+          <p class="modal-body">
+            Êtes-vous sûr de vouloir créer la série « {{ pendingNewSeriesName }} » ?
+          </p>
+          <div v-if="similarSeriesForNew.length" class="similar-series-warning">
+            <p class="similar-series-warning-title">⚠️ Nom proche d'une série déjà existante — vérifiez qu'il ne s'agit pas de la même série avant de continuer :</p>
+            <button
+              v-for="s in similarSeriesForNew"
+              :key="s.id"
+              type="button"
+              class="similar-series-option"
+              @click="pickSimilarSeries(s)"
+            >« {{ s.name }} » <span class="similar-series-count">{{ s.tome_count ?? 0 }} album(s)</span></button>
+          </div>
+          <div class="field modal-bede-field">
+            <p v-if="bedeSuggestLoading" class="bede-suggest-loading">Recherche sur Bedetheque.com…</p>
+            <div v-else-if="bedeSuggestions.length" class="bede-suggest-list">
+              <div
+                v-for="c in bedeSuggestions"
+                :key="c.url"
+                role="button"
+                tabindex="0"
+                :class="['bede-suggest-card', { 'bede-suggest-selected': pendingNewSeriesBedethequeUrl === c.url }]"
+                @click="pendingNewSeriesBedethequeUrl = c.url"
+                @keydown.enter="pendingNewSeriesBedethequeUrl = c.url"
+              >
+                <span class="bede-suggest-check">{{ pendingNewSeriesBedethequeUrl === c.url ? '✓' : '' }}</span>
+                <span class="bede-suggest-info">
+                  <span class="bede-suggest-name">{{ c.name }}</span>
+                  <span class="bede-suggest-meta">
+                    {{ c.album_count }} album(s)<template v-if="c.status"> · {{ c.status }}</template><template v-if="c.year_min"> · {{ c.year_min }}{{ c.year_max && c.year_max !== c.year_min ? '–' + c.year_max : '' }}</template>
+                  </span>
+                </span>
+                <a :href="c.url" target="_blank" rel="noopener" class="bede-suggest-link" title="Voir sur Bedetheque.com" @click.stop>↗</a>
+              </div>
+            </div>
+            <button
+              v-if="bedeSuggestions.length && !bedeSuggestLoading"
+              type="button"
+              class="link-btn bede-manual-toggle"
+              @click="showManualBedeUrl = !showManualBedeUrl"
+            >{{ showManualBedeUrl ? 'Masquer' : 'Ou saisir une URL manuellement' }}</button>
+            <input
+              v-if="showManualBedeUrl || (!bedeSuggestLoading && !bedeSuggestions.length)"
+              type="text"
+              class="form-control"
+              v-model="pendingNewSeriesBedethequeUrl"
+              placeholder="https://www.bedetheque.com/serie-XXXXX-BD-....html"
+              style="margin-top: 6px"
+            />
+            <p v-if="!bedeSuggestLoading" class="dest-status-hint">Permet de compléter automatiquement les métadonnées de tous les albums à l'étape suivante.</p>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost btn-sm" @click="cancelCreateSeries">Annuler</button>
+            <button class="btn btn-primary btn-sm" :disabled="bedeSuggestLoading" @click="confirmCreateSeries">{{ similarSeriesForNew.length ? 'Créer quand même' : 'Créer' }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Modale alerte métadonnées perdues -->
     <Teleport to="body">
@@ -1135,7 +1475,7 @@ watch(() => route.path, (path) => {
             Voulez-vous activer la conversion en CBZ, ou continuer sans métadonnées ?
           </p>
           <div class="modal-actions">
-            <button class="btn btn-ghost btn-sm" @click="showMetaWarnModal = false; showConvert = true">Activer la conversion</button>
+            <button class="btn btn-ghost btn-sm" @click="showMetaWarnModal = false">Annuler</button>
             <button class="btn btn-primary btn-sm" @click="showMetaWarnModal = false; startImport()">Importer sans métadonnées</button>
           </div>
         </div>
@@ -1147,8 +1487,8 @@ watch(() => route.path, (path) => {
 <style scoped>
 .import-main {
   flex: 1;
-  padding: 20px;
-  max-width: 1100px;
+  padding: 24px 20px;
+  max-width: 1250px;
 }
 
 .import-header {
@@ -1156,8 +1496,10 @@ watch(() => route.path, (path) => {
 }
 
 .import-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 1.4rem;
   color: var(--text);
   margin-bottom: 16px;
 }
@@ -1185,8 +1527,8 @@ watch(() => route.path, (path) => {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.step.active .step-num { background: var(--primary); color: #fff; }
-.step.done .step-num { background: #4caf50; color: #fff; }
+.step.active .step-num { background: var(--vermilion); color: #fff; }
+.step.done .step-num { background: var(--success); color: #fff; }
 .step-label { font-size: 0.8125rem; color: var(--muted); }
 .step.active .step-label { color: var(--text); font-weight: 600; }
 .step-line {
@@ -1215,6 +1557,7 @@ watch(() => route.path, (path) => {
 .file-drop-zone.dragging .drop-icon { color: var(--primary); }
 .drop-label { font-size: 0.9rem; font-weight: 500; color: var(--text); margin-bottom: 4px; }
 .drop-hint { font-size: 0.8rem; color: var(--muted); }
+.link-btn { background: none; border: none; padding: 0; color: var(--vermilion); font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
 
 /* Files preview */
 .files-preview { margin-bottom: 8px; }
@@ -1223,14 +1566,11 @@ watch(() => route.path, (path) => {
 .files-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; }
 .files-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; padding: 4px 8px; background: var(--light); border-radius: var(--radius-sm); }
 .files-item-label { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; cursor: pointer; }
+.files-warn-icon { flex-shrink: 0; color: var(--danger); font-size: 0.85rem; cursor: help; }
 .files-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .files-name-unchecked { color: var(--muted); text-decoration: line-through; }
 .files-size { color: var(--muted); flex-shrink: 0; margin-left: 8px; }
 
-/* Destination tabs */
-.dest-tabs { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: fit-content; }
-.dest-tab { padding: 7px 18px; font-size: 0.8125rem; font-family: var(--font); cursor: pointer; background: none; border: none; color: var(--muted); }
-.dest-tab.active { background: var(--primary); color: #fff; }
 
 /* Section title */
 .section-title { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 14px; }
@@ -1238,8 +1578,9 @@ watch(() => route.path, (path) => {
 /* ── Step 2 ── */
 .alert-warning { background: var(--warning-bg-light); border: 1px solid var(--warning-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.8125rem; color: var(--warning-text); margin-bottom: 10px; }
 
-/* Blocs pliables */
-.collapsible-block { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px; }
+/* Sections étape 2 (toujours visibles, plus d'accordéon) */
+.import-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(0,0,0,0.45);
@@ -1256,6 +1597,27 @@ watch(() => route.path, (path) => {
 .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 10px; }
 .modal-body { font-size: 0.875rem; color: var(--text); margin-bottom: 8px; line-height: 1.5; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+.similar-series-warning {
+  margin-top: 4px;
+  padding: 10px 12px;
+  background: var(--warning-bg, #fffbeb);
+  border: 1px solid var(--warning-bg, #fffbeb);
+  border-radius: var(--radius-sm);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.similar-series-warning-title { font-size: 0.8rem; color: var(--orange-bar, #b45309); font-weight: 600; line-height: 1.4; }
+.similar-series-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left;
+  padding: 6px 10px;
+  font-size: 0.82rem; font-family: var(--font);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; color: var(--text);
+  transition: background 0.12s, border-color 0.12s;
+}
+.similar-series-option:hover { background: var(--primary-light); border-color: var(--primary-focus-border); color: var(--primary); }
+.similar-series-count { flex-shrink: 0; font-size: 0.75rem; color: var(--muted); }
 .import-file-list { display: flex; flex-direction: column; gap: 6px; }
 .import-file-row {
   border: 1px solid var(--border);
@@ -1285,27 +1647,8 @@ watch(() => route.path, (path) => {
 .import-progress-fill { background: var(--primary); }
 .fill-error { background: var(--danger); }
 .fill-no-transition { transition: none !important; }
-.collapsible-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; background: var(--light); border: none; cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--text); text-align: left; }
-.collapsible-toggle:hover { background: var(--border); }
 .collapsible-hint { font-size: 0.75rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
-.toggle-arrow { font-size: 0.65rem; color: var(--muted); transition: transform 0.15s; display: inline-block; flex-shrink: 0; }
-.toggle-arrow.open { transform: rotate(90deg); }
-.collapsible-body { padding: 12px 14px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
-
-/* Renommage - outillage */
-.field-row { display: flex; align-items: center; gap: 10px; }
 .form-label { font-size: 0.8125rem; color: var(--muted); white-space: nowrap; font-weight: 500; }
-.pattern-input { flex: 1; }
-.tokens-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.token-btn { font-size: 0.75rem; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; color: var(--primary); font-family: monospace; }
-.token-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-.sub-section { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
-.sub-section-label { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.rule-row { display: flex; align-items: center; gap: 6px; }
-.rule-checkbox { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; }
-.rule-input { flex: 1; font-size: 0.78rem; padding: 4px 7px; min-width: 0; }
-.rule-arrow { flex-shrink: 0; color: var(--muted); font-size: 0.8rem; }
-.add-rule-btn { align-self: flex-start; font-size: 0.78rem; }
 
 /* Tableaux internes (communs aux deux blocs) */
 .inner-table-wrap { overflow-x: auto; overflow-y: auto; max-height: 320px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
@@ -1313,21 +1656,8 @@ watch(() => route.path, (path) => {
 .inner-table th { text-align: left; padding: 6px 10px; background: var(--light); color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
 .inner-table td { padding: 4px 10px; border-bottom: 1px solid var(--light); vertical-align: middle; }
 .inner-table tr:last-child td { border-bottom: none; }
-.row-duplicate td { background: var(--warning-bg-light); }
-.row-unchecked td { opacity: 0.45; }
-
-/* Tableau renommage */
-.col-original { width: 42%; }
-.col-rename { width: 46%; }
 .col-size { width: 10%; white-space: nowrap; }
-.td-original { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 0; }
-.td-final { display: flex; align-items: center; gap: 4px; padding: 2px 10px; }
 .td-size { color: var(--muted); }
-.rename-input { flex: 1; min-width: 0; border: none; background: transparent; font-size: 0.78rem; color: var(--text); padding: 2px 0; outline: none; font-family: inherit; border-bottom: 1px solid transparent; }
-.rename-input:focus { border-bottom: 1px solid var(--primary); }
-.rename-input-conflict { color: var(--danger); }
-.conflict-icon { flex-shrink: 0; font-size: 0.78rem; font-weight: 600; color: var(--danger); }
-.badge-dup { flex-shrink: 0; background: #ff8f00; color: #fff; font-size: 0.68rem; padding: 1px 5px; border-radius: 8px; }
 
 /* Édition par lot */
 .batch-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; background: var(--light); border-radius: var(--radius-sm); }
@@ -1337,9 +1667,10 @@ watch(() => route.path, (path) => {
 
 /* Tableau métadonnées */
 .meta-table { min-width: 700px; }
-.col-meta-file { width: 26%; }
+.col-meta-file { width: 21%; }
 .col-meta-series { width: 12%; }
 .col-meta-number { width: 5%; }
+.col-meta-year { width: 6%; }
 .col-meta-title { width: 14%; }
 .col-meta-writer { width: 11%; }
 .col-meta-penciller { width: 11%; }
@@ -1351,12 +1682,17 @@ watch(() => route.path, (path) => {
 .td-meta-scrape { padding: 2px 4px; text-align: center; }
 .meta-input { width: 100%; border: none; background: transparent; font-size: 0.78rem; color: var(--text); padding: 2px 3px; outline: none; font-family: inherit; border-bottom: 1px solid transparent; min-width: 0; }
 .meta-input:focus { border-bottom: 1px solid var(--primary); background: var(--primary-light); }
-.scrape-btn { background: none; border: none; cursor: pointer; font-size: 0.85rem; padding: 2px 4px; border-radius: var(--radius-sm); opacity: 0.5; transition: opacity 0.15s; }
+.scrape-btn { background: none; border: none; cursor: pointer; font-size: 1.15rem; padding: 2px 4px; border-radius: var(--radius-sm); opacity: 0.5; transition: opacity 0.15s; }
 .scrape-btn:hover { opacity: 1; background: var(--light); }
 
 
 /* Step actions */
 .step-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+/* Étape 3 (fin d'import) : décompte détaché sur sa propre ligne, boutons regroupés en dessous
+   — sinon "X fichier(s) importé(s)" se retrouvait collé aux boutons sur la même ligne. */
+.step-actions-final { flex-direction: column; align-items: flex-end; gap: 8px; }
+.step-actions-final .progress-count { margin-bottom: 0; }
+.step-actions-buttons { display: flex; gap: 8px; }
 
 /* Progress */
 .progress-count { font-size: 0.875rem; color: var(--muted); margin-bottom: 8px; }
@@ -1366,11 +1702,49 @@ watch(() => route.path, (path) => {
 
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
 
+/* Combobox recherche de série existante — pas dans une scroll-row, position:absolute ok */
+.series-search-field { position: relative; }
+.series-dropdown {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 20;
+  max-height: 220px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.series-dropdown li { padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.series-dropdown li:hover, .series-option-active { background: var(--primary-light); }
+.series-option-empty { color: var(--muted); cursor: default; }
+.series-option-empty:hover { background: none; }
+.series-option-create { color: var(--vermilion); font-weight: 600; border-top: 1px solid var(--border); margin-top: 2px; padding-top: 8px; }
+.dest-status { font-size: 0.78rem; color: var(--success-text, var(--primary)); margin: 2px 0 0; }
+.modal-bede-field { margin: 14px 0 0; }
+.bede-suggest-loading { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.bede-suggest-list { display: flex; flex-direction: column; gap: 6px; }
+.bede-suggest-card {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; text-align: left;
+  padding: 6px 10px;
+  font-family: var(--font);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; color: var(--text);
+  transition: background 0.12s, border-color 0.12s;
+}
+.bede-suggest-card:hover { background: var(--primary-light); border-color: var(--primary-focus-border); }
+.bede-suggest-selected { background: var(--primary-light); border-color: var(--primary); }
+.bede-suggest-check { flex-shrink: 0; width: 12px; font-size: 0.8rem; font-weight: 700; color: var(--vermilion); }
+.bede-suggest-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bede-suggest-name { font-size: 0.82rem; font-weight: 600; }
+.bede-suggest-meta { font-size: 0.75rem; color: var(--muted); }
+.bede-suggest-link { flex-shrink: 0; font-size: 0.9rem; line-height: 1; color: var(--muted); padding: 2px 4px; text-decoration: none; }
+.bede-suggest-link:hover { color: var(--vermilion); }
+.bede-manual-toggle { display: block; margin-top: 6px; }
+.dest-status-hint { font-size: 0.75rem; color: var(--muted); margin: 2px 0 0; }
+
 /* Formats badge (partagé avec ConverterModal) */
 .fmt-badge { font-size: 0.65rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
 .fmt-cbz { background: var(--success-bg); color: var(--success-text); }
 .fmt-cbr { background: var(--warning-bg); color: var(--orange-bar); }
 .fmt-pdf { background: var(--info-bg); color: var(--info-text); }
+.fmt-arrow { font-size: 0.7rem; color: var(--muted); margin: 0 2px; }
 
 /* Bloc conversion — preset */
 .convert-presets { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

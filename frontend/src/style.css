@@ -5,27 +5,47 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --sidebar-w:    220px;
+  --sidebar-w:    250px;
   --navbar-h:     52px;
 
-  /* Couleurs de surface */
+  /* Couleurs de surface — direction "Affiche" (validée par itération sur TomeFontsColorsTest.vue,
+     pas le brief brut : voir CLAUDE.md / mémoire pour le contexte). Fond papier quasi blanc,
+     à peine teinté. */
   --white:        #ffffff;
-  --surface:      #ffffff;
-  --surface-raised: #ffffff;
-  --light:        #f5f5f5;
-  --border:       #e0e0e0;
+  --surface:      #FEFEFC;
+  --surface-raised: #F8F4EC;
+  --light:        #F2EDE2;
+  /* Canaux séparés de --light — un gradient ne peut pas piocher les composantes RGB d'une
+     variable CSS classique (ex. rgba(var(--light), X) est invalide), donc le fondu du
+     bandeau "hero" (SeriesDetailView.vue) a besoin de cette forme pour rester theme-aware
+     tout en contrôlant l'opacité par palier. Sans ça, il restait figé sur ce ton clair même
+     en thème sombre (texte clair sur fondu clair = illisible). */
+  --light-rgb:    242,237,226;
+  --border:       #E0D8C8;
 
-  /* Texte */
-  --text:         #212121;
-  --muted:        #757575;
-  --placeholder:  #bdbdbd;
+  /* Texte — encre douce plutôt que le navy plein (--primary) : un navy saturé utilisé à la
+     fois pour le texte ET les accents rendait titres/boutons/graphiques indissociables,
+     trop sombre dans l'ensemble. */
+  --text:         #1E2A42;
+  --muted:        #8A8272;
+  --placeholder:  #B8AF9C;
 
-  /* Primaire */
-  --primary:      #1565c0;
-  --primary-dark: #0d47a1;
-  --primary-light:#e3f2fd;
-  --primary-focus: rgba(21,101,192,0.15);
-  --primary-focus-border: #90caf9;
+  /* Primaire (navy structurel) — graphiques, anneaux de survol/sélection, focus. Distinct de
+     --text (plus clair) pour ne pas fusionner avec le texte en un seul bloc sombre. */
+  --primary:      #4A6C93;
+  --primary-dark: #35507A;
+  --primary-light:#E4E8F0;
+  --primary-focus: rgba(74,108,147,0.2);
+  --primary-focus-border: #4A6C93;
+
+  /* Vermillon (accent secondaire) — boutons, badges, liens, item de nav actif, étoiles
+     "Ma note". Toujours une petite surface (texte, contour, pastille), jamais un aplat large
+     comme les graphiques (trop dense/criard en répétition — voir page Statistiques). */
+  --vermilion:      #D9411E;
+  --vermilion-dark:  #B23417;
+  --vermilion-light: #F7E3DC;
+  /* Accent tertiaire — à utiliser avec parcimonie (ex: étoiles de la note Bedetheque.com). */
+  --ochre:        #E9C46A;
 
   /* Sémantiques */
   --success:      #2e7d32;
@@ -48,19 +68,18 @@
   --info-bg:      #b3e5fc;
   --info-text:    #01579b;
 
-  /* Sidebar */
+  /* Sidebar — légère teinte vermillon sur l'item actif plutôt que le bleu par défaut. */
   --sidebar-bg:   #fafafa;
   --sidebar-hover:#eeeeee;
-  --sidebar-active:#e3f2fd;
+  --sidebar-active:#F5E4DC;
 
   /* Misc */
   --scrollbar:    #bdbdbd;
   --scrollbar-hover: #9e9e9e;
   --overlay-bg:   rgba(0,0,0,0.5);
-  --overlay-btn-bg: rgba(255,255,255,0.93);
   --reader-bg:    #000000;
-  --star-empty:   #e0e0e0;
-  --star-filled:  #f59e0b;
+  --star-empty:   #E0D8C8;
+  --star-filled:  var(--vermilion);
   --orange-bar:   #e65100;
   --green-bar:    #2e7d32;
   --link-hover-bg: #bbdefb;
@@ -73,26 +92,49 @@
   --radius-sm:    4px;
   --radius-lg:    10px;
   --transition:   0.15s ease;
-  --font:         system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font:         'Work Sans', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Réservée aux titres/valeurs affichées en grand (voir CLAUDE.md) — jamais pour du texte
+     courant. Poids 400 uniquement (seul disponible), donc toujours combinée à
+     text-transform: uppercase pour un rendu voulu plutôt que "cassé". */
+  --font-display: 'Bebas Neue', sans-serif;
+  /* Réservée aux chiffres/compteurs (compteurs de nav, stats, pourcentages, raccourcis
+     clavier...) — jamais pour du texte courant. Donne un rendu "précis" distinct du corps de
+     texte, idée reprise d'une maquette de comparaison. */
+  --font-mono:    'IBM Plex Mono', ui-monospace, Menlo, monospace;
 }
 
 /* ── Thème sombre ───────────────────────────────────────────── */
 [data-theme="dark"] {
+  /* Palette proposée par le brief lui-même (§6 "Points à trancher") : fond #0F192E,
+     surfaces #14213D, texte #EDE7DA, vermillon conservé tel quel, filets #243352. */
   --white:        #1e1e2e;
-  --surface:      #1e1e2e;
-  --surface-raised: #2a2a3e;
-  --light:        #2a2a3e;
-  --border:       #3d3d5c;
+  --surface:      #0F192E;
+  --surface-raised: #14213D;
+  --light:        #1A2A4A;
+  --light-rgb:    26,42,74;
+  --border:       #243352;
 
-  --text:         #e2e2f0;
+  --text:         #EDE7DA;
+  /* Ancienne teinte bleu-gris du thème sombre d'origine — plus lisible que le ton chaud
+     tenté avec la direction "Affiche", trop proche en luminosité du fond. */
   --muted:        #9090b0;
-  --placeholder:  #5a5a7a;
+  --placeholder:  #6B6456;
 
-  --primary:      #5b9bd5;
-  --primary-dark: #4a86c4;
-  --primary-light:#1a2a4a;
-  --primary-focus: rgba(91,155,213,0.2);
-  --primary-focus-border: #5b9bd5;
+  /* Navy plein illisible sur un fond déjà navy — bleu acier plus clair pour rester
+     identifiable comme couleur "principale" (structurel : graphiques, survol, focus). Survol
+     plus clair (pas plus sombre) : convention usuelle sur fond sombre pour rester perceptible. */
+  --primary:      #5B7FA6;
+  --primary-dark: #7FA0C4;
+  --primary-light:#1E2D4D;
+  --primary-focus: rgba(91,127,166,0.3);
+  --primary-focus-border: #5B7FA6;
+
+  /* Vermillon (accent secondaire) — même rôle qu'en clair (boutons/badges/liens/nav actif).
+     Survol plus clair pour rester perceptible sur fond déjà sombre. */
+  --vermilion:      #D9411E;
+  --vermilion-dark:  #E8623F;
+  --vermilion-light: #33231D;
+  --ochre:        #E9C46A;
 
   --success:      #66bb6a;
   --success-bg:   #1a3a1a;
@@ -114,17 +156,20 @@
   --info-bg:      #0d2a3a;
   --info-text:    #b3e5fc;
 
-  --sidebar-bg:   #16162a;
-  --sidebar-hover:#252538;
-  --sidebar-active:#1a2a4a;
+  /* Alignée sur --surface-raised plutôt qu'un gris neutre indépendant : le vrai
+     AppLayout.vue colore sidebar ET contenu avec la même variable --text
+     (.nav-item { color: var(--text) }), donc sidebar et contenu doivent rester dans la
+     même catégorie de luminosité pour que --text reste lisible partout. */
+  --sidebar-bg:   #14213D;
+  --sidebar-hover:#1A2A4A;
+  --sidebar-active:#2A1810;
 
   --scrollbar:    #4a4a6a;
   --scrollbar-hover: #6a6a8a;
   --overlay-bg:   rgba(0,0,0,0.75);
-  --overlay-btn-bg: rgba(30,30,46,0.93);
   --reader-bg:    #000000;
-  --star-empty:   #4a4a6a;
-  --star-filled:  #f59e0b;
+  --star-empty:   #243352;
+  --star-filled:  var(--vermilion);
   --orange-bar:   #ff8a65;
   --green-bar:    #66bb6a;
   --link-hover-bg: #1a2a4a;
@@ -135,7 +180,16 @@
   --shadow-lg:    0 4px 18px rgba(0,0,0,0.5);
 }
 
-html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+/* Chevron de select.form-control (voir plus haut) — variante sombre, --muted: #9090b0. */
+[data-theme="dark"] select.form-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239090b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* scrollbar-gutter réserve la place de la barre de défilement verticale même quand elle
+   n'est pas affichée (page assez courte pour tenir dans le viewport) — sans ça, la largeur
+   disponible pour tout élément pleine largeur (ex. .series-hero) varie de la largeur de la
+   barre selon les pages, un décalage bien plus visible depuis les bandeaux "hero". */
+html { font-size: 16px; -webkit-font-smoothing: antialiased; scrollbar-gutter: stable; }
 body {
   background-color: var(--light);
   color: var(--text);
@@ -146,8 +200,13 @@ body {
 #app { min-height: 100vh; display: flex; flex-direction: column; }
 
 h1,h2,h3,h4,h5,h6 { font-weight: 600; line-height: 1.25; color: var(--text); }
-a { color: var(--primary); text-decoration: none; }
+a { color: var(--vermilion); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* .btn/.more-item/.hero-btn appliqués à un <a> (ex. liens de téléchargement) : ce sont des
+   boutons, pas des liens de texte — la règle a:hover ci-dessus ne doit pas s'y appliquer,
+   sinon ils se soulignent au survol contrairement à tous les autres boutons du même menu/de
+   la même barre d'actions. */
+a.btn:hover, a.more-item:hover, a.hero-btn:hover { text-decoration: none; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--light); }
@@ -164,8 +223,8 @@ a:hover { text-decoration: underline; }
   text-decoration: none; white-space: nowrap; user-select: none;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-.btn-primary    { background: var(--primary); color: #fff; border-color: var(--primary); }
-.btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+.btn-primary    { background: var(--vermilion); color: #fff; border-color: var(--vermilion); }
+.btn-primary:hover:not(:disabled) { background: var(--vermilion-dark); }
 .btn-secondary  { background: var(--surface); color: var(--text); border-color: var(--border); }
 .btn-secondary:hover:not(:disabled) { background: var(--light); }
 .btn-danger     { background: var(--danger); color: #fff; border-color: var(--danger); }
@@ -174,6 +233,23 @@ a:hover { text-decoration: underline; }
 .btn-sm  { padding: 3px 10px; font-size: 0.8125rem; }
 .btn-icon{ padding: 6px; line-height: 1; }
 .btn-icon.btn-sm { padding: 4px; }
+.btn-icon-svg { font-size: 13px; vertical-align: middle; margin-right: 3px; }
+
+/* ── Boutons flottants sur cover (Modifier/Plus d'options…) ────────────────
+   Icône seule, sans rond de fond — un blanc + ombre portée pour rester lisible
+   sur n'importe quelle image de couverture. Partagé par SeriesCard, BooksView,
+   SeriesDetailView, HomeView. */
+.overlay-btn {
+  width: 30px; height: 30px;
+  background: none; border: none; cursor: pointer;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s, color 0.12s;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+  flex-shrink: 0;
+}
+.overlay-btn:hover { transform: scale(1.15); }
+.overlay-btn-active { color: var(--primary-focus-border); }
 
 /* ── Forms ───────────────────────────────────────────────── */
 .form-control {
@@ -188,6 +264,18 @@ a:hover { text-decoration: underline; }
 .form-control::placeholder { color: var(--placeholder); }
 .form-control[readonly],.form-control:disabled { background: var(--light); opacity: 0.7; cursor: not-allowed; }
 textarea.form-control { resize: vertical; min-height: 72px; }
+/* Chevron discret pour les <select> — "appearance: none" ci-dessus retire la flèche native
+   du navigateur sans rien remettre à la place, ce qui les faisait ressembler à de simples
+   champs texte. Couleur figée en dur (pas var(--muted)) : une image de fond SVG en data URI
+   ne peut pas résoudre une custom property CSS, donc une variante par thème est nécessaire
+   (voir [data-theme="dark"] plus bas). */
+select.form-control {
+  padding-right: 32px;
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238A8272' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
 .form-label { display: block; margin-bottom: 5px; font-size: 0.8125rem; font-weight: 500; color: var(--muted); }
 
 /* ── Card ────────────────────────────────────────────────── */

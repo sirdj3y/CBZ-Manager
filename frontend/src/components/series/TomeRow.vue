@@ -127,7 +127,7 @@ const formatBadgeClass = {
 .tome-number {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--vermilion);
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
 }

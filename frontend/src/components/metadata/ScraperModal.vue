@@ -1,27 +1,50 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import ScraperResultCard from './ScraperResultCard.vue'
+import SvgIcon from '../SvgIcon.vue'
 import { scraperApi } from '../../api/scraper'
 
 const props = defineProps({
   series: String,
   number: String,
+  // Série locale déjà identifiée (édition d'un album existant, ou import dans une série
+  // existante) — permet à la recherche Bedetheque d'utiliser directement son URL confirmée
+  // au lieu de deviner la bonne série par son nom.
+  seriesId: { type: Number, default: null },
+  // Titre propre du tome — utilisé comme requête par défaut à la place de série+numéro
+  // quand isOneshot est vrai (série+numéro n'a aucun sens pour un album indépendant, voir
+  // Tome.is_oneshot).
+  title: { type: String, default: '' },
+  isOneshot: { type: Boolean, default: false },
 })
 const emit = defineEmits(['select', 'close'])
 
-const tab = ref('google')
+const tab = ref('bedetheque')
 const query = ref('')
 const results = ref([])
 const loading = ref(false)
 const error = ref('')
 const selectedResult = ref(null)
+// Tant que l'utilisateur n'a pas modifié la requête pré-remplie, la série/son id confirmé
+// peuvent servir de raccourci (voir search()). Dès qu'il tape lui-même quelque chose, sa
+// saisie doit être LA recherche réelle — plus aucun terme caché (série) injecté en douce,
+// même si elle reste correctement renseignée pour d'autres usages (préremplissage du champ
+// Série au moment d'appliquer un résultat, etc.). Un set() programmatique (v-model depuis
+// le script) ne déclenche pas l'évènement natif "input" du champ — seule une vraie saisie
+// au clavier passe cet indicateur à true.
+const userEdited = ref(false)
 
 function onKeydown(e) {
   if (e.key === 'Escape') emit('close')
 }
 
 onMounted(() => {
-  query.value = [props.series, props.number].filter(Boolean).join(' ')
+  // Un one-shot n'a ni série ni numéro (voir Tome.is_oneshot) — jamais de repli sur ces
+  // champs ici, même si le titre n'a pas pu être déterminé (le champ reste alors vide,
+  // modifiable à la main, plutôt que de chercher sur un nom de série qui n'a pas de sens).
+  query.value = props.isOneshot
+    ? (props.title || '')
+    : [props.series, props.number].filter(Boolean).join(' ')
   if (query.value) search()
   window.addEventListener('keydown', onKeydown)
 })
@@ -35,9 +58,18 @@ async function search() {
   loading.value = true
   results.value = []
   error.value = ''
+  // Raccourci "série déjà confirmée" (voir routers/scraper.py::scrape_bedetheque) réservé à
+  // la recherche automatique initiale — dès que l'utilisateur a modifié la requête, une
+  // recherche libre réelle est forcée, jamais silencieusement remplacée par les albums
+  // d'une série qui n'a plus forcément de rapport avec ce qu'il tape.
+  const series = userEdited.value ? undefined : props.series
+  const seriesId = userEdited.value ? undefined : props.seriesId
   try {
-    const api = tab.value === 'google' ? scraperApi.searchGoogleBooks : scraperApi.searchComicVine
-    const { data } = await api(query.value, props.series, props.number)
+    const { data } = tab.value === 'google'
+      ? await scraperApi.searchGoogleBooks(query.value, series, props.number)
+      : tab.value === 'comicvine'
+      ? await scraperApi.searchComicVine(query.value, series)
+      : await scraperApi.searchBedetheque(query.value, series, seriesId)
     results.value = data
   } catch (e) {
     error.value = e.response?.data?.detail || 'Erreur de connexion à l\'API'
@@ -68,7 +100,7 @@ function apply() {
       <!-- Tabs -->
       <div class="modal-tabs">
         <button
-          v-for="t in [{id:'google', label:'Google Books'}, {id:'comicvine', label:'ComicVine'}]"
+          v-for="t in [{id:'bedetheque', label:'Bedetheque'}, {id:'google', label:'Google Books'}, {id:'comicvine', label:'ComicVine'}]"
           :key="t.id"
           @click="tab = t.id; search()"
           :class="['modal-tab', { 'modal-tab-active': tab === t.id }]"
@@ -82,9 +114,10 @@ function apply() {
           type="text"
           class="form-control"
           placeholder="Titre de la série…"
+          @input="userEdited = true"
           @keydown.enter="search"
         />
-        <button @click="search" class="btn btn-primary btn-sm">🔍</button>
+        <button @click="search" class="btn btn-primary btn-sm"><SvgIcon name="search" /></button>
       </div>
 
       <!-- Results -->

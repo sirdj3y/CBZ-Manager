@@ -9,20 +9,23 @@ services:
     ports:
       - "5173:32123"
     volumes:
-      - cmw_data:/data
-      # Remplacez le chemin ci-dessous par celui de votre dossier de comics
-      # Exemple Mac/Linux : - /Users/votrenom/Comics:/media
-      # Exemple NAS Synology : - /volume1/BD:/media
-      # Remplacez ce chemin par celui de votre dossier de comics
-      # Exemple NAS Synology : - /volume1/BD:/media
-      - /chemin/vers/vos/comics:/media:ro
+      # Données de l'app (BDD + cache des couvertures) — dossier normal à côté de celui-ci,
+      # visible et inclus dans vos sauvegardes habituelles. Créé automatiquement au démarrage.
+      - ./data:/data
+      # Dossier de comics : définissez COMICS_DIR dans votre .env (défaut : ./data/comics)
+      # Exemple Mac/Linux : COMICS_DIR=/Users/votrenom/Comics
+      # Exemple NAS Synology : COMICS_DIR=/volume1/BD
+      - ${COMICS_DIR:-./data/comics}:/media
     env_file:
       - .env
     environment:
       - MEDIA_ROOT=/media
       - DB_PATH=/data/cbzmanager.db
       - COVER_CACHE_DIR=/data/covers
-
-volumes:
-  cmw_data:
-    driver: local
+      # Utilisateur système exécutant l'app dans le conteneur (non-root). Par défaut
+      # 1000:1000 — à adapter à votre NAS pour que ./data et /media restent lisibles
+      # avec votre propre compte (ex. Synology : `id votre_user`). Définissez PUID/PGID
+      # dans votre .env local (jamais dans ce fichier) — l'app vous avertira au démarrage
+      # (logs + bandeau dans l'UI) si l'identité ne correspond pas au dossier média.
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}

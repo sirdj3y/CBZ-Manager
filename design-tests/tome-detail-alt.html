@@ -146,7 +146,8 @@
   .tome-hero-wash { position: absolute; inset: 0; opacity: .5; }
   .tome-hero-inner { position: relative; display: flex; gap: 36px; padding: 40px; align-items: flex-start; }
 
-  /* Cover + actions secondaires */
+  /* Cover + progression de lecture (déplacée ici, sous la cover, plutôt que dans la
+     colonne de droite) */
   .tome-cover-wrap { flex: none; width: 220px; }
   .tome-cover-box {
     aspect-ratio: 0.71; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow);
@@ -154,13 +155,14 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 2.6rem; color: var(--placeholder);
   }
-  .tome-cover-actions { display: flex; gap: 8px; margin-top: 12px; }
-  .tome-cover-actions .hero-btn { flex: 1; justify-content: center; padding: 9px 6px; font-size: 0.72rem; }
+  .tome-cover-wrap .tome-progress { margin-top: 12px; }
+  .tome-cover-wrap .tome-progress-top { font-size: 0.72rem; }
 
   /* Colonne info */
   .tome-info { flex: 1; min-width: 0; }
-  .tome-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .tome-eyebrow-logo { height: 24px; width: auto; display: block; }
+  .tome-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  /* Agrandi (24 → 34px) : trop discret à côté du titre en Bebas Neue juste en dessous. */
+  .tome-eyebrow-logo { height: 34px; width: auto; display: block; }
   .tome-eyebrow-sep { width: 1px; height: 14px; background: rgba(30,42,66,.25); }
   .tome-eyebrow-num { font: 700 0.72rem var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 
@@ -187,6 +189,12 @@
   .tome-credit-value a { color: var(--vermilion); }
 
   .tome-desc { font-size: 0.9375rem; line-height: 1.6; color: var(--text); opacity: .85; max-width: 560px; margin-bottom: 22px; }
+  /* Repris tel quel de .resume-more-link (SeriesDetailView.vue/TomeDetailView.vue) — le
+     résumé réel est tronqué à 450 caractères (voir utils/text.js::truncateForReadMore) avec
+     ce lien à la suite plutôt qu'un dépliant en place, pour garder l'ellipse et le lien
+     toujours visibles sur la même ligne. */
+  .resume-more-link { margin-left: 4px; font-size: 0.8125rem; font-weight: 600; color: var(--vermilion); white-space: nowrap; }
+  .resume-more-link:hover { text-decoration: underline; }
 
   .hero-btn {
     display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
@@ -198,11 +206,9 @@
   .hero-btn-outline { background: var(--surface); color: var(--text); border-color: var(--border); }
   .hero-btn-outline:hover { background: var(--light); }
   .hero-btn-icon { padding: 10px; }
-  .tome-actions-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+  .tome-actions-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
 
-  /* Progression + notes, côte à côte comme sur le modèle fourni */
-  .tome-progress-row { display: flex; align-items: flex-end; gap: 40px; flex-wrap: wrap; }
-  .tome-progress { flex: 1; min-width: 220px; max-width: 420px; }
+  /* Barre de progression — utilisée sous la cover (voir .tome-cover-wrap plus haut) */
   .tome-progress-top { display: flex; justify-content: space-between; font: 600 0.78rem var(--font); color: var(--text); opacity: .75; margin-bottom: 7px; }
   .tome-progress-top strong { opacity: 1; }
   .tome-progress-track { height: 6px; border-radius: 3px; background: rgba(30,42,66,.14); overflow: hidden; }
@@ -223,6 +229,20 @@
   .tome-bd-stars-fill { position: absolute; inset: 0; overflow: hidden; color: var(--star-filled); }
   .tome-rating-val { font: 700 0.8rem var(--font); color: var(--text); }
 
+  /* Personnage à droite — remplace l'idée d'un fond photo pleine largeur (jugé trop chargé
+     pour un album) par une image détourée, dans l'esprit "key art" façon Netflix/Plex : plus
+     distinctif qu'un simple dégradé, sans les problèmes de lisibilité d'une vraie photo de
+     fond. Fondu sur son propre bord gauche (mask-image) pour se fondre dans la carte plutôt
+     que de couper net — la teinte du dégradé (.tome-hero-wash) reste dessous comme base. */
+  .tome-hero-character {
+    position: absolute; right: 12px; bottom: 0;
+    height: 100%; width: auto; max-width: 46%;
+    object-fit: contain; object-position: bottom right;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 32%);
+    mask-image: linear-gradient(to right, transparent 0%, black 32%);
+    pointer-events: none;
+  }
+
   /* ── Cartes d'info (mêmes tokens que .card) ── */
   .info-cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
   .info-card {
@@ -238,6 +258,31 @@
     .tome-cover-wrap { width: 200px; }
   }
 
+  /* ── Plus dans cette série (repris tel quel de TomeDetailView.vue) ── */
+  .series-siblings { margin-top: 24px; margin-bottom: 20px; }
+  .siblings-title {
+    font-family: var(--font-display); font-weight: 400; text-transform: uppercase;
+    font-size: 0.95rem; color: var(--text); margin-bottom: 10px;
+  }
+  .siblings-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+  .sibling-card {
+    position: relative; flex-shrink: 0; width: 100px; cursor: pointer;
+    border-radius: var(--radius-sm); overflow: hidden;
+    border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+  }
+  .sibling-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+  .sibling-current { border-color: var(--primary); box-shadow: 0 0 0 1.5px var(--primary); }
+  .sibling-cover {
+    width: 100%; aspect-ratio: 0.71; display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; background: var(--light); color: var(--placeholder);
+  }
+  .sibling-badge {
+    position: absolute; top: 5px; right: 5px; padding: 1px 6px;
+    background: rgba(255,255,255,0.92); color: #212121;
+    font-size: 0.66rem; font-weight: 700; border-radius: 4px;
+  }
+
   .demo-note {
     max-width: 640px; margin: 0 auto 20px; text-align: center;
     font-size: 0.8rem; color: var(--muted);
@@ -246,7 +291,7 @@
 </head>
 <body>
 
-  <div class="test-banner">🧪 Page de test — fiche album sur le même principe que la fiche série (v2), fond image non réutilisé ici (pas d'illustration par album), juste une touche de couleur reprise de la série. Données fictives « Thorgal ». N'affecte pas l'application réelle.</div>
+  <div class="test-banner">🧪 Page de test — fiche album sur le même principe que la fiche série (v2) : pas de fond photo (pas d'illustration par album), un personnage détouré à droite à la place, sur une touche de couleur reprise de la série. Données fictives « Thorgal ». N'affecte pas l'application réelle.</div>
 
   <div class="app-shell">
 
@@ -294,7 +339,7 @@
           <span class="nav-label">Statistiques</span>
         </div>
         <div class="nav-item">
-          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 21H3"/></svg></span>
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg></span>
           <span class="nav-label">Importer</span>
         </div>
       </nav>
@@ -341,25 +386,23 @@
         <!-- ── Hero album ── -->
         <section class="tome-hero">
           <div class="tome-hero-wash" id="tomeWash"></div>
+          <img class="tome-hero-character" src="assets/thorgal-character.png" alt="">
           <div class="tome-hero-inner">
 
             <div class="tome-cover-wrap">
               <div class="tome-cover-box">📖</div>
-              <div class="tome-cover-actions">
-                <button class="hero-btn hero-btn-outline">
-                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-                  Marquer lu
-                </button>
-                <button class="hero-btn hero-btn-outline">
-                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M6 12H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-2"/><path d="m8 11 4 4 4-4"/></svg></span>
-                  Exporter
-                </button>
+              <div class="tome-progress">
+                <div class="tome-progress-top">
+                  <span>Page 26 sur 48</span>
+                  <span>55 %</span>
+                </div>
+                <div class="tome-progress-track"><div class="tome-progress-fill" style="width:55%"></div></div>
               </div>
             </div>
 
             <div class="tome-info">
               <div class="tome-eyebrow">
-                <img class="tome-eyebrow-logo" src="assets/donald-logo.png" alt="Thorgal">
+                <img class="tome-eyebrow-logo" src="assets/thorgal-logo.png" alt="Thorgal">
                 <span class="tome-eyebrow-sep"></span>
                 <span class="tome-eyebrow-num">Tome 13 sur 41</span>
               </div>
@@ -367,9 +410,9 @@
               <h1 class="tome-title">Entre terre et lumière</h1>
 
               <div class="tome-meta">
-                <span>1988</span><span class="tome-meta-sep">•</span>
-                <span>48 pages</span><span class="tome-meta-sep">•</span>
-                <span>Heroic fantasy</span><span class="tome-meta-sep">•</span>
+                <span>1988</span><span class="tome-meta-sep">&nbsp;•&nbsp;</span>
+                <span>48 pages</span><span class="tome-meta-sep">&nbsp;•&nbsp;</span>
+                <span>Heroic fantasy</span><span class="tome-meta-sep">&nbsp;•&nbsp;</span>
                 <span class="tome-fmt-badge">CBZ · 40,6 Mo</span>
               </div>
 
@@ -388,7 +431,7 @@
                 </div>
               </div>
 
-              <p class="tome-desc">Thorgal a perdu la mémoire. Recueilli par un village de pêcheurs, il ignore tout d'Aaricia et de ses enfants, tandis que la mer et les dieux resserrent leur étau autour des siens.</p>
+              <p class="tome-desc">Thorgal a perdu la mémoire. Recueilli par un village de pêcheurs, il ignore tout d'Aaricia et de ses enfants, tandis que la mer et les dieux resserrent leur étau autour des siens. Pendant ce temps, sur l'île de son enfance, Aaricia refuse de perdre espoir et part à sa recherche envers et contre tous, bravant les superstitions d'un peuple qui la croit maudite. Entre trahisons, naufrages et prophéties anciennes, le destin des deux amants se joue…<a href="#" class="resume-more-link">Lire la suite</a></p>
 
               <div class="tome-actions-row">
                 <button class="hero-btn hero-btn-primary">
@@ -404,30 +447,20 @@
                 </button>
               </div>
 
-              <div class="tome-progress-row">
-                <div class="tome-progress">
-                  <div class="tome-progress-top">
-                    <span>Page 26 sur 48</span>
-                    <span>55 %</span>
-                  </div>
-                  <div class="tome-progress-track"><div class="tome-progress-fill" style="width:55%"></div></div>
+              <div class="tome-ratings">
+                <div class="tome-rating-block">
+                  <span class="tome-rating-label">Ma note</span>
+                  <span class="tome-rating-stars">
+                    <span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span>★</span>
+                  </span>
                 </div>
-
-                <div class="tome-ratings">
-                  <div class="tome-rating-block">
-                    <span class="tome-rating-label">Ma note</span>
-                    <span class="tome-rating-stars">
-                      <span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span>★</span>
-                    </span>
-                  </div>
-                  <div class="tome-rating-block">
-                    <span class="tome-rating-label">Bedetheque.com</span>
-                    <span class="tome-bd-stars">
-                      <span class="tome-bd-stars-bg">★★★★★</span>
-                      <span class="tome-bd-stars-fill" style="width:86%">★★★★★</span>
-                    </span>
-                    <span class="tome-rating-val">4,3/5 · 61 avis</span>
-                  </div>
+                <div class="tome-rating-block">
+                  <span class="tome-rating-label">Bedetheque.com</span>
+                  <span class="tome-bd-stars">
+                    <span class="tome-bd-stars-bg">★★★★★</span>
+                    <span class="tome-bd-stars-fill" style="width:86%">★★★★★</span>
+                  </span>
+                  <span class="tome-rating-val">4,3/5 · 61 avis</span>
                 </div>
               </div>
             </div>
@@ -460,6 +493,12 @@
           </div>
         </section>
 
+        <!-- ── Plus dans cette série — repris tel quel de TomeDetailView.vue -->
+        <div class="series-siblings">
+          <p class="siblings-title">Plus dans « Thorgal »</p>
+          <div class="siblings-row" id="siblingsRow"></div>
+        </div>
+
       </main>
     </div>
   </div>
@@ -479,6 +518,18 @@
     return VARIANTS[h % VARIANTS.length]
   }
   document.getElementById('tomeWash').style.background = GRADIENTS[variantFor('Thorgal')]
+
+  // "Plus dans « Thorgal »" — 41 tomes réels pour la série, on n'a besoin ici que d'assez
+  // de cartes pour montrer le défilement horizontal.
+  const siblingsRow = document.getElementById('siblingsRow')
+  for (let n = 9; n <= 17; n++) {
+    const card = document.createElement('a')
+    card.href = '#'
+    card.className = 'sibling-card' + (n === 13 ? ' sibling-current' : '')
+    card.title = 'Thorgal T' + n
+    card.innerHTML = `<div class="sibling-cover">📖</div><span class="sibling-badge">T${n}</span>`
+    siblingsRow.appendChild(card)
+  }
 </script>
 
 </body>

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { libraryApi } from '../api/library'
 import { useTomesStore } from './tomes'
+import { normalizeSearch, sortTitle } from '../utils/text'
 
 export const useLibraryStore = defineStore('library', () => {
   const series = ref([])
@@ -14,32 +15,30 @@ export const useLibraryStore = defineStore('library', () => {
   const scanJobId = ref(null)
   const scanProgress = ref({ processed: 0, total: 0, status: 'idle' })
 
-  function norm(s) {
-    return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  }
-
   const filteredSeries = computed(() => {
     let list = series.value
     const f = filters.value
 
     // Recherche par nom
     if (search.value.trim()) {
-      const q = norm(search.value)
-      list = list.filter(s => norm(s.name).includes(q))
+      const q = normalizeSearch(search.value)
+      list = list.filter(s => normalizeSearch(s.name).includes(q))
     }
 
     // Filtres textuels — cherche dans toutes les valeurs agrégées de la série
-    if (f.writer)    list = list.filter(s => (s.writers || []).some(w => norm(w).includes(norm(f.writer))))
-    if (f.penciller) list = list.filter(s => (s.pencillers || []).some(p => norm(p).includes(norm(f.penciller))))
-    if (f.publisher) list = list.filter(s => (s.publishers || []).some(p => norm(p).includes(norm(f.publisher))))
-    if (f.tag)       list = list.filter(s => (s.tags || []).some(t => norm(t).includes(norm(f.tag))))
+    if (f.writer)    list = list.filter(s => (s.writers || []).some(w => normalizeSearch(w).includes(normalizeSearch(f.writer))))
+    if (f.penciller) list = list.filter(s => (s.pencillers || []).some(p => normalizeSearch(p).includes(normalizeSearch(f.penciller))))
+    if (f.publisher) list = list.filter(s => (s.publishers || []).some(p => normalizeSearch(p).includes(normalizeSearch(f.publisher))))
+    if (f.tag)       list = list.filter(s => (s.tags || []).some(t => normalizeSearch(t).includes(normalizeSearch(f.tag))))
+    if (f.genre)     list = list.filter(s => (s.genres || []).some(g => normalizeSearch(g).includes(normalizeSearch(f.genre))))
     if (f.noMeta)    list = list.filter(s => s.has_tomes_without_meta)
+    if (f.classification) list = list.filter(s => s.classification === f.classification)
 
     // Sort
     const sorted = [...list]
     const dir = sortDir.value === 'asc' ? 1 : -1
     if (sortBy.value === 'name') {
-      sorted.sort((a, b) => dir * a.name.localeCompare(b.name, 'fr'))
+      sorted.sort((a, b) => dir * sortTitle(a.name).localeCompare(sortTitle(b.name), 'fr'))
     } else if (sortBy.value === 'tomes') {
       sorted.sort((a, b) => dir * ((a.tome_count ?? 0) - (b.tome_count ?? 0)))
     } else if (sortBy.value === 'added') {
@@ -60,24 +59,46 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  let scanSource = null
+
   async function triggerScan() {
     const { data } = await libraryApi.startScan()
+
+    // Backend dedups concurrent scans (returns the running job's id) — if we're already
+    // streaming that same job, don't open a second EventSource on top of it.
+    if (scanSource && data.job_id === scanJobId.value) {
+      return scanJobId.value
+    }
+    if (scanSource) {
+      scanSource.close()
+      scanSource = null
+    }
+
     scanJobId.value = data.job_id
     scanProgress.value = { processed: 0, total: 0, status: 'running' }
 
     const source = new EventSource(`/api/scan/${data.job_id}/stream`, { withCredentials: true })
+    scanSource = source
     source.onmessage = (e) => {
       const d = JSON.parse(e.data)
       scanProgress.value = d
       if (d.status === 'done') {
         source.close()
+        if (scanSource === source) scanSource = null
         fetchSeries()
         useTomesStore().fetchAllTomes()
       } else if (d.status === 'error') {
         source.close()
+        if (scanSource === source) scanSource = null
       }
     }
-    source.onerror = () => source.close()
+    source.onerror = () => {
+      source.close()
+      if (scanSource === source) scanSource = null
+      if (scanProgress.value.status === 'running') {
+        scanProgress.value = { ...scanProgress.value, status: 'error' }
+      }
+    }
 
     return data.job_id
   }
@@ -88,12 +109,14 @@ export const useLibraryStore = defineStore('library', () => {
   })
 
   // Auteurs connus (objets {name, tomes, series}) pour la page auteurs
-  const authors = ref({ authors: [], publishers: [] })
+  const authors = ref({ authors: [], publishers: [], genres: [], tags: [] })
   // Noms seuls pour l'autocomplétion
   const authorNames = computed(() => ({
     writers:    authors.value.authors.map(a => a.name),
     pencillers: authors.value.authors.map(a => a.name),
     publishers: authors.value.publishers.map(a => a.name),
+    genres:     authors.value.genres || [],
+    tags:       authors.value.tags || [],
   }))
   async function fetchAuthors() {
     try {

@@ -1,26 +1,94 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import ContentToolbar from '../components/layout/ContentToolbar.vue'
 import SeriesCard from '../components/library/SeriesCard.vue'
 import SeriesMetadataModal from '../components/metadata/SeriesMetadataModal.vue'
+import SeriesEnrichModal from '../components/metadata/SeriesEnrichModal.vue'
 import RenameModal from '../components/rename/RenameModal.vue'
 import ConverterModal from '../components/converter/ConverterModal.vue'
 import CoverPickerModal from '../components/library/CoverPickerModal.vue'
 import { useLibraryStore } from '../stores/library'
 import { libraryApi } from '../api/library'
+import { tomesApi } from '../api/tomes'
 import { useNotificationStore } from '../stores/notifications'
+import { useAuthStore } from '../stores/auth'
+import { sortTomesByNumber } from '../utils/tomeSort'
+import { sortTitle } from '../utils/text'
 
 const library = useLibraryStore()
 const notif = useNotificationStore()
+const authStore = useAuthStore()
+const route = useRoute()
+
+// Reprend les liens Dessinateur/Scénariste/Éditeur/Genre poussés depuis SeriesDetailView.vue
+// (ex: router.push('/series?penciller=Uderzo')) — jusqu'ici jamais lus, ces liens ne
+// filtraient donc rien (même mécanisme que BooksView.vue).
+function syncFromQuery() {
+  const q = route.query
+  if (q.writer || q.penciller || q.publisher || q.tag || q.genre || q.classification) {
+    library.filters = {
+      writer: q.writer || '',
+      penciller: q.penciller || '',
+      publisher: q.publisher || '',
+      tag: q.tag || '',
+      genre: q.genre || '',
+      classification: q.classification || '',
+    }
+  }
+}
+onMounted(syncFromQuery)
+watch(() => route.query, syncFromQuery)
 
 const activeLetter = ref('')
 const selectedSeries = ref(null)
 const showSeriesMeta = ref(false)
+const showEnrich = ref(false)
 const showRename = ref(false)
 const showConverter = ref(false)
 const showCoverPicker = ref(false)
 const confirmDeleteSeries = ref(null) // series object to delete
+
+// Sélection multiple — cercle sur chaque cover, même mécanique que la page Albums. Les
+// cercles ne sont visibles que si "Sélectionner" est activé (bouton en haut à droite) —
+// désactiver ce mode vide aussi la sélection en cours.
+const selectedIds = reactive(new Set())
+const selectMode = ref(false)
+const confirmBulkDelete = ref(false)
+const bulkDeleting = ref(false)
+function toggleSelect(series) {
+  if (selectedIds.has(series.id)) selectedIds.delete(series.id)
+  else selectedIds.add(series.id)
+}
+function clearSelection() { selectedIds.clear(); selectMode.value = false }
+watch(selectMode, (v) => { if (!v) selectedIds.clear() })
+
+// Échap désélectionne — mais seulement si aucune popup n'est ouverte au-dessus (chacune gère
+// déjà son propre Échap pour se refermer en premier, ex. SeriesMetadataModal/RenameModal).
+function onSelectionEscape(e) {
+  if (e.key !== 'Escape' || !selectedIds.size) return
+  if (showSeriesMeta.value || showEnrich.value || showRename.value || showConverter.value || showCoverPicker.value || confirmDeleteSeries.value || confirmBulkDelete.value) return
+  clearSelection()
+}
+onMounted(() => window.addEventListener('keydown', onSelectionEscape))
+onUnmounted(() => window.removeEventListener('keydown', onSelectionEscape))
+
+async function bulkDelete() {
+  bulkDeleting.value = true
+  try {
+    const { data } = await libraryApi.deleteSeriesBulk([...selectedIds])
+    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) — ${data.errors[0]}`)
+    else notif.success(`${data.ok} série(s) supprimée(s)`)
+    clearSelection()
+    await library.fetchSeries()
+  } catch (e) {
+    notif.error(e.response?.data?.detail || 'Erreur lors de la suppression')
+  } finally {
+    bulkDeleting.value = false
+    confirmBulkDelete.value = false
+  }
+}
 
 onMounted(() => {
   if (library.series.length === 0) library.fetchSeries()
@@ -29,7 +97,7 @@ onMounted(() => {
 const filteredSeries = computed(() => {
   let list = library.filteredSeries
 
-  const norm = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const norm = (s) => sortTitle(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   if (activeLetter.value) {
     if (activeLetter.value === '#') {
       list = list.filter(s => /^[^a-z]/.test(norm(s.name)))
@@ -56,6 +124,11 @@ async function handleEdit(series) {
   showSeriesMeta.value = true
 }
 
+async function handleEnrich(series) {
+  await loadSeriesDetail(series)
+  showEnrich.value = true
+}
+
 async function handleRename(series) {
   await loadSeriesDetail(series)
   showRename.value = true
@@ -64,6 +137,12 @@ async function handleRename(series) {
 async function handleConvert(series) {
   await loadSeriesDetail(series)
   showConverter.value = true
+}
+
+async function handleDownload(series) {
+  await loadSeriesDetail(series)
+  const ids = sortTomesByNumber(selectedSeries.value.tomes).map(t => t.id)
+  if (ids.length) window.location.href = tomesApi.downloadBulkUrl(ids)
 }
 
 async function handleSetCover(series) {
@@ -104,9 +183,17 @@ async function handleToggleHidden(series) {
       active-view="series"
       :active-letter="activeLetter"
       :filter-values="library.filters"
+      :selection-active="selectedIds.size > 0"
+      v-model:select-mode="selectMode"
       @letter="(l) => activeLetter = l"
       @filter-change="(f) => library.filters = f"
-    />
+    >
+      <template #selection>
+        <span class="selection-count">{{ selectedIds.size }} série{{ selectedIds.size > 1 ? 's' : '' }} sélectionnée{{ selectedIds.size > 1 ? 's' : '' }}</span>
+        <button v-if="authStore.hasPermission('library.delete')" class="btn btn-secondary btn-sm btn-danger-ghost" @click="confirmBulkDelete = true">Supprimer</button>
+        <button class="btn btn-ghost btn-sm selection-cancel" @click="clearSelection">✕ Annuler la sélection</button>
+      </template>
+    </ContentToolbar>
 
     <main class="content-area">
       <div v-if="library.loading" class="state-box">
@@ -128,12 +215,17 @@ async function handleToggleHidden(series) {
           v-for="s in filteredSeries"
           :key="s.id"
           :series="s"
+          :selected="selectedIds.has(s.id)"
+          :select-mode="selectMode"
           @edit="handleEdit"
+          @enrich="handleEnrich"
           @rename="handleRename"
           @convert="handleConvert"
+          @download="handleDownload"
           @set-cover="handleSetCover"
           @toggle-hidden="handleToggleHidden"
           @delete="handleDelete"
+          @toggle-select="toggleSelect"
         />
       </div>
     </main>
@@ -143,11 +235,19 @@ async function handleToggleHidden(series) {
       :series="selectedSeries"
       @close="showSeriesMeta = false"
       @saved="library.fetchSeries()"
+      @enrich="showSeriesMeta = false; showEnrich = true"
+    />
+
+    <SeriesEnrichModal
+      v-if="showEnrich && selectedSeries"
+      :series="selectedSeries"
+      @close="showEnrich = false"
+      @saved="library.fetchSeries()"
     />
 
     <RenameModal
       v-if="showRename && selectedSeries"
-      :tomes="selectedSeries.tomes"
+      :tomes="sortTomesByNumber(selectedSeries.tomes)"
       :series-name="selectedSeries.name"
       @close="showRename = false"
       @done="showRename = false"
@@ -155,7 +255,7 @@ async function handleToggleHidden(series) {
 
     <ConverterModal
       v-if="showConverter && selectedSeries"
-      :tomes="selectedSeries.tomes"
+      :tomes="sortTomesByNumber(selectedSeries.tomes)"
       @close="showConverter = false"
       @done="showConverter = false"
     />
@@ -184,10 +284,29 @@ async function handleToggleHidden(series) {
         </div>
       </div>
     </div>
+
+    <!-- Confirmation suppression en lot -->
+    <div v-if="confirmBulkDelete" class="confirm-backdrop" @click.self="confirmBulkDelete = false">
+      <div class="confirm-box">
+        <p class="confirm-title">Supprimer {{ selectedIds.size }} série{{ selectedIds.size > 1 ? 's' : '' }} ?</p>
+        <p class="confirm-desc">Tous leurs fichiers seront supprimés définitivement du disque.</p>
+        <div class="confirm-btns">
+          <button class="btn btn-ghost btn-sm" @click="confirmBulkDelete = false">Annuler</button>
+          <button class="btn btn-danger btn-sm" @click="bulkDelete" :disabled="bulkDeleting">
+            {{ bulkDeleting ? 'Suppression…' : 'Supprimer définitivement' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
 <style scoped>
+.selection-count { font-size: 0.82rem; font-weight: 600; color: var(--primary); margin-right: 4px; }
+.selection-cancel { margin-left: auto; }
+.btn-danger-ghost { color: var(--danger); }
+.btn-danger-ghost:hover { background: var(--danger-bg-light); }
+
 .content-area {
   flex: 1;
   padding: 16px 20px;

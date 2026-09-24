@@ -91,6 +91,7 @@ function formatSize(bytes) {
 }
 
 const selectedTomes = computed(() => props.tomes.filter(t => checked.value.has(t.id)))
+const tomeLabels = computed(() => Object.fromEntries(props.tomes.map(t => [t.id, t.filename])))
 const totalBefore = computed(() => selectedTomes.value.reduce((s, t) => s + (t.file_size || 0), 0))
 
 // Real estimate from backend
@@ -288,7 +289,7 @@ async function start() {
       </div>
 
       <!-- Progress -->
-      <ConversionProgress v-else :job-id="jobId" @done="emit('done'); emit('close')" />
+      <ConversionProgress v-else :job-id="jobId" :labels="tomeLabels" @done="emit('done'); emit('close')" />
     </div>
   </div>
 

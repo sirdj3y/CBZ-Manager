@@ -26,9 +26,10 @@ Organisez votre bibliothèque de façon structurée et élégante. L'app permet 
   3. **Import** : traitement séquentiel fichier par fichier (upload → conversion → suivant) ; barre de progression conversion avec compteur de pages `X/Y` ; scan automatique ; redirection vers la série importée
 
 ### Métadonnées
-- ✏️ Édition des métadonnées ComicInfo.xml (par album ou par série entière)
+- ✏️ Édition des métadonnées ComicInfo.xml (par album ou par série entière) — écrites dans le fichier CBZ
 - 🔎 Scraping automatique Google Books / ComicVine
 - 🏷 Tags, notes personnelles, filtres
+- 📝 Métadonnées saisies à l'import automatiquement intégrées dans le CBZ converti (CBR/PDF → CBZ)
 
 ### Lecture
 - 📖 Lecteur intégré : page simple, double page, zoom largeur, plein écran, raccourcis clavier
@@ -132,6 +133,8 @@ Ouvrez `docker-compose.yml` et remplacez le chemin du volume par celui de votre 
 - /chemin/vers/vos/comics:/media:ro
 ```
 
+Le second volume (`./data:/data`) n'a rien à configurer : c'est le dossier `data/` créé automatiquement à côté de `docker-compose.yml`, où l'app stocke sa base de données et le cache des couvertures. Comme c'est un dossier normal (pas un volume Docker géré en interne), il est visible et peut être inclus dans vos sauvegardes habituelles.
+
 #### Étape 3 — Lancer
 
 ```bash
@@ -163,6 +166,8 @@ Ouvrez `docker-compose.yml` et définissez le chemin vers votre dossier de comic
 ```
 
 > Pour restreindre l'app à un sous-dossier, configurez `LIBRARY_SUBDIR` depuis la page **Configuration** de l'app.
+
+Le volume `./data:/data` (base de données + cache des couvertures) n'a besoin d'aucune configuration : il se crée automatiquement dans `data/` à côté de `docker-compose.yml` sur le NAS/serveur. Sur Synology avec Container Manager, ce dossier apparaît normalement dans File Station et peut être inclus dans Hyper Backup comme n'importe quel autre dossier.
 
 ### 3. Lancer
 
@@ -213,6 +218,7 @@ Le pattern recommandé est `{Série} - T{Numéro} - {Titre}`.
 | `COMICVINE_API_KEY` | — | Clé API ComicVine (optionnel) |
 | `DEV_MODE` | `false` | Active CORS + docs Swagger (`/docs`) |
 | `PORT` | `32123` | Port d'écoute interne du conteneur |
+| `PUID` / `PGID` | `1000` / `1000` | UID/GID Linux utilisés par l'app dans le conteneur (Docker uniquement, non-root). Alignez-les sur votre propre utilisateur NAS (`id votre_user`) pour que le dossier `data/` reste lisible/modifiable avec ce compte en dehors de Docker. |
 
 ---
 

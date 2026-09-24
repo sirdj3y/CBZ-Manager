@@ -205,6 +205,10 @@
   .hero-credit-names { color: var(--text); opacity: .9; }
   .hero-credit-names a { color: var(--vermilion); }
   .hero-desc { font-size: 0.9375rem; line-height: 1.6; color: var(--text); opacity: .85; max-width: 520px; margin-bottom: 22px; }
+  /* Repris tel quel de .resume-more-link (SeriesDetailView.vue) — le résumé réel est tronqué
+     à 450 caractères (voir utils/text.js::truncateForReadMore) avec ce lien à la suite. */
+  .resume-more-link { margin-left: 4px; font-size: 0.8125rem; font-weight: 600; color: var(--vermilion); white-space: nowrap; }
+  .resume-more-link:hover { text-decoration: underline; }
   .hero-btns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
   .hero-btn {
     display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
@@ -348,7 +352,7 @@
           <span class="nav-label">Statistiques</span>
         </div>
         <div class="nav-item">
-          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 21H3"/></svg></span>
+          <span class="icon nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg></span>
           <span class="nav-label">Importer</span>
         </div>
       </nav>
@@ -397,9 +401,9 @@
             <h1 class="hero-title-text" id="heroTitle">Le Scrameustache</h1>
 
             <div class="hero-meta" id="heroMeta">
-              <span>Aventure, Science-fiction</span><span class="hero-meta-sep">•</span>
-              <span>1972 – 2019</span><span class="hero-meta-sep">•</span>
-              <span>14 tomes</span><span class="hero-meta-sep">•</span>
+              <span>Aventure, Science-fiction</span><span class="hero-meta-sep">&nbsp;•&nbsp;</span>
+              <span>1972 – 2019</span><span class="hero-meta-sep">&nbsp;•&nbsp;</span>
+              <span>14 tomes</span><span class="hero-meta-sep">&nbsp;•&nbsp;</span>
               <span class="hero-status-badge">Série finie</span>
             </div>
 
@@ -545,19 +549,19 @@
   const SERIES = {
     'Le Scrameustache': {
       genres: ['Aventure', 'Science-fiction'], yearStart: 1972, yearEnd: 2019, tomes: 14, status: 'Série finie',
-      desc: "Les aventures de Khena, cadet de l'espace, et de son compagnon Scrameustache, petit être extraterrestre facétieux venu d'une lointaine planète. Signé Gos.",
+      desc: "Les aventures de Khena, cadet de l'espace, et de son compagnon Scrameustache, petit être extraterrestre facétieux venu d'une lointaine planète. Ensemble, ils sillonnent la galaxie à bord de leur vaisseau, affrontent des créatures improbables et déjouent les plans de savants fous, dans un mélange constant d'aventure spatiale et d'humour absurde. Une série qui a marqué plusieurs générations de lecteurs par son ton unique, à mi-chemin entre la science-fiction classique et la BD humoristique franco-belge. Signé Gos, qui en assure le dessin et le scénario depuis le tout premier album.",
       pencillers: ['Gos'], writers: ['Gos'], publishers: ['Dupuis'],
       category: 'BD franco-belge', ageRating: 'Tout public', rating: 4.2,
     },
     'XIII': {
       genres: ['Thriller', 'Espionnage', 'Action'], yearStart: 1984, yearEnd: 2007, tomes: 19, status: 'Série finie',
-      desc: "Un homme sans mémoire, une balle dans la tête, un tatouage énigmatique... la course contre la montre pour découvrir qui il est vraiment.",
+      desc: "Un homme sans mémoire, une balle dans la tête, un tatouage énigmatique portant le chiffre XIII... la course contre la montre pour découvrir qui il est vraiment commence sur une plage, entre deux eaux. Traqué par des tueurs professionnels qui semblent tout savoir de lui, il va devoir remonter le fil d'un complot politique aux ramifications insoupçonnées, où plus personne n'est vraiment qui il prétend être. Une série culte du thriller d'espionnage en bande dessinée, signée Jean Van Hamme au scénario et William Vance au dessin pour les premiers tomes.",
       pencillers: ['William Vance', 'Youri Jigounov'], writers: ['Jean Van Hamme'], publishers: ['Dargaud'],
       category: 'BD franco-belge', ageRating: 'Ados / Adultes', rating: 4.6,
     },
     'Les Tuniques Bleues': {
       genres: ['Humour', 'Guerre', 'Historique'], yearStart: 1968, yearEnd: null, tomes: 68, status: 'Série en cours',
-      desc: "Les mésaventures du caporal Blutch et du sergent Chesterfield, deux soldats nordistes que tout oppose, sur fond de guerre de Sécession.",
+      desc: "Les mésaventures du caporal Blutch et du sergent Chesterfield, deux soldats nordistes que tout oppose, sur fond de guerre de Sécession. L'un est un pacifiste convaincu qui ne rêve que de rentrer chez lui, l'autre un idéaliste patriote prêt à tous les sacrifices pour la cause nordiste. Entre gags purement comiques et épisodes bien plus graves abordant la face sombre de la guerre, la série a su évoluer sur plus de cinquante ans sans jamais perdre son ton si particulier. Un classique de l'humour belge, toujours en cours de publication aujourd'hui.",
       pencillers: ['Willy Lambil', 'Bercovici', 'Munuera', 'Fenech', 'Bravo', 'Bertschy'],
       writers: ['Raoul Cauvin', 'BeKa', 'Kris', 'Wilbur'],
       publishers: ['Dupuis'],
@@ -565,7 +569,7 @@
     },
     'Naruto': {
       genres: ['Shônen', 'Action', 'Aventure'], yearStart: 1999, yearEnd: 2014, tomes: 72, status: 'Série finie',
-      desc: "Naruto Uzumaki, jeune ninja turbulent, rêve de devenir le plus grand ninja de son village pour se faire reconnaître de tous.",
+      desc: "Naruto Uzumaki, jeune ninja turbulent et solitaire, rêve de devenir le plus grand ninja de son village pour se faire enfin reconnaître de tous. Porteur malgré lui d'un démon renard scellé en lui à sa naissance, il grandit rejeté par une bonne partie du village avant de trouver sa place aux côtés de ses camarades de la Feuille. Entre entraînements acharnés, combats spectaculaires et amitiés indéfectibles, cette série manga est devenue l'une des plus lues et adaptées au monde depuis sa création par Masashi Kishimoto en 1999.",
       pencillers: ['Masashi Kishimoto'], writers: ['Masashi Kishimoto'], publishers: ['Kana'],
       category: 'Manga', ageRating: '12 ans et +', rating: 4.7,
     },
@@ -583,6 +587,15 @@
     return s.status === 'Série en cours' ? `depuis ${s.yearStart}` : `${s.yearStart} – ${s.yearEnd}`
   }
 
+  // Reprise exacte de utils/text.js::truncateForReadMore (450 caractères, coupe au dernier
+  // espace pour ne jamais couper un mot en plein milieu).
+  function truncateForReadMore(text, maxChars = 450) {
+    if (!text || text.length <= maxChars) return text
+    const cut = text.slice(0, maxChars)
+    const lastSpace = cut.lastIndexOf(' ')
+    return (lastSpace > 20 ? cut.slice(0, lastSpace) : cut).trim() + '…'
+  }
+
   function applySeries(name) {
     const s = SERIES[name]
     document.getElementById('heroTitle').textContent = name
@@ -593,9 +606,9 @@
     bg.classList.add(variantFor(name))
 
     document.getElementById('heroMeta').innerHTML = `
-      <span>${s.genres.join(', ')}</span><span class="hero-meta-sep">•</span>
-      <span>${yearsLabel(s)}</span><span class="hero-meta-sep">•</span>
-      <span>${s.tomes} tomes</span><span class="hero-meta-sep">•</span>
+      <span>${s.genres.join(', ')}</span><span class="hero-meta-sep">&nbsp;•&nbsp;</span>
+      <span>${yearsLabel(s)}</span><span class="hero-meta-sep">&nbsp;•&nbsp;</span>
+      <span>${s.tomes} tomes</span><span class="hero-meta-sep">&nbsp;•&nbsp;</span>
       <span class="hero-status-badge">${s.status}</span>`
 
     document.getElementById('heroCredits').innerHTML =
@@ -603,7 +616,8 @@
       creditRow(s.writers.length > 1 ? 'Scénaristes' : 'Scénariste', s.writers) +
       creditRow(s.publishers.length > 1 ? 'Éditeurs' : 'Éditeur', s.publishers)
 
-    document.getElementById('heroDesc').textContent = s.desc
+    document.getElementById('heroDesc').innerHTML =
+      truncateForReadMore(s.desc) + '<a href="#" class="resume-more-link">Lire la suite</a>'
 
     document.getElementById('infoCategory').textContent = s.category
     document.getElementById('infoAgeRating').textContent = s.ageRating

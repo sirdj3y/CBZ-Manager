@@ -150,7 +150,7 @@ onMounted(() => {
   font-size: 0.82rem; flex-shrink: 0;
 }
 .fb-crumb {
-  cursor: pointer; color: var(--primary);
+  cursor: pointer; color: var(--vermilion);
   padding: 2px 4px; border-radius: 3px;
 }
 .fb-crumb:hover { text-decoration: underline; }
@@ -182,7 +182,7 @@ onMounted(() => {
   transition: background 0.1s;
 }
 .fb-item:hover { background: var(--light); }
-.fb-item-selected { background: rgba(74,144,217,0.1); }
+.fb-item-selected { background: var(--primary-focus); }
 .fb-icon { font-size: 1rem; flex-shrink: 0; }
 .fb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb-arrow {

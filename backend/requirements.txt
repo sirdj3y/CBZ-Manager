@@ -11,3 +11,6 @@ Pillow>=10.0
 rarfile>=4.2
 PyMuPDF>=1.24
 itsdangerous>=2.1
+beautifulsoup4>=4.12
+onnxruntime>=1.16
+numpy>=1.24

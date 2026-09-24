@@ -1,9 +1,17 @@
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   result: { type: Object, required: true },
   selected: { type: Boolean, default: false },
 })
 defineEmits(['select'])
+
+const tome = computed(() => {
+  const n = props.result.number
+  if (!n) return null
+  return /^\d+$/.test(n) ? 'T' + n.padStart(2, '0') : n
+})
 </script>
 
 <template>
@@ -18,7 +26,10 @@ defineEmits(['select'])
     </div>
     <!-- Info -->
     <div class="result-info">
-      <p class="result-title">{{ result.title }}</p>
+      <p class="result-title-row">
+        <span class="result-title">{{ result.title }}</span>
+        <span v-if="tome" class="result-tome">{{ tome }}</span>
+      </p>
       <p v-if="result.authors?.length" class="result-authors">{{ result.authors.join(', ') }}</p>
       <p class="result-meta">
         <span v-if="result.publisher">{{ result.publisher }}</span>
@@ -81,6 +92,14 @@ defineEmits(['select'])
   min-width: 0;
 }
 
+.result-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 3px;
+  min-width: 0;
+}
+
 .result-title {
   font-size: 0.875rem;
   font-weight: 600;
@@ -88,7 +107,14 @@ defineEmits(['select'])
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 3px;
+  min-width: 0;
+}
+
+.result-tome {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  flex-shrink: 0;
 }
 
 .result-authors {

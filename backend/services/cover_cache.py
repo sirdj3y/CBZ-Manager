@@ -5,6 +5,8 @@ from PIL import Image
 import io
 
 from ..config import settings
+from .archive_format import detect_archive_ext
+from .archive_safety import read_entry_bounded
 
 
 def get_cover_path(tome_id: int) -> Path:
@@ -15,8 +17,11 @@ def get_thumb_path(tome_id: int) -> Path:
     return Path(settings.COVER_CACHE_DIR) / f"{tome_id}_thumb.jpg"
 
 
-def _resize_and_save(img_bytes: bytes, dest: Path, max_width: int) -> None:
+def _resize_and_save(img_bytes: bytes, dest: Path, max_width: int) -> tuple[int, int]:
+    """Retourne la résolution ORIGINALE (avant redimensionnement) — c'est celle-ci qui a un
+    sens pour l'utilisateur (qualité de la page source), pas la taille du cache."""
     img = Image.open(io.BytesIO(img_bytes))
+    original_size = (img.width, img.height)
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
     if img.width > max_width:
@@ -25,13 +30,15 @@ def _resize_and_save(img_bytes: bytes, dest: Path, max_width: int) -> None:
         img = img.resize((max_width, new_h), Image.LANCZOS)
     dest.parent.mkdir(parents=True, exist_ok=True)
     img.save(str(dest), "JPEG", quality=85, optimize=True, progressive=True)
+    return original_size
 
 
 def _extract_cover_sync(tome_path: str) -> Optional[bytes]:
     """Extract first page bytes as cover."""
     import zipfile
     path = Path(tome_path)
-    ext = path.suffix.lower()
+    # Octets magiques plutôt que l'extension — voir archive_format.py.
+    ext = detect_archive_ext(path)
     image_exts = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
     if ext in (".cbz", ".zip"):
@@ -43,7 +50,8 @@ def _extract_cover_sync(tome_path: str) -> Optional[bytes]:
                     and not n.startswith("__MACOSX")
                 ])
                 if names:
-                    return zf.read(names[0])
+                    with zf.open(names[0]) as entry:
+                        return read_entry_bounded(entry)
         except Exception:
             pass
 
@@ -56,7 +64,8 @@ def _extract_cover_sync(tome_path: str) -> Optional[bytes]:
                     if Path(n).suffix.lower() in image_exts
                 ])
                 if names:
-                    return rf.read(names[0])
+                    with rf.open(names[0]) as entry:
+                        return read_entry_bounded(entry)
         except Exception:
             pass
 
@@ -76,22 +85,26 @@ def _extract_cover_sync(tome_path: str) -> Optional[bytes]:
     return None
 
 
-async def ensure_cover(tome_id: int, tome_path: str) -> Optional[Path]:
+async def ensure_cover(tome_id: int, tome_path: str) -> tuple[Optional[Path], Optional[tuple[int, int]]]:
+    """Retourne (chemin du cache, résolution originale) — la résolution n'est renseignée que
+    lors d'une extraction fraîche (cache absent) : sur un cache-hit, rouvrir le fichier
+    juste pour ça serait un aller-retour disque inutile à chaque affichage de couverture, le
+    but étant de peupler Tome.cover_width/height une seule fois (voir routers/covers.py)."""
     cover_path = get_cover_path(tome_id)
     if cover_path.exists():
-        return cover_path
+        return cover_path, None
 
     cover_bytes = await asyncio.to_thread(_extract_cover_sync, tome_path)
     if not cover_bytes:
-        return None
+        return None, None
 
-    await asyncio.to_thread(_resize_and_save, cover_bytes, cover_path, 400)
+    original_size = await asyncio.to_thread(_resize_and_save, cover_bytes, cover_path, 400)
 
     # Also create thumb
     thumb_path = get_thumb_path(tome_id)
     await asyncio.to_thread(_resize_and_save, cover_bytes, thumb_path, 150)
 
-    return cover_path
+    return cover_path, original_size
 
 
 async def ensure_thumb(tome_id: int, tome_path: str) -> Optional[Path]:

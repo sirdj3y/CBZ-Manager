@@ -1,25 +1,19 @@
 import json
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..dependencies import auth_required
-from ..models.db_models import Tome, Metadata, ReadingProgress
+from ..dependencies import require_admin
+from ..models.db_models import Tome, Metadata, UserTomeData, User
+from ..services.user_tome_data import get_or_create_user_tome_data
+from ..services.metadata_writer import COMICINFO_FIELDS as METADATA_FIELDS
+from .auth import get_client_ip
 
-router = APIRouter(prefix="/api/export", tags=["export"], dependencies=[Depends(auth_required)])
-
-METADATA_FIELDS = [
-    "Title", "Series", "Number", "Volume", "AlternateSeries", "AlternateNumber",
-    "StoryArc", "SeriesGroup", "Publisher", "Year", "Month", "Day", "LanguageISO",
-    "Format", "Web", "Writer", "Penciller", "Inker", "Colorist", "Letterer",
-    "CoverArtist", "Editor", "Translator", "Genre", "Tags", "AgeRating",
-    "Characters", "Teams", "Locations", "Summary", "Notes", "PageCount",
-    "BlackAndWhite", "Manga", "ScanInformation", "GTIN", "ISBN",
-]
+router = APIRouter(prefix="/api/export", tags=["export"], dependencies=[Depends(require_admin)])
 
 
 async def _build_export(db: AsyncSession) -> dict:
@@ -28,16 +22,38 @@ async def _build_export(db: AsyncSession) -> dict:
         .options(
             selectinload(Tome.series),
             selectinload(Tome.metadata_),
-            selectinload(Tome.reading_progress),
         )
         .order_by(Tome.series_id, Tome.number)
     )
     tomes = result.scalars().all()
 
+    # Une seule requête groupée pour toutes les annotations personnelles de tous les
+    # utilisateurs, plutôt qu'une requête par tome — sauvegarde complète multi-comptes,
+    # regroupée par tome_id puis par nom d'utilisateur.
+    personal_rows = (await db.execute(
+        select(UserTomeData.tome_id, User.username, UserTomeData.rating, UserTomeData.notes, UserTomeData.tag_list, UserTomeData.last_page, UserTomeData.is_read)
+        .join(User, User.id == UserTomeData.user_id)
+    )).all()
+    personal_by_tome: dict[int, dict] = {}
+    for tome_id, username, rating, notes, tag_list, last_page, is_read in personal_rows:
+        try:
+            tags = json.loads(tag_list) if tag_list else []
+        except Exception:
+            tags = []
+        personal_by_tome.setdefault(tome_id, {})[username] = {
+            "rating": rating,
+            "notes": notes,
+            "tags": tags,
+            "last_page": last_page,
+            # Absent de l'export jusqu'ici : une restauration perdait le statut "Lu" manuel
+            # d'un album (voir services/user_tome_data.py) même si tout le reste des
+            # annotations personnelles revenait correctement.
+            "is_read": is_read,
+        }
+
     entries = []
     for t in tomes:
         m = t.metadata_
-        rp = t.reading_progress
         entry = {
             "filepath": t.filepath,
             "filename": t.filename,
@@ -47,19 +63,17 @@ async def _build_export(db: AsyncSession) -> dict:
             "format": t.file_format,
             "taille_octets": t.file_size,
             "pages": t.page_count,
-            # Annotations utilisateur
-            "user_rating": t.user_rating,
-            "user_notes": t.user_notes,
-            "user_tag_list": t.user_tag_list,
-            # Progression de lecture
-            "last_page": rp.last_page if rp else None,
+            # Annotations personnelles par utilisateur (note, notes texte, étiquettes,
+            # progression de lecture) — un compte n'apparaît ici que s'il a réellement une
+            # ligne UserTomeData pour ce tome, pas d'entrées vides pour tout le monde.
+            "personal": personal_by_tome.get(t.id, {}),
             # Métadonnées ComicInfo.xml
             "metadata": {field: getattr(m, field, None) for field in METADATA_FIELDS} if m else {},
         }
         entries.append(entry)
 
     return {
-        "version": 1,
+        "version": 2,
         "exported_at": datetime.utcnow().isoformat(),
         "tome_count": len(entries),
         "tomes": entries,
@@ -79,8 +93,10 @@ async def export_library(db: AsyncSession = Depends(get_db)):
 
 @router.post("/import")
 async def import_library(
+    request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     raw = await file.read()
     try:
@@ -94,43 +110,62 @@ async def import_library(
     entries = data["tomes"]
     updated = 0
     not_found = 0
+    ambiguous = 0
+    # Comptes référencés dans la sauvegarde mais qui n'existent plus (ou pas encore) dans
+    # cette installation — leurs annotations sont ignorées sans bloquer le reste de l'import.
+    skipped_users: set[str] = set()
 
     for entry in entries:
         filepath = entry.get("filepath")
         filename = entry.get("filename")
 
-        # Cherche d'abord par filepath, puis par filename
+        # Cherche d'abord par filepath, puis par filename. scalars().all() (pas
+        # scalar_one_or_none()) : un nom de fichier comme "T01.cbz" peut exister dans
+        # plusieurs séries différentes — scalar_one_or_none() lèverait une exception non
+        # rattrapée sur un vrai doublon (MultipleResultsFound), interrompant tout le reste de
+        # la restauration. Un repli ambigu ne doit jamais deviner au hasard : on le compte à
+        # part plutôt que de risquer d'écrire les annotations d'un album sur un autre.
         tome = None
         if filepath:
             result = await db.execute(select(Tome).where(Tome.filepath == filepath).options(
-                selectinload(Tome.metadata_), selectinload(Tome.reading_progress)
+                selectinload(Tome.metadata_)
             ))
-            tome = result.scalar_one_or_none()
+            matches = result.scalars().all()
+            if len(matches) == 1:
+                tome = matches[0]
 
         if tome is None and filename:
             result = await db.execute(select(Tome).where(Tome.filename == filename).options(
-                selectinload(Tome.metadata_), selectinload(Tome.reading_progress)
+                selectinload(Tome.metadata_)
             ))
-            tome = result.scalar_one_or_none()
+            matches = result.scalars().all()
+            if len(matches) > 1:
+                ambiguous += 1
+                continue
+            if len(matches) == 1:
+                tome = matches[0]
 
         if tome is None:
             not_found += 1
             continue
 
-        # Restaure annotations utilisateur
-        if entry.get("user_rating") is not None:
-            tome.user_rating = entry["user_rating"]
-        if entry.get("user_notes") is not None:
-            tome.user_notes = entry["user_notes"]
-        if entry.get("user_tag_list") is not None:
-            tome.user_tag_list = entry["user_tag_list"]
-
-        # Restaure progression de lecture
-        if entry.get("last_page") is not None:
-            if tome.reading_progress:
-                tome.reading_progress.last_page = entry["last_page"]
-            else:
-                db.add(ReadingProgress(tome_id=tome.id, last_page=entry["last_page"]))
+        # Restaure les annotations personnelles, par utilisateur
+        for username, pdata in (entry.get("personal") or {}).items():
+            user = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
+            if user is None:
+                skipped_users.add(username)
+                continue
+            ud = await get_or_create_user_tome_data(db, user.id, tome.id)
+            if pdata.get("rating") is not None:
+                ud.rating = pdata["rating"]
+            if pdata.get("notes") is not None:
+                ud.notes = pdata["notes"]
+            if pdata.get("tags") is not None:
+                ud.tag_list = json.dumps(pdata["tags"], ensure_ascii=False)
+            if pdata.get("last_page") is not None:
+                ud.last_page = pdata["last_page"]
+            if pdata.get("is_read") is not None:
+                ud.is_read = pdata["is_read"]
 
         # Restaure métadonnées ComicInfo.xml
         meta_data = entry.get("metadata") or {}
@@ -150,8 +185,17 @@ async def import_library(
 
     await db.commit()
 
+    from ..services.activity import log as activity_log
+    msg = f"Sauvegarde restaurée : {updated} album(s) mis à jour, {not_found} introuvable(s) sur {len(entries)}"
+    if ambiguous:
+        msg += f", {ambiguous} ambigu(s) (plusieurs albums de même nom, ignorés par sécurité)"
+    await activity_log(db, "restore_backup", msg, user=current_user, ip=get_client_ip(request))
+    await db.commit()
+
     return {
         "updated": updated,
         "not_found": not_found,
+        "ambiguous": ambiguous,
         "total": len(entries),
+        "skipped_users": sorted(skipped_users),
     }

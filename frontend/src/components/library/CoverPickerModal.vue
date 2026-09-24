@@ -2,24 +2,17 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { libraryApi } from '../../api/library'
 import { useNotificationStore } from '../../stores/notifications'
+import { sortTomesByNumber } from '../../utils/tomeSort'
 
 const props = defineProps({
   series: { type: Object, required: true }, // doit avoir .tomes[]
 })
 const emit = defineEmits(['close', 'updated'])
 
-function parseTomeNumber(tome) {
-  const raw = String(tome.number || tome.title || tome.filename || '')
-  const hsMatch = raw.match(/hs\s*(\d+)/i)
-  if (hsMatch) return 10000 + parseInt(hsMatch[1])
-  const numMatch = raw.match(/(\d+)/)
-  if (numMatch) return parseInt(numMatch[1])
-  return 99999
-}
-
-const sortedTomes = computed(() =>
-  [...props.series.tomes].sort((a, b) => parseTomeNumber(a) - parseTomeNumber(b))
-)
+// Même tri que partout ailleurs dans l'app (SeriesView, SeriesDetailView, HomeView) — une
+// logique locale divergente ici traitait mal les "HS" sans numéro et tronquait les numéros
+// décimaux (ex: "3.5").
+const sortedTomes = computed(() => sortTomesByNumber(props.series.tomes))
 
 const notif = useNotificationStore()
 
@@ -28,17 +21,25 @@ onMounted(() => window.addEventListener('keydown', onKey))
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 async function setCover(tomeId) {
-  const { data } = await libraryApi.setSeriesCover(props.series.id, tomeId)
-  notif.success('Cover mise à jour')
-  emit('updated', { cover_url: data.cover_url, cover_tome_id: data.cover_tome_id })
-  emit('close')
+  try {
+    const { data } = await libraryApi.setSeriesCover(props.series.id, tomeId)
+    notif.success('Cover mise à jour')
+    emit('updated', { cover_url: data.cover_url, cover_tome_id: data.cover_tome_id })
+    emit('close')
+  } catch {
+    notif.error('Impossible de mettre à jour la cover')
+  }
 }
 
 async function resetCover() {
-  const { data } = await libraryApi.setSeriesCover(props.series.id, null)
-  notif.success('Cover réinitialisée')
-  emit('updated', { cover_url: data.cover_url, cover_tome_id: null })
-  emit('close')
+  try {
+    const { data } = await libraryApi.setSeriesCover(props.series.id, null)
+    notif.success('Cover réinitialisée')
+    emit('updated', { cover_url: data.cover_url, cover_tome_id: null })
+    emit('close')
+  } catch {
+    notif.error('Impossible de réinitialiser la cover')
+  }
 }
 </script>
 
@@ -124,14 +125,13 @@ async function resetCover() {
 
 .cover-picker-img {
   width: 100%;
-  aspect-ratio: 2/3;
-  object-fit: cover;
-  object-position: center top;
+  aspect-ratio: 0.71;
+  object-fit: contain;
   display: block;
   background: var(--light);
 }
 .cover-picker-placeholder {
-  width: 100%; aspect-ratio: 2/3;
+  width: 100%; aspect-ratio: 0.71;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.5rem; background: var(--light);
 }
@@ -143,7 +143,7 @@ async function resetCover() {
 .cover-picker-check {
   position: absolute; top: 4px; left: 4px;
   width: 18px; height: 18px; border-radius: 50%;
-  background: var(--primary); color: #fff;
+  background: var(--vermilion); color: #fff;
   font-size: 11px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }

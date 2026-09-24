@@ -1,7 +1,6 @@
 import client from './client'
 
 export const importApi = {
-  getSeries: () => client.get('/api/import/series'),
   parseFilename: (filename) => client.post('/api/import/parse', { filename }),
 
   checkFile: (filename, seriesId, newSeriesName) => {
@@ -20,7 +19,7 @@ export const importApi = {
     return client.post('/api/import/image-size', form, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
 
-  uploadFile: (file, filename, seriesId, newSeriesName, metadata = {}, onProgress) => {
+  uploadFile: (file, filename, seriesId, newSeriesName, metadata = {}, isOneshot = false, onProgress) => {
     const form = new FormData()
     form.append('file', file, filename)
     form.append('filename', filename)
@@ -28,6 +27,7 @@ export const importApi = {
     if (newSeriesName) form.append('new_series_name', newSeriesName)
     if (metadata && Object.keys(metadata).some(k => metadata[k]))
       form.append('metadata', JSON.stringify(metadata))
+    if (isOneshot) form.append('is_oneshot', 'true')
     return client.post('/api/import/file', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: onProgress,
