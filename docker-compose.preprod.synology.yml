@@ -1,0 +1,30 @@
+# Préprod Synology — Container Manager → Projet → Créer, chemin : /volume1/docker/cbz-manager-preprod
+#
+# Image :preprod, construite par GitHub Actions à chaque push sur la branche develop.
+# Mise à jour automatique par le Watchtower du projet cbz-manager (label ci-dessous).
+#
+# Isolation vis-à-vis de la prod :
+# - data/ séparé : copie de la base de prod (pour tester les migrations sur de vraies données)
+# - BD en lecture seule (:ro) : navigation, lecture et scan réalistes, mais aucune écriture
+#   possible sur la vraie bibliothèque (édition ComicInfo, conversion, renommage, import échouent).
+#   Pour tester une fonctionnalité qui écrit, remplacer par un dossier de test, ex. /volume1/divers/BD-test:/media
+
+services:
+  cbz-manager-preprod:
+    image: ghcr.io/sirdj3y/cbz-manager:preprod
+    container_name: cbz-manager-preprod
+    restart: unless-stopped
+    ports:
+      - "5174:32123"
+    volumes:
+      - /volume1/docker/cbz-manager-preprod/data:/data
+      - /volume1/divers/BD:/media:ro
+    environment:
+      - MEDIA_ROOT=/media
+      - DB_PATH=/data/cbzmanager.db
+      - COVER_CACHE_DIR=/data/covers
+      - PUID=1026
+      - PGID=100
+      - TZ=Europe/Paris
+    labels:
+      - com.centurylinklabs.watchtower.enable=true

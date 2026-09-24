@@ -18,13 +18,16 @@ DEV_MODE=true .venv/bin/uvicorn backend.main:app --reload --port 8000
 In DEV_MODE: CORS is enabled for `localhost:5173`, Swagger UI is available at `/api/docs`, and SQLAlchemy logs queries.
 
 ### Docker (production — Synology DS423+)
-```bash
-# Build image for Synology (amd64 mandatory — DS423+ is Intel x86_64)
-docker buildx build --platform linux/amd64 -t cbz-manager:latest --load .
+Images are built by GitHub Actions (`.github/workflows/docker.yml`, linux/amd64 — DS423+ is Intel x86_64) and published to GHCR — no more local `buildx` + `docker save` to `.tar.gz`:
+- push to `main` → `ghcr.io/sirdj3y/cbz-manager:latest` + `:<VERSION>` → **production**, pulled automatically by Watchtower on the NAS within ~5 min
+- push to `develop` → `:preprod` → **preprod** container on the NAS (port 5174, own data copy, library mounted `:ro`)
+- other branches / PRs → build only (checks the Dockerfile), nothing published
+- `*.md`, `design-tests/`, `docker-compose*.yml` changes don't trigger a build
 
-# Export for Synology — divers/ vit à côté du repo (../divers depuis la racine du repo), pas dedans
-docker save cbz-manager:latest | gzip > ../divers/Images/cbz-manager-v<VERSION>-synology-amd64-<DATE>.tar.gz
-```
+NAS projects (Container Manager → Projet): `/volume1/docker/cbz-manager` (`docker-compose.synology.yml`, includes Watchtower) and `/volume1/docker/cbz-manager-preprod` (`docker-compose.preprod.synology.yml`). The NAS pulls GHCR with `sudo docker login ghcr.io` credentials (`/root/.docker/config.json`, classic token `read:packages`) — Container Manager's Registre tab can't talk to ghcr.io, that's expected.
+
+Local Docker (`docker-compose.yml`, arm64 on the Mac) is still fine for quick checks: `docker compose build && docker compose up -d --force-recreate`.
+
 The Dockerfile is a two-stage build: Node 20 builds the frontend, then Python 3.11-slim runs the backend. The frontend build outputs directly to `backend/static/` (configured in `vite.config.js`). `unrar` (non-free, from Debian bookworm non-free) is installed for RAR5/CBR support — `unrar-free` is not sufficient.
 
 Docker volumes to map on Synology (or any deployment):
@@ -109,11 +112,12 @@ The scanner (`services/scanner.py`) parses filenames via `services/filename_pars
 
 ## Repository & deployment
 
-**GitHub:** `https://github.com/sirdj3y/CBZ-Manager.git` (private repo, branch `main`)  
+**GitHub:** `https://github.com/sirdj3y/CBZ-Manager.git` (private repo)  
+**Branches:** work on `develop` (→ preprod). **Pushing to `main` deploys production** — only merge `develop` into `main` when the user asks (version ritual / "mets en prod"), never push fixes straight to `main`.  
 **Git identity:** `sirdj3y <241156680+sirdj3y@users.noreply.github.com>` (GitHub noreply address — keep email private)  
 **`.gitignore` excludes:** `backups/`, `.venv/`, `node_modules/`, `backend/static/`, `data/`
 
-Session logs are saved in `divers/backups/cbz-manager-session-<DATE>.html`. Docker images in `divers/Images/`.
+Session logs are saved in `divers/backups/cbz-manager-session-<DATE>.html`. Old manual Docker images (before GHCR) are in `divers/Images/`.
 
 ---
 
