@@ -2,26 +2,36 @@
 
 ---
 
-## Non publié (branche develop)
+## v1.26.0 — 2026-09-26 — Services en ligne fiabilisés, import de dossiers, exclusions de scan
 
 ### Nouveau
 
-- **Exclure des dossiers du scan** (Paramètres › Bibliothèque) : leurs séries disparaissent de la bibliothèque au scan suivant, sans toucher aux fichiers. Les dossiers cachés et les dossiers système (corbeille, miniatures, instantanés) sont désormais toujours ignorés : la corbeille d'un partage pouvait faire réapparaître des BD supprimées.
-- **Textes de l'interface relus** : une cinquantaine de libellés, notifications et messages d'erreur réécrits sans tiret long, avec une ponctuation adaptée à chaque phrase. Un test empêche désormais d'en réintroduire.
-- **Sélecteur de dossier** : champ de recherche par nom dans toute la bibliothèque (sans tenir compte des accents ni des majuscules), et fenêtre shadcn comme les autres (focus, Échap, clic à côté).
+- **Services en ligne plus fiables** (Bedetheque.com, ComicVine, Google Books) : requêtes espacées par service quelle que soit leur origine (recherche, import, scan des albums manquants), nouvelles tentatives automatiques en cas d'erreur passagère, et messages clairs (« Bedetheque.com ne répond pas pour le moment », « limite de requêtes atteinte », « clé API refusée ») au lieu d'une liste vide.
 - **Import : glisser-déposer un dossier complet** (sous-dossiers compris) dans la zone de l'étape 1 ; un dossier unique pré-remplit la série à son nom, comme « choisir un dossier ».
-- **Services tiers plus robustes** (Bedetheque.com, ComicVine, Google Books) : requêtes espacées par service quelle que soit leur origine (recherche, import, scan des albums manquants), nouvelles tentatives automatiques en cas d'erreur passagère, et messages clairs (« Bedetheque.com ne répond pas pour le moment », « limite de requêtes atteinte », « clé API refusée ») au lieu d'une liste vide.
-
-### Technique
-
-- Dossier `design-tests/` retiré du dépôt : ses maquettes de fiches Série/Album sont intégrées à l'app depuis la v1.16.0 (toujours consultables dans l'historique Git).
-- `datetime.utcnow()` (dépréciée depuis Python 3.12) remplacée partout par `backend/clock.py::utcnow()`, qui produit exactement les mêmes valeurs (UTC sans fuseau, comme en base).
-- CI : actions GitHub à jour (fin des avertissements Node 20), machines de build fixées sur Ubuntu 24.04 avant la bascule d'ubuntu-latest vers Ubuntu 26 (19 octobre).
+- **Exclure des dossiers du scan** (Paramètres › Bibliothèque) : leurs séries sont retirées de la bibliothèque au scan suivant, sans toucher aux fichiers. Les dossiers cachés et les dossiers système (corbeille, miniatures, instantanés) sont désormais toujours ignorés : la corbeille d'un partage pouvait faire réapparaître des BD supprimées.
+- **Sélecteur de dossier** : champ de recherche par nom dans toute la bibliothèque (sans tenir compte des accents ni des majuscules), et fenêtre shadcn comme les autres (focus, Échap, clic à côté).
+- **Textes de l'interface relus** : une cinquantaine de libellés, notifications et messages d'erreur réécrits sans tiret long, avec une ponctuation adaptée à chaque phrase. Un test empêche d'en réintroduire.
 
 ### Corrections
 
-- **Scan des albums manquants** : une panne passagère de Bedetheque.com marquait l'URL confirmée d'une série comme introuvable — elle était alors re-devinée par nom au scan suivant (risque de mauvaise série) et « Compléter les métadonnées » la refusait. Désormais la série reste inchangée (URL, statut, albums manquants déjà connus) et le scan passe à la suivante.
+- **Scan des albums manquants** : une panne passagère de Bedetheque.com marquait l'URL confirmée d'une série comme introuvable. Elle était alors re-devinée par nom au scan suivant (risque de mauvaise série) et « Compléter les métadonnées » la refusait. Désormais la série reste inchangée (URL, statut, albums manquants déjà connus) et le scan passe à la suivante.
 - **ComicVine** : une clé refusée ou une panne s'affichait comme « aucun résultat ».
+
+### Technique
+
+- Client HTTP commun des services en ligne (`backend/services/http_client.py`), testé avec des réponses simulées.
+- `datetime.utcnow()` (dépréciée depuis Python 3.12) remplacée partout par `backend/clock.py::utcnow()`, qui produit exactement les mêmes valeurs (UTC sans fuseau, comme en base).
+- CI : actions GitHub à jour (fin des avertissements Node 20), machines de build fixées sur Ubuntu 24.04 avant la bascule d'ubuntu-latest vers Ubuntu 26 (19 octobre).
+- Dossier `design-tests/` retiré du dépôt : ses maquettes de fiches Série/Album sont intégrées à l'app depuis la v1.16.0 (toujours consultables dans l'historique Git).
+- Tests : 68 backend, 44 frontend, 27 de bout en bout.
+
+### Contexte
+
+Suite directe de la v1.25.0, même journée : traitement du reste du backlog (#1, #2, #4), entretien de la CI avant l'échéance Ubuntu 26, et retours de l'utilisateur sur les textes d'interface (faute, tiret long perçu comme une signature d'IA, mention inutile d'une plateforme précise), étendus à tous les textes de l'app. Les maquettes de `design-tests/`, présentées par erreur comme une piste en attente, s'étaient révélées intégrées depuis la v1.16.0.
+
+### Validation
+
+Bug du scan des albums manquants reproduit par un test (réponses Bedetheque simulées : panne passagère puis page introuvable) ; lecture d'une vraie page Bedetheque vérifiée une fois via le nouveau client. Les tests ont intercepté avant tout push un User-Agent non-ASCII qui aurait fait échouer toutes les requêtes. Glisser-déposer de dossier testé sur un faux système de fichiers (dont un dossier de plus de 100 fichiers livré par paquets) et par un dépôt simulé dans la page ; exclusions et recherche de dossier testées par l'API et dans un navigateur.
 
 ---
 
