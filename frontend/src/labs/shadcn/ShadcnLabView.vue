@@ -1,33 +1,32 @@
 <script setup>
-// Bac à sable shadcn-vue (/labo/shadcn) — essai isolé, sur les vraies données de la
-// bibliothèque, des composants shadcn-vue habillés avec les couleurs de l'app. Lecture seule :
-// rien n'est enregistré. Voir shadcn.css pour l'isolation du CSS vis-à-vis du reste de l'app.
-import './shadcn.css'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+// Vitrine shadcn-vue (/labo/shadcn, non liée dans le menu) — les composants de
+// src/components/shadcn/ sur les vraies données de la bibliothèque. Lecture seule : rien
+// n'est enregistré.
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BookOpen, Ellipsis, Info, Pencil, Search, SlidersHorizontal } from '@lucide/vue'
 import AppLayout from '../../components/layout/AppLayout.vue'
 import { libraryApi } from '../../api/library'
-import { Badge } from '@/labs/shadcn/components/ui/badge'
-import { Button } from '@/labs/shadcn/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/labs/shadcn/components/ui/card'
+import { Badge } from '@/components/shadcn/badge'
+import { Button } from '@/components/shadcn/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/shadcn/card'
 import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
-} from '@/labs/shadcn/components/ui/command'
+} from '@/components/shadcn/command'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/labs/shadcn/components/ui/dialog'
+} from '@/components/shadcn/dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/labs/shadcn/components/ui/dropdown-menu'
-import { Input } from '@/labs/shadcn/components/ui/input'
-import { Label } from '@/labs/shadcn/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/labs/shadcn/components/ui/select'
-import { Separator } from '@/labs/shadcn/components/ui/separator'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/labs/shadcn/components/ui/sheet'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/labs/shadcn/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/labs/shadcn/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/labs/shadcn/components/ui/tooltip'
+} from '@/components/shadcn/dropdown-menu'
+import { Input } from '@/components/shadcn/input'
+import { Label } from '@/components/shadcn/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/shadcn/select'
+import { Separator } from '@/components/shadcn/separator'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/shadcn/sheet'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/shadcn/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/tabs'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/shadcn/tooltip'
 
 const router = useRouter()
 const series = ref([])
@@ -51,16 +50,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-  window.addEventListener('keydown', onKey)
 })
-onUnmounted(() => window.removeEventListener('keydown', onKey))
-
-function onKey(e) {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault()
-    searchOpen.value = !searchOpen.value
-  }
-}
 
 const visible = computed(() => {
   const q = filter.value.trim().toLowerCase()
@@ -102,8 +92,7 @@ function goTo(s) {
             </p>
           </div>
           <Button variant="outline" @click="searchOpen = true">
-            <Search /> Rechercher
-            <kbd class="ml-2 rounded-sm border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">⌘K</kbd>
+            <Search /> Palette de démo
           </Button>
         </div>
 

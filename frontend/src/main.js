@@ -3,6 +3,8 @@ import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
 import './style.css'
+// Après style.css : composants shadcn-vue (Tailwind sans preflight, voir ce fichier).
+import './components/shadcn/shadcn.css'
 import { useThemeStore } from './stores/theme'
 
 const app = createApp(App)

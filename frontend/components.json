@@ -4,17 +4,17 @@
   "typescript": false,
   "tailwind": {
     "config": "",
-    "css": "src/labs/shadcn/shadcn.css",
+    "css": "src/components/shadcn/shadcn.css",
     "baseColor": "stone",
     "cssVariables": true,
     "prefix": ""
   },
   "aliases": {
-    "components": "@/labs/shadcn/components",
-    "utils": "@/labs/shadcn/lib/utils",
-    "ui": "@/labs/shadcn/components/ui",
-    "lib": "@/labs/shadcn/lib",
-    "composables": "@/labs/shadcn/composables"
+    "components": "@/components",
+    "utils": "@/components/shadcn/lib/utils",
+    "ui": "@/components/shadcn",
+    "lib": "@/components/shadcn/lib",
+    "composables": "@/composables"
   },
   "iconLibrary": "lucide"
 }

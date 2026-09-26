@@ -1,0 +1,62 @@
+/* Composants shadcn-vue (src/components/shadcn/) — chargé pour toute l'app (main.js).
+ *
+ * Tailwind SANS sa remise à zéro globale (preflight) : les pages existantes gardent leur CSS.
+ * La petite remise à zéro nécessaire aux composants est limitée à leurs éléments
+ * ([data-slot], posé par chaque composant shadcn-vue, y compris ceux rendus hors de la page :
+ * menus, dialogues). Un utilitaire Tailwind ne s'applique qu'aux éléments qui portent sa
+ * classe ; frontend/tests/tailwindCollisions.test.js vérifie qu'aucune classe définie par le CSS de
+ * l'app ne porte le nom d'un utilitaire (sinon les deux règles se mélangeraient).
+ */
+@layer theme, base;
+@import "tailwindcss/theme.css" layer(theme);
+/* Utilitaires hors couche : la remise à zéro globale de l'app (style.css, `* { padding: 0;
+ * margin: 0 }`) n'est dans aucune couche, et l'emporterait sinon sur p-6, px-4, etc.
+ * Sources : tout src/ (les pages peuvent utiliser les utilitaires autour des composants). */
+@import "tailwindcss/utilities.css" source(none);
+@source "../../";
+@import "tw-animate-css";
+
+/* Mode sombre de l'app : attribut data-theme sur <html> (stores/theme.js), pas la préférence système. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Couleurs, rayons et police shadcn → variables de l'app (style.css). Aucune couleur en dur :
+ * le clair/sombre suit automatiquement. */
+@theme inline {
+  --color-background: var(--surface);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--light);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--light);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--light);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --radius-xs: 2px;
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: 14px;
+  --font-sans: var(--font);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  [data-slot], [data-slot] *, [data-slot]::before, [data-slot]::after {
+    box-sizing: border-box;
+    border: 0 solid var(--color-border);
+    margin: 0;
+  }
+  [data-slot] { font-family: var(--font); }
+  button[data-slot], [data-slot] button, input[data-slot], [data-slot] input {
+    font: inherit; color: inherit; background: transparent;
+  }
+}

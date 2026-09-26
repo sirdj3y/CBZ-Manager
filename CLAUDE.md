@@ -93,8 +93,12 @@ Library is organized as **Series → Tomes (albums)**. A series = a folder on di
 - **Routing:** `vue-router` with HTML5 history. SPA fallback is handled by the backend.
 - **AutocompleteInput:** multi-value comma-separated input (`components/ui/AutocompleteInput.vue`). The autocomplete pool for Writer/Penciller merges both fields (an author like Peyo who writes and draws appears in both).
 
-### shadcn-vue sandbox (`frontend/src/labs/shadcn/`, route `/labo/shadcn`, issue #6)
-Trial only, not linked in the menu. Tailwind v4 is used **only** there: `shadcn.css` is imported by `ShadcnLabView.vue` alone, without preflight, utilities generated only for that folder (`source(none)` + `@source "./"`) and unlayered (the app's global `* { padding: 0; margin: 0 }` in `style.css` is unlayered and would win over layered utilities). shadcn colors map to the app's tokens in `@theme inline`; dark mode follows `data-theme` on `<html>`. Add components with `npx shadcn-vue@latest add <name>` (`frontend/components.json`, JS, alias `@` → `src`). Never import `shadcn.css` elsewhere, or Tailwind classes start applying across the app.
+### shadcn-vue components (`frontend/src/components/shadcn/`, issues #6–#12)
+Adopted progressively (plan in issues #7–#12): pages keep their own CSS and identity; interactive pieces (dialogs, menus, tooltips, search, selects, sheets) become shadcn-vue components. Showcase: `/labo/shadcn` (`src/labs/shadcn/`, not in the menu).
+- `shadcn.css` is loaded app-wide (`main.js`, after `style.css`): Tailwind v4 **without preflight**, a minimal reset scoped to `[data-slot]` (every shadcn element, portals included), utilities **unlayered** (the app's global `* { padding: 0; margin: 0 }` is unlayered and would beat layered utilities) and generated from all of `src/`.
+- shadcn colors/radii/font map to the app's tokens in `@theme inline` — never hardcode colors; dark mode follows `data-theme` on `<html>`. App `:root` tokens (unlayered) win over Tailwind's own theme variables of the same name (`--shadow-lg`, `--radius-sm`…), so `shadow-lg` etc. already use the app's values.
+- A file that imports from `@/components/shadcn` may use Tailwind utilities; other files must not. `frontend/tests/tailwindCollisions.test.js` fails if an app CSS class, or a template class in a non-shadcn file, is also a Tailwind utility.
+- Add components with `npx shadcn-vue@latest add <name>` (`frontend/components.json`, JS, alias `@` → `src`). The copied code is ours to adapt (e.g. `GlobalSearchModal.vue` uses Reka's `ListboxFilter` with its own filtering instead of `CommandInput`, whose built-in filter needs every item rendered).
 
 ### File naming convention (scanner)
 The scanner (`services/scanner.py`) parses filenames via `services/filename_parser.py`. Recommended pattern: `{Série} - T{Numéro} - {Titre}.cbz`. Examples recognized:
