@@ -2,12 +2,13 @@
 
 ---
 
-## Non publié (branche develop)
+## v1.27.2 — 2026-09-27 — Corrections passkeys et Mon compte
 
 ### Corrections
 
 - **Mon compte sur smartphone** : les avatars prédéfinis dépassaient de leur carte ; la grille s'adapte désormais à la largeur de l'écran.
 - **Passkeys** : ajouter une passkey sur un appareil qui en a déjà une pour ce compte (synchronisée depuis un autre appareil, par exemple du Mac vers l'iPhone via le trousseau iCloud) affichait une erreur obscure. Un message explique désormais qu'elle est déjà utilisable. Les autres erreurs affichent leur détail technique.
+- **Passkeys : création bloquée avec un gestionnaire de mots de passe en extension** (Bitwarden, 1Password…) : sa fenêtre s'affiche dans la page, et notre fenêtre « Ajouter une passkey », restée ouverte par-dessus, bloquait la souris et ne se refermait pas. Elle se ferme désormais avant la création ; l'attente et les erreurs s'affichent dans la section Passkeys.
 
 ---
 
