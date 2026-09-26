@@ -2,12 +2,16 @@
 
 ---
 
-## Non publié (branche develop)
+## v1.27.1 — 2026-09-26 — Corrections d'affichage sur smartphone
 
 ### Corrections
 
 - **Smartphone : barre du haut** : le champ de recherche repoussait les icônes (mode sombre, Nouveautés, Scanner, Mon compte) hors de l'écran. Il rétrécit désormais et affiche simplement « Rechercher ».
 - **Smartphone : bandeau d'accueil** : l'image de fond est de nouveau affichée, cadrée sur le sujet (à droite de l'image), avec un voile vertical qui garde le texte lisible.
+
+### Validation
+
+Reproduit puis vérifié dans Chromium à la taille d'un iPhone (390 × 844) : icônes de la barre du haut à l'intérieur de l'écran, plus de défilement horizontal, fond du bandeau affiché avec le texte en blanc. Deux tests de bout en bout empêchent le retour de ces problèmes.
 
 ---
 
