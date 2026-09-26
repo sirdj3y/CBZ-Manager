@@ -82,20 +82,32 @@ def _cookie_kwargs(request: Request) -> dict:
     )
 
 
+def _is_trusted(host: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(addr in net for net in _TRUSTED_PROXY_NETWORKS)
+
+
 def get_client_ip(request: Request) -> str | None:
-    """IP réelle du client pour le journal d'activité — X-Forwarded-For posé par un reverse
-    proxy (nginx, Traefik, Synology…) prime, sinon l'IP de connexion telle que reçue par
-    l'app (même raisonnement que _cookie_kwargs pour X-Forwarded-Proto). Le premier maillon
-    de X-Forwarded-For est le client d'origine, les suivants sont les proxys traversés.
-    N'accepte cet en-tête que si la connexion DIRECTE vient d'un pair de confiance (voir
-    _is_trusted_proxy_peer) — sinon un client qui contacte l'app directement (port Docker
-    publié sans proxy devant, ou simplement en évitant le proxy annoncé) pouvait poser
-    lui-même cet en-tête à chaque tentative pour contourner la limitation de débit du login
-    (clé = IP) et polluer le journal d'activité avec une IP arbitraire."""
+    """IP réelle du client (journal d'activité, limitation des tentatives de connexion).
+
+    Derrière un reverse proxy de confiance (voir _is_trusted_proxy_peer), X-Forwarded-For est
+    lu **en partant de la fin** : chaque proxy AJOUTE l'adresse qu'il a vue, sans effacer ce
+    que le client a envoyé. Le premier maillon peut donc être inventé par le client (pour
+    contourner la limitation des tentatives, qui compte par IP) ; le dernier maillon qui
+    n'est pas lui-même un proxy de confiance est celui que notre proxy a réellement vu.
+
+    Sans proxy de confiance devant (connexion directe au port publié), l'en-tête est ignoré."""
+    peer = request.client.host if request.client else None
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded and _is_trusted_proxy_peer(request):
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else None
+    if not forwarded or not _is_trusted_proxy_peer(request):
+        return peer
+    for hop in reversed([h.strip() for h in forwarded.split(",") if h.strip()]):
+        if not _is_trusted(hop):
+            return hop
+    return peer
 
 
 async def _status(db: AsyncSession, user: User) -> AuthStatus:
