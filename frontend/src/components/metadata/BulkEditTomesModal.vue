@@ -4,6 +4,7 @@ import { tomesApi } from '../../api/tomes'
 import { useLibraryStore } from '../../stores/library'
 import { useNotificationStore } from '../../stores/notifications'
 import TagInput from '../ui/TagInput.vue'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   tomeIds: { type: Array, required: true },
@@ -59,78 +60,68 @@ onMounted(() => {
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 function onKey(e) {
-  if (e.key === 'Escape') emit('close')
-  else if (e.key === 'Enter' && !saving.value) save()
+  // Échap : géré par AppDialog.
+  if (e.key === 'Enter' && !saving.value) save()
 }
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click="$emit('close')" />
-    <div class="modal-wrap">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <p class="modal-title">Éditer en lot</p>
-            <p class="modal-subtitle">{{ tomeIds.length }} album{{ tomeIds.length > 1 ? 's' : '' }} sélectionné{{ tomeIds.length > 1 ? 's' : '' }}</p>
-          </div>
-          <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+  <AppDialog title="Éditer plusieurs albums" :close-on-outside-click="false" @close="$emit('close')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Éditer en lot</p>
+          <p class="modal-subtitle">{{ tomeIds.length }} album{{ tomeIds.length > 1 ? 's' : '' }} sélectionné{{ tomeIds.length > 1 ? 's' : '' }}</p>
         </div>
+        <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
 
-        <div class="modal-body">
-          <p class="modal-hint">
-            Seuls les champs renseignés ci-dessous seront appliqués, à tous les albums sélectionnés — et remplaceront leur valeur actuelle. Laisser vide un champ ne le modifie pas.
-          </p>
-          <div class="field">
-            <label class="form-label">Scénariste</label>
-            <TagInput
-              :model-value="toTags(form.Writer)" :suggestions="authorPool"
-              placeholder="Ajouter un scénariste…"
-              @update:model-value="updateTags('Writer', $event)"
-            />
-          </div>
-          <div class="field">
-            <label class="form-label">Dessinateur</label>
-            <TagInput
-              :model-value="toTags(form.Penciller)" :suggestions="authorPool"
-              placeholder="Ajouter un dessinateur…"
-              @update:model-value="updateTags('Penciller', $event)"
-            />
-          </div>
-          <div class="field">
-            <label class="form-label">Éditeur</label>
-            <TagInput
-              :model-value="toTags(form.Publisher)" :suggestions="library.authorNames.publishers"
-              placeholder="Ajouter un éditeur…"
-              @update:model-value="updateTags('Publisher', $event)"
-            />
-          </div>
-          <div class="field">
-            <label class="form-label">Langue (ISO)</label>
-            <input v-model="form.LanguageISO" type="text" class="form-control" placeholder="ex: fr" />
-          </div>
+      <div class="modal-body">
+        <p class="modal-hint">
+          Seuls les champs renseignés ci-dessous seront appliqués, à tous les albums sélectionnés — et remplaceront leur valeur actuelle. Laisser vide un champ ne le modifie pas.
+        </p>
+        <div class="field">
+          <label class="form-label">Scénariste</label>
+          <TagInput
+            :model-value="toTags(form.Writer)" :suggestions="authorPool"
+            placeholder="Ajouter un scénariste…"
+            @update:model-value="updateTags('Writer', $event)"
+          />
         </div>
-
-        <div class="modal-footer">
-          <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
-          <button @click="save" :disabled="saving" class="btn btn-primary btn-sm">
-            {{ saving ? 'Application…' : 'Appliquer' }}
-          </button>
+        <div class="field">
+          <label class="form-label">Dessinateur</label>
+          <TagInput
+            :model-value="toTags(form.Penciller)" :suggestions="authorPool"
+            placeholder="Ajouter un dessinateur…"
+            @update:model-value="updateTags('Penciller', $event)"
+          />
+        </div>
+        <div class="field">
+          <label class="form-label">Éditeur</label>
+          <TagInput
+            :model-value="toTags(form.Publisher)" :suggestions="library.authorNames.publishers"
+            placeholder="Ajouter un éditeur…"
+            @update:model-value="updateTags('Publisher', $event)"
+          />
+        </div>
+        <div class="field">
+          <label class="form-label">Langue (ISO)</label>
+          <input v-model="form.LanguageISO" type="text" class="form-control" placeholder="ex: fr" />
         </div>
       </div>
+
+      <div class="modal-footer">
+        <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
+        <button @click="save" :disabled="saving" class="btn btn-primary btn-sm">
+          {{ saving ? 'Application…' : 'Appliquer' }}
+        </button>
+      </div>
     </div>
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--overlay-bg); }
-.modal-wrap {
-  position: fixed; inset: 0; z-index: 201;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   width: 100%; max-width: 420px; max-height: 90vh;
   display: flex; flex-direction: column;

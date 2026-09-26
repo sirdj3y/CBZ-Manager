@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { libraryApi } from '../../api/library'
 import { useNotificationStore } from '../../stores/notifications'
 import { sortTomesByNumber } from '../../utils/tomeSort'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   series: { type: Object, required: true }, // doit avoir .tomes[]
@@ -15,10 +16,6 @@ const emit = defineEmits(['close', 'updated'])
 const sortedTomes = computed(() => sortTomesByNumber(props.series.tomes))
 
 const notif = useNotificationStore()
-
-function onKey(e) { if (e.key === 'Escape') emit('close') }
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 async function setCover(tomeId) {
   try {
@@ -44,7 +41,7 @@ async function resetCover() {
 </script>
 
 <template>
-  <div class="cover-picker-backdrop" @click.self="$emit('close')">
+  <AppDialog :title="`Choisir la miniature — ${series.name}`" @close="$emit('close')">
     <div class="cover-picker-modal">
       <div class="cover-picker-header">
         <span>Choisir la miniature — {{ series.name }}</span>
@@ -79,16 +76,10 @@ async function resetCover() {
         </div>
       </div>
     </div>
-  </div>
+  </AppDialog>
 </template>
 
 <style scoped>
-.cover-picker-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
 .cover-picker-modal {
   background: var(--surface-raised);
   border-radius: var(--radius);

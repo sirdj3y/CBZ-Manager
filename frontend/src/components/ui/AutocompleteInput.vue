@@ -169,6 +169,9 @@ function onKeydown(e) {
   /* Au-dessus des popovers/menus shadcn (z 1000) : ce champ est utilisé dans le panneau de
      filtres (Popover) et dans des modales. */
   z-index: 1100;
+  /* Une Dialog shadcn ouverte coupe les clics sur tout <body> (pointer-events: none) sauf
+     sur elle-même : cette liste, rendue dans <body>, doit rester cliquable (voir AppDialog). */
+  pointer-events: auto;
   max-height: 220px;
   overflow-y: auto;
 }

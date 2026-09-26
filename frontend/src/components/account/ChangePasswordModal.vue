@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationStore } from '../../stores/notifications'
+import AppDialog from '../ui/AppDialog.vue'
 
 const auth = useAuthStore()
 const notif = useNotificationStore()
@@ -50,55 +51,45 @@ async function save() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click="close" />
-    <div class="modal-wrap">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <p class="modal-title">Changer le mot de passe</p>
-          </div>
-          <button @click="close" class="btn btn-ghost btn-icon btn-sm">✕</button>
+  <AppDialog title="Changer le mot de passe" @close="close">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Changer le mot de passe</p>
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">Mot de passe actuel</label>
-            <input v-model="form.current_password" type="password" class="form-control" autocomplete="current-password" autofocus />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nouveau mot de passe</label>
-            <input v-model="form.new_password" type="password" class="form-control" placeholder="8 caractères minimum" autocomplete="new-password" @keyup.enter="save" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirmer</label>
-            <input v-model="form.confirm_password" type="password" class="form-control" autocomplete="new-password" @keyup.enter="save" />
-          </div>
-          <p class="form-hint" style="margin:0">
-            Changer le mot de passe déconnecte automatiquement toute autre session ouverte ailleurs.
-          </p>
+        <button @click="close" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Mot de passe actuel</label>
+          <input v-model="form.current_password" type="password" class="form-control" autocomplete="current-password" autofocus />
         </div>
-        <div class="modal-footer">
-          <div class="modal-footer-spacer" />
-          <button class="btn btn-ghost btn-sm" @click="close">Annuler</button>
-          <button class="btn btn-primary btn-sm" :disabled="saving" @click="save">
-            {{ saving ? 'Enregistrement…' : 'Enregistrer' }}
-          </button>
+        <div class="form-group">
+          <label class="form-label">Nouveau mot de passe</label>
+          <input v-model="form.new_password" type="password" class="form-control" placeholder="8 caractères minimum" autocomplete="new-password" @keyup.enter="save" />
         </div>
+        <div class="form-group">
+          <label class="form-label">Confirmer</label>
+          <input v-model="form.confirm_password" type="password" class="form-control" autocomplete="new-password" @keyup.enter="save" />
+        </div>
+        <p class="form-hint" style="margin:0">
+          Changer le mot de passe déconnecte automatiquement toute autre session ouverte ailleurs.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-spacer" />
+        <button class="btn btn-ghost btn-sm" @click="close">Annuler</button>
+        <button class="btn btn-primary btn-sm" :disabled="saving" @click="save">
+          {{ saving ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
       </div>
     </div>
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-/* Squelette de modale — même pattern que RenameModal.vue / SettingsUsersView.vue. */
-.modal-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--overlay-bg); }
-.modal-wrap {
-  position: fixed; inset: 0; z-index: 201;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
+/* Boîte de la modale — fond, centrage et fermeture : AppDialog. */
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);

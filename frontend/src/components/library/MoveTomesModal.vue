@@ -5,6 +5,7 @@ import { tomesApi } from '../../api/tomes'
 import { useNotificationStore } from '../../stores/notifications'
 import AutocompleteInput from '../ui/AutocompleteInput.vue'
 import { sortTitle } from '../../utils/text'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   tomeIds: { type: Array, required: true },
@@ -56,55 +57,45 @@ onMounted(() => {
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 function onKey(e) {
-  if (e.key === 'Escape') emit('close')
-  else if (e.key === 'Enter' && target.value && !moving.value) move()
+  // Échap : géré par AppDialog.
+  if (e.key === 'Enter' && target.value && !moving.value) move()
 }
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click="$emit('close')" />
-    <div class="modal-wrap">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <p class="modal-title">Déplacer vers une série</p>
-            <p class="modal-subtitle">{{ tomeIds.length }} album{{ tomeIds.length > 1 ? 's' : '' }} sélectionné{{ tomeIds.length > 1 ? 's' : '' }}</p>
+  <AppDialog title="Déplacer vers une série" @close="$emit('close')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Déplacer vers une série</p>
+          <p class="modal-subtitle">{{ tomeIds.length }} album{{ tomeIds.length > 1 ? 's' : '' }} sélectionné{{ tomeIds.length > 1 ? 's' : '' }}</p>
+        </div>
+        <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div v-if="loading" class="state-box"><span class="state-pulse">Chargement…</span></div>
+        <template v-else>
+          <div class="field">
+            <label class="form-label">Série de destination</label>
+            <AutocompleteInput v-model="seriesName" :suggestions="suggestions" show-all-on-focus placeholder="Rechercher une série…" />
           </div>
-          <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
-        </div>
+          <p v-if="target" class="dest-status">✓ « {{ target.name }} » — {{ target.tome_count }} album{{ target.tome_count > 1 ? 's' : '' }}</p>
+        </template>
+      </div>
 
-        <div class="modal-body">
-          <div v-if="loading" class="state-box"><span class="state-pulse">Chargement…</span></div>
-          <template v-else>
-            <div class="field">
-              <label class="form-label">Série de destination</label>
-              <AutocompleteInput v-model="seriesName" :suggestions="suggestions" show-all-on-focus placeholder="Rechercher une série…" />
-            </div>
-            <p v-if="target" class="dest-status">✓ « {{ target.name }} » — {{ target.tome_count }} album{{ target.tome_count > 1 ? 's' : '' }}</p>
-          </template>
-        </div>
-
-        <div class="modal-footer">
-          <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
-          <button @click="move" :disabled="!target || moving" class="btn btn-primary btn-sm">
-            {{ moving ? 'Déplacement…' : 'Déplacer' }}
-          </button>
-        </div>
+      <div class="modal-footer">
+        <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
+        <button @click="move" :disabled="!target || moving" class="btn btn-primary btn-sm">
+          {{ moving ? 'Déplacement…' : 'Déplacer' }}
+        </button>
       </div>
     </div>
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--overlay-bg); }
-.modal-wrap {
-  position: fixed; inset: 0; z-index: 201;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   width: 100%; max-width: 420px; max-height: 80vh;
   display: flex; flex-direction: column;
