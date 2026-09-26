@@ -22,7 +22,15 @@ In DEV_MODE: CORS is enabled for `localhost:5173`, Swagger UI is available at `/
 .venv/bin/python -m pytest          # backend — from repo root (tests/, pytest.ini)
 cd frontend && npm test             # frontend — vitest (frontend/tests/)
 ```
-CI runs both before every image build (`.github/workflows/docker.yml`, job `tests`, Python 3.11 like the image, Node 22); a failure blocks publication, so nothing untested reaches preprod or prod. **Every fix or feature adds or extends a test** — a regression test for a bug fix (see the `Achille Talon` case in `tests/test_filename_parser.py`, `13.5`/`7bis` in `frontend/tests/renamePattern.test.js`). `tests/conftest.py` points MEDIA_ROOT/DB_PATH/COVER_CACHE_DIR at a temp dir *before* importing `backend` (settings are read at import), generates real CBZ/PDF files, and gives a `client` fixture (full app with lifespan, logged-in admin) and a `scanned` one (library already scanned — TestClient runs the scan's background task before returning).
+End-to-end (real browser, Playwright/Chromium) — the whole app on a throwaway server and generated library:
+```bash
+cd frontend && npm run build && cd ..          # e2e serves backend/static
+.venv/bin/python -m playwright install chromium  # once
+.venv/bin/python -m pytest e2e                   # e2e/ (own pytest.ini, conftest starts uvicorn)
+```
+**Any UI change (menus, popovers, dialogs, tooltips, keyboard) gets an e2e check before pushing** — unit tests can't see a menu rendered off-screen (the #10 tooltip/menu regression reached preprod that way). Helpers in `e2e/helpers.py` (`in_viewport` waits for Reka's async positioning; `gone`; `goto`). Failure screenshots go to `e2e/artifacts/` (CI artifact `e2e-captures`).
+
+CI runs unit tests and e2e before every image build (`.github/workflows/docker.yml`, job `tests`, Python 3.11 like the image, Node 22); a failure blocks publication, so nothing untested reaches preprod or prod. **Every fix or feature adds or extends a test** — a regression test for a bug fix (see the `Achille Talon` case in `tests/test_filename_parser.py`, `13.5`/`7bis` in `frontend/tests/renamePattern.test.js`). `tests/conftest.py` points MEDIA_ROOT/DB_PATH/COVER_CACHE_DIR at a temp dir *before* importing `backend` (settings are read at import), generates real CBZ/PDF files, and gives a `client` fixture (full app with lifespan, logged-in admin) and a `scanned` one (library already scanned — TestClient runs the scan's background task before returning).
 
 ### Docker (production — Synology DS423+)
 Images are built by GitHub Actions (`.github/workflows/docker.yml`, linux/amd64 — DS423+ is Intel x86_64) and published to GHCR — no more local `buildx` + `docker save` to `.tar.gz`:
