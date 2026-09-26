@@ -11,6 +11,8 @@ import { useLibraryStore } from '../../stores/library'
 import { useRouter } from 'vue-router'
 import { formatTomeNumber } from '../../utils/renamePattern'
 import Hint from '../ui/Hint.vue'
+import AppDialog from '../ui/AppDialog.vue'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/shadcn/dropdown-menu'
 
 const props = defineProps({
   tome: { type: Object, required: true },
@@ -64,15 +66,6 @@ const deleting = ref(false)
 // Menu "⋮" du header — regroupe les actions destructives/secondaires (Supprimer), pour ne
 // pas les laisser à portée de clic en permanence.
 const showHeaderMenu = ref(false)
-const headerMenuRef = ref(null)
-function onDocClick(e) {
-  if (showHeaderMenu.value && headerMenuRef.value && !headerMenuRef.value.contains(e.target)) {
-    showHeaderMenu.value = false
-  }
-  if (showAddFieldMenu.value && addFieldMenuRef.value && !addFieldMenuRef.value.contains(e.target)) {
-    showAddFieldMenu.value = false
-  }
-}
 
 // Sous-titre du header : TXX · Format · Taille — le nom de la série n'y figure plus (déjà son
 // propre champ juste en dessous dans le formulaire, inutile de le répéter).
@@ -130,7 +123,6 @@ const hiddenExtraFields = computed(() =>
   EXTRA_FIELDS.filter(f => !visibleExtraFields.value.includes(f))
 )
 const showAddFieldMenu = ref(false)
-const addFieldMenuRef = ref(null)
 function addExtraField(key) {
   if (!manuallyAddedFields.value.includes(key)) manuallyAddedFields.value.push(key)
   showAddFieldMenu.value = false
@@ -156,10 +148,8 @@ async function toggleOneshot() {
 }
 
 onMounted(async () => {
-  // Attach the Escape-to-close listener unconditionally — otherwise a failed load
-  // below leaves the drawer stuck open with no way to dismiss it.
+  // Entrée pour sauvegarder (Échap : AppDialog) — branché avant le chargement, qui peut échouer.
   window.addEventListener('keydown', onKey)
-  window.addEventListener('click', onDocClick)
   if (!library.authorNames.writers.length) library.fetchAuthors()
   try {
     const [metaRes, infoRes] = await Promise.all([
@@ -184,26 +174,15 @@ function fmtSize(bytes) {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
-  window.removeEventListener('click', onDocClick)
 })
 
+// Échap : géré par les Dialog (AppDialog, ScraperModal) et les menus — chaque couche se
+// ferme seule, la plus haute d'abord, sans perdre les modifications en cours.
 function onKey(e) {
-  // Touche tapée dans une couche shadcn ouverte depuis le tiroir (modale Scraper, menu…) :
-  // elle la gère et se ferme seule — sinon Échap refermerait aussi le tiroir.
-  if (e.target?.closest?.('[data-slot$="-content"]')) return
-  if (e.key === 'Escape') {
-    // Referme d'abord la couche visible au-dessus (scraper, menu ou confirmation de
-    // suppression), jamais toute la modale directement — sinon des modifications en cours
-    // seraient perdues sans prévenir simplement parce qu'une de ces couches était ouverte.
-    if (showScraper.value) { showScraper.value = false; return }
-    if (confirmDelete.value) { confirmDelete.value = false; return }
-    if (showHeaderMenu.value) { showHeaderMenu.value = false; return }
-    if (showAddFieldMenu.value) { showAddFieldMenu.value = false; return }
-    emit('close')
-  } else if (
+  if (
     e.key === 'Enter' &&
-    !showScraper.value && !confirmDelete.value && !saving.value &&
-    e.target.tagName !== 'TEXTAREA'
+    !showScraper.value && !confirmDelete.value && !showHeaderMenu.value && !showAddFieldMenu.value &&
+    !saving.value && e.target.tagName !== 'TEXTAREA'
   ) {
     // Le commentaire personnel est un textarea multi-lignes : Entrée doit y rester un
     // saut de ligne, pas déclencher la sauvegarde de toute la modale.
@@ -289,12 +268,7 @@ function applyScraperResult(result) {
 </script>
 
 <template>
-  <Teleport to="body">
-    <!-- Backdrop -->
-    <div class="modal-backdrop" @click="$emit('close')" />
-
-    <!-- Modal -->
-    <div class="modal-wrap">
+  <AppDialog :title="`Métadonnées — ${tome.title || tome.filename}`" @close="$emit('close')">
       <div class="modal-box">
         <!-- Header -->
         <div class="modal-header">
@@ -304,18 +278,18 @@ function applyScraperResult(result) {
           </div>
           <!-- Menu "⋮" : regroupe les actions secondaires/destructives (Supprimer), plutôt
                qu'un bouton en texte visible en permanence dans le footer. -->
-          <div class="header-menu-wrap" ref="headerMenuRef">
-            <Hint label="Plus d'actions">
-              <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="showHeaderMenu = !showHeaderMenu">
+          <DropdownMenu v-model:open="showHeaderMenu" :modal="false">
+            <DropdownMenuTrigger as-child>
+              <button type="button" class="btn btn-ghost btn-icon btn-sm" title="Plus d'actions" aria-label="Plus d'actions">
                 <SvgIcon name="more-vertical" />
               </button>
-            </Hint>
-            <div v-if="showHeaderMenu" class="header-menu">
-              <button type="button" class="header-menu-item header-menu-danger" @click="showHeaderMenu = false; confirmDelete = true">
-                <SvgIcon name="trash-2" class="header-menu-icon" /> Supprimer
-              </button>
-            </div>
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="min-w-[180px]">
+              <DropdownMenuItem variant="destructive" @select="confirmDelete = true">
+                <SvgIcon name="trash-2" /> Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
         </div>
 
@@ -547,17 +521,16 @@ function applyScraperResult(result) {
                 class="form-control" :class="{ readonly: !canEdit }"
               />
             </div>
-            <div v-if="canEdit && hiddenExtraFields.length" class="add-field-wrap" ref="addFieldMenuRef">
-              <button type="button" class="add-field-link" @click="showAddFieldMenu = !showAddFieldMenu">
-                <SvgIcon name="square-plus" /> Ajouter un champ
-              </button>
-              <div v-if="showAddFieldMenu" class="add-field-menu">
-                <button
-                  v-for="f in hiddenExtraFields" :key="f.key" type="button"
-                  class="add-field-menu-item" @click="addExtraField(f.key)"
-                >{{ f.label }}</button>
-              </div>
-            </div>
+            <DropdownMenu v-if="canEdit && hiddenExtraFields.length" v-model:open="showAddFieldMenu" :modal="false">
+              <DropdownMenuTrigger as-child>
+                <button type="button" class="add-field-link">
+                  <SvgIcon name="square-plus" /> Ajouter un champ
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" class="max-h-[280px] min-w-[200px] overflow-y-auto">
+                <DropdownMenuItem v-for="f in hiddenExtraFields" :key="f.key" @select="addExtraField(f.key)">{{ f.label }}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <div class="meta-divider"></div>
 
@@ -587,10 +560,9 @@ function applyScraperResult(result) {
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- Popup confirmation suppression -->
-    <div v-if="confirmDelete" class="confirm-backdrop" @click.self="confirmDelete = false">
+    <!-- Confirmation de suppression : Dialog imbriquée (Échap ne ferme qu'elle). -->
+    <AppDialog v-if="confirmDelete" title="Supprimer l'album ?" @close="confirmDelete = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer l'album ?</p>
         <p class="confirm-desc"><strong>{{ tome.title || tome.filename }}</strong> et son fichier seront supprimés définitivement.</p>
@@ -601,7 +573,7 @@ function applyScraperResult(result) {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
 
     <!-- Scraper modal -->
     <ScraperModal
@@ -614,30 +586,13 @@ function applyScraperResult(result) {
       @select="applyScraperResult"
       @close="showScraper = false"
     />
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: var(--overlay-bg);
-}
 
-.modal-wrap {
-  position: fixed;
-  inset: 0;
-  z-index: 201;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  pointer-events: none;
-}
 
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -679,22 +634,6 @@ function applyScraperResult(result) {
 }
 
 /* Menu "⋮" du header */
-.header-menu-wrap { position: relative; flex-shrink: 0; }
-.header-menu {
-  position: absolute; top: calc(100% + 4px); right: 0; z-index: 10;
-  background: var(--surface-raised); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
-  min-width: 180px; overflow: hidden;
-}
-.header-menu-item {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  background: none; border: none; cursor: pointer; text-align: left;
-  padding: 9px 12px; font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-}
-.header-menu-item:hover { background: var(--light); }
-.header-menu-danger { color: var(--danger); }
-.header-menu-danger:hover { background: var(--danger-bg-light); }
-.header-menu-icon { width: 15px; height: 15px; flex-shrink: 0; }
 
 /* Onglets */
 .modal-tabs {
@@ -804,7 +743,6 @@ function applyScraperResult(result) {
 .btn-bedetheque:hover { background: var(--vermilion); color: #fff; }
 
 /* "Ajouter un champ" — lien discret plutôt qu'un bouton bordé. */
-.add-field-wrap { position: relative; align-self: flex-start; }
 .add-field-link {
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: none; cursor: pointer; padding: 2px 0;
@@ -814,18 +752,6 @@ function applyScraperResult(result) {
 /* Ouvre vers le HAUT (comme les suggestions de TagInput) : le bouton peut se retrouver en
    milieu de colonne, un menu qui s'ouvrirait vers le bas risquerait d'être rogné par le
    "overflow-y: auto" de .modal-body. */
-.add-field-menu {
-  position: absolute; bottom: calc(100% + 4px); left: 0; z-index: 10;
-  background: var(--surface-raised); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
-  min-width: 210px; max-height: 260px; overflow-y: auto;
-}
-.add-field-menu-item {
-  display: block; width: 100%;
-  background: none; border: none; cursor: pointer; text-align: left;
-  padding: 8px 12px; font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-}
-.add-field-menu-item:hover { background: var(--light); }
 
 .file-info-card {
   padding: 10px 12px;
@@ -844,11 +770,6 @@ function applyScraperResult(result) {
 .file-info-value { font-size: 0.8rem; color: var(--text); }
 .file-info-path { font-family: monospace; font-size: 0.7rem; color: var(--muted); overflow-wrap: break-word; word-break: break-word; }
 
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 300;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

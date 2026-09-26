@@ -127,11 +127,13 @@ def test_scraper_depuis_le_tiroir_echap_ne_ferme_que_le_scraper(page):
     menu(page).get_by_text("Rechercher les métadonnées").click()
     scraper = dialog(page)
     scraper.first.wait_for()
-    assert scraper.locator(".modal-title").inner_text() == "Rechercher en ligne"
+    page.locator("h2.modal-title", has_text="Rechercher en ligne").wait_for()
+    assert scraper.count() == 2  # le tiroir + le Scraper par-dessus
+    page.wait_for_timeout(300)
     page.keyboard.press("Escape")
-    assert gone(scraper)
+    page.locator("h2.modal-title", has_text="Rechercher en ligne").wait_for(state="detached")
     # Le tiroir de métadonnées (toujours ouvert) reste là.
-    assert page.locator(".modal-backdrop").count() == 1
+    assert dialog(page).count() == 1
 
 
 def test_confirmation_suppression_album_annulable(page):
@@ -176,3 +178,34 @@ def test_lecteur_tome_suivant(page):
     page.keyboard.press("Escape")
     assert gone(box)
     assert "/read/" in page.url, "Échap ferme la fenêtre sans quitter le lecteur"
+
+
+def test_tiroir_metadonnees_album(page):
+    open_first_series(page)
+    tome = page.locator(".tome-card").first
+    tome.hover()
+    tome.locator('button[aria-label="Modifier"]').click()
+    box = dialog(page)
+    box.first.wait_for()
+    page.wait_for_timeout(300)
+    # Menu « Ajouter un champ » (onglet Métadonnées, zone qui défile) : à l'écran, ajoute le champ.
+    box.locator(".modal-tab", has_text="Métadonnées").click()
+    page.get_by_role("button", name="Ajouter un champ").click()
+    assert in_viewport(menu(page))
+    item = menu(page).locator("[data-slot=dropdown-menu-item]").first
+    label = item.inner_text().strip()
+    item.click()
+    assert gone(menu(page))
+    assert box.get_by_text(label, exact=True).count() >= 1
+    # Menu ⋮ → Supprimer → confirmation imbriquée ; Échap couche par couche.
+    page.locator('button[aria-label="Plus d\'actions"]').click()
+    menu(page).get_by_text("Supprimer").click()
+    page.locator(".confirm-title", has_text="Supprimer l'album ?").wait_for()
+    assert dialog(page).count() == 2
+    page.wait_for_timeout(300)
+    page.keyboard.press("Escape")
+    page.locator(".confirm-title").wait_for(state="detached")
+    page.wait_for_timeout(300)
+    assert dialog(page).count() == 1
+    page.keyboard.press("Escape")
+    assert gone(dialog(page))
