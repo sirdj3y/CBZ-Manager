@@ -7,6 +7,11 @@ RUN npm ci
 
 COPY VERSION ../VERSION
 COPY frontend/ ./
+# Infos de build affichées dans l'app (fournies par GitHub Actions, vides en build local).
+ARG APP_CHANNEL=local
+ARG APP_GIT_SHA=
+ARG APP_BUILD_DATE=
+ENV APP_CHANNEL=$APP_CHANNEL APP_GIT_SHA=$APP_GIT_SHA APP_BUILD_DATE=$APP_BUILD_DATE
 RUN npm run build
 # Output: /app/backend/static/ (configured in vite.config.js)
 

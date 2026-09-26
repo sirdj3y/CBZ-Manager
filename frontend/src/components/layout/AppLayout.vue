@@ -16,6 +16,7 @@ import UserAvatar from '../account/UserAvatar.vue'
 import ChangePasswordModal from '../account/ChangePasswordModal.vue'
 import SmartListEditModal from '../library/SmartListEditModal.vue'
 import GlobalSearchModal from './GlobalSearchModal.vue'
+import { buildInfo, formatBuildDate } from '../../utils/buildInfo'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/shadcn/dropdown-menu'
@@ -48,6 +49,11 @@ const sidebarOpen = ref(localStorage.getItem(SIDEBAR_KEY) !== '0')
 const mobileMenuOpen = ref(false)
 const showLabels = computed(() => sidebarOpen.value || mobileMenuOpen.value)
 const appVersion = __APP_VERSION__
+// Préprod uniquement : date du build affichée discrètement sous la version, pour savoir si la
+// dernière mise à jour poussée sur develop est bien arrivée (voir utils/buildInfo.js).
+const preprodBuild = buildInfo.channel === 'preprod' && buildInfo.date
+  ? { label: `préprod · ${formatBuildDate(buildInfo.date)}`, title: `Préprod construite le ${formatBuildDate(buildInfo.date, { withYear: true })} — commit ${buildInfo.sha}` }
+  : null
 
 // Recherche globale (Ctrl/Cmd+K, ou la "boîte" du topbar — voir plus bas) : point d'entrée
 // unique, accessible depuis n'importe quelle page, pour chercher dans toute la bibliothèque
@@ -314,6 +320,7 @@ function fmtRelative(iso) {
         <div v-if="showLabels" class="brand-text">
           <span class="brand-name">CBZ Manager</span>
           <span class="brand-version">v{{ appVersion }}</span>
+          <span v-if="preprodBuild" class="brand-build" :title="preprodBuild.title">{{ preprodBuild.label }}</span>
         </div>
       </div>
 
@@ -706,6 +713,7 @@ function fmtRelative(iso) {
   font-size: 1.15rem; color: var(--text); white-space: nowrap; overflow: hidden;
 }
 .brand-version { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.brand-build { font-family: var(--font-mono); font-size: 0.62rem; color: var(--muted); opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-nav {
   display: flex;

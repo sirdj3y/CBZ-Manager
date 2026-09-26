@@ -3,9 +3,12 @@ import { ref, onMounted } from 'vue'
 import AppLayout from '../../components/layout/AppLayout.vue'
 import { settingsApi } from '../../api/settings'
 import authorAvatar from '../../assets/images/author-avatar.jpg'
+import { buildInfo, formatBuildDate } from '../../utils/buildInfo'
 
 const about = ref(null)
 const appVersion = __APP_VERSION__
+const CHANNEL_LABELS = { prod: 'Production', preprod: 'Préproduction', ci: 'Test', local: 'Développement local' }
+const buildDate = formatBuildDate(buildInfo.date, { withYear: true })
 
 onMounted(async () => {
   const { data } = await settingsApi.about()
@@ -56,6 +59,14 @@ function fmtSize(bytes) {
             <div class="about-info-row">
               <span class="about-info-label">Version</span>
               <span class="about-info-value"><code>v{{ appVersion }}</code></span>
+            </div>
+            <div class="about-info-row">
+              <span class="about-info-label">Environnement</span>
+              <span class="about-info-value">{{ CHANNEL_LABELS[buildInfo.channel] || buildInfo.channel }}</span>
+            </div>
+            <div v-if="buildDate" class="about-info-row">
+              <span class="about-info-label">Construite le</span>
+              <span class="about-info-value">{{ buildDate }} <code v-if="buildInfo.sha">{{ buildInfo.sha }}</code></span>
             </div>
             <div class="about-info-row">
               <span class="about-info-label">Base de données</span>

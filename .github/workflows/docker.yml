@@ -69,13 +69,17 @@ jobs:
           version=$(tr -d '[:space:]' < VERSION)
           short=${GITHUB_SHA::7}
           push=false
+          channel=ci
           if [ "$GITHUB_EVENT_NAME" != "pull_request" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            tags="$IMAGE:latest,$IMAGE:$version,$IMAGE:sha-$short"; push=true
+            tags="$IMAGE:latest,$IMAGE:$version,$IMAGE:sha-$short"; push=true; channel=prod
           elif [ "$GITHUB_EVENT_NAME" != "pull_request" ] && [ "$GITHUB_REF" = "refs/heads/develop" ]; then
-            tags="$IMAGE:preprod,$IMAGE:sha-$short"; push=true
+            tags="$IMAGE:preprod,$IMAGE:sha-$short"; push=true; channel=preprod
           else
             tags="$IMAGE:ci"
           fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
           echo "push=$push" >> "$GITHUB_OUTPUT"
@@ -101,6 +105,11 @@ jobs:
           push: ${{ steps.meta.outputs.push == 'true' }}
           provenance: false
           tags: ${{ steps.meta.outputs.tags }}
+          # Affichés dans l'app (bandeau préprod, page À propos) — voir vite.config.js.
+          build-args: |
+            APP_CHANNEL=${{ steps.meta.outputs.channel }}
+            APP_GIT_SHA=${{ steps.meta.outputs.short }}
+            APP_BUILD_DATE=${{ steps.meta.outputs.date }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}

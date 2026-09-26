@@ -15,6 +15,13 @@ export default defineConfig({
   },
   define: {
     __APP_VERSION__: JSON.stringify(version),
+    // Environnement (prod/preprod/local), commit et date du build — fournis par le build Docker
+    // de GitHub Actions (voir Dockerfile), absents en développement local.
+    __BUILD_INFO__: JSON.stringify({
+      channel: process.env.APP_CHANNEL || 'local',
+      sha: process.env.APP_GIT_SHA || '',
+      date: process.env.APP_BUILD_DATE || '',
+    }),
   },
   build: {
     outDir: '../backend/static',
