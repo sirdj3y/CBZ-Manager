@@ -221,8 +221,7 @@ async def set_series_bedetheque_url(
     await db.commit()
     await db.refresh(series)
 
-    # Ré-analyse immédiate avec cette URL (sans le délai de courtoisie du scan en masse —
-    # voir _scan_one_series(delay=...)) : une seule requête HTTP + parsing, la réponse reste
+    # Ré-analyse immédiate avec cette URL : une seule requête HTTP + parsing, la réponse reste
     # rapide et le client obtient directement l'état à jour (statut, albums manquants) sans
     # avoir à rafraîchir la page pour le voir apparaître.
     if url and series.track_new_albums:

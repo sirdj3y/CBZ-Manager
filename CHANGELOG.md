@@ -2,6 +2,19 @@
 
 ---
 
+## Non publié (branche develop)
+
+### Nouveau
+
+- **Services tiers plus robustes** (Bedetheque.com, ComicVine, Google Books) : requêtes espacées par service quelle que soit leur origine (recherche, import, scan des albums manquants), nouvelles tentatives automatiques en cas d'erreur passagère, et messages clairs (« Bedetheque.com ne répond pas pour le moment », « limite de requêtes atteinte », « clé API refusée ») au lieu d'une liste vide.
+
+### Corrections
+
+- **Scan des albums manquants** : une panne passagère de Bedetheque.com marquait l'URL confirmée d'une série comme introuvable — elle était alors re-devinée par nom au scan suivant (risque de mauvaise série) et « Compléter les métadonnées » la refusait. Désormais la série reste inchangée (URL, statut, albums manquants déjà connus) et le scan passe à la suivante.
+- **ComicVine** : une clé refusée ou une panne s'affichait comme « aucun résultat ».
+
+---
+
 ## v1.25.0 — 2026-09-26 — Déploiement automatique, tests, refonte des composants d'interface
 
 ### Nouveau

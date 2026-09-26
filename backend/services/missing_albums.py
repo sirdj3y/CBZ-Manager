@@ -10,17 +10,14 @@ suite de tomes classique, donc ignorés ici).
 Comparaison par différence d'ensembles (pas seulement "au-dessus du dernier tome connu") :
 détecte aussi bien un nouveau tome qu'un trou dans la collection.
 """
-import asyncio
 from typing import Callable, Optional
 
-import httpx
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.db_models import Series, Tome, Metadata, MissingAlbum, IgnoredMissingAlbum
 from . import scraper_bedetheque as bd
-
-DELAY_SECONDS = 1.5
+from .http_client import BEDETHEQUE, ServiceError
 
 
 def _resolve_series_url(name: str, index: dict[str, str]) -> Optional[str]:
@@ -102,12 +99,13 @@ async def sync_series_from_html(db: AsyncSession, series: Series, html: str) -> 
     return albums
 
 
-async def _scan_one_series(
-    db: AsyncSession, client: httpx.AsyncClient, index: dict[str, str], series: Series, delay: bool = True
-) -> None:
-    # Toujours nettoyés puis, si le suivi est actif, recalculés plus bas — sinon les entrées
-    # d'une série dont le suivi vient d'être désactivé resteraient affichées indéfiniment.
-    await db.execute(delete(MissingAlbum).where(MissingAlbum.series_id == series.id))
+async def _scan_one_series(db: AsyncSession, index: dict[str, str], series: Series) -> None:
+    """Lève ServiceError (panne passagère de Bedetheque) SANS avoir rien modifié : la page est
+    lue avant toute écriture, la série garde son état (URL, statut, albums manquants connus)."""
+    async def clear_missing():
+        # Toujours nettoyés puis, si le suivi est actif, recalculés plus bas — sinon les entrées
+        # d'une série dont le suivi vient d'être désactivé resteraient affichées indéfiniment.
+        await db.execute(delete(MissingAlbum).where(MissingAlbum.series_id == series.id))
 
     # Une URL déjà CONFIRMÉE (match_status="found" — résolue puis vérifiée avec succès, ou
     # saisie/corrigée manuellement) n'est plus jamais re-devinée par nom : une correction
@@ -118,25 +116,29 @@ async def _scan_one_series(
     url = series.bedetheque_url if series.bedetheque_match_status == "found" else None
     if not url:
         url = _resolve_series_url(series.name, index)
-        series.bedetheque_url = url
 
     if not url:
+        await clear_missing()
+        series.bedetheque_url = None
         series.bedetheque_match_status = "not_found"
         return
 
-    # Délai de courtoisie utile en boucle (scan_all, plusieurs séries d'affilée) — inutile et
-    # coûteux en latence pour une seule série rescannée à la demande (scan_series).
-    if delay:
-        await asyncio.sleep(DELAY_SECONDS)
+    # Rythme (délai de courtoisie entre deux pages) : client commun http_client.BEDETHEQUE.
     try:
-        resp = await client.get(bd._series_all_url(url))
-    except Exception:
-        resp = None
+        resp = await BEDETHEQUE.get(bd._series_all_url(url))
+    except ServiceError as e:
+        if e.kind == "not_found":
+            await clear_missing()
+            series.bedetheque_url = url
+            series.bedetheque_match_status = "not_found"
+            return
+        # Panne passagère (site lent, 5xx, réseau) : rien n'est conclu sur cette série. Avant,
+        # elle passait en "not_found" — son URL confirmée était alors re-devinée par nom au
+        # scan suivant (risque de mauvaise série) et « Compléter » la refusait.
+        raise
 
-    if resp is None or resp.status_code != 200:
-        series.bedetheque_match_status = "not_found"
-        return
-
+    await clear_missing()
+    series.bedetheque_url = url
     series.bedetheque_match_status = "found"
     albums = await sync_series_from_html(db, series, resp.text)
 
@@ -187,17 +189,20 @@ async def scan_all(db: AsyncSession, progress_cb: Callable[[int, int], None]) ->
     all_series = list(result.scalars().all())
     progress_cb(0, len(all_series))
 
-    async with httpx.AsyncClient(headers=bd.HEADERS, timeout=20.0, follow_redirects=True) as client:
-        for i, series in enumerate(all_series):
-            await _scan_one_series(db, client, index, series)
+    for i, series in enumerate(all_series):
+        try:
+            await _scan_one_series(db, index, series)
             await db.commit()
-            progress_cb(i + 1, len(all_series))
+        except ServiceError:
+            # Série laissée telle quelle (rien n'a été modifié) — la suivante a sa chance, le
+            # scan ne s'arrête pas pour une panne passagère.
+            pass
+        progress_cb(i + 1, len(all_series))
 
 
 async def scan_series(db: AsyncSession, series: Series) -> None:
     """Re-vérifie une seule série (ex: juste après réactivation du suivi) — pas besoin
     d'attendre le prochain scan complet de toute la bibliothèque pour voir le résultat."""
     index = bd._load_index()
-    async with httpx.AsyncClient(headers=bd.HEADERS, timeout=20.0, follow_redirects=True) as client:
-        await _scan_one_series(db, client, index, series, delay=False)
+    await _scan_one_series(db, index, series)  # ServiceError : rien n'a été modifié
     await db.commit()

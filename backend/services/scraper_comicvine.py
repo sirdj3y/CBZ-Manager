@@ -2,8 +2,9 @@
 ComicVine API client.
 Endpoint: https://comicvine.gamespot.com/api/
 """
-import httpx
 from typing import Optional
+
+from .http_client import COMICVINE
 
 
 COMICVINE_URL = "https://comicvine.gamespot.com/api"
@@ -25,18 +26,10 @@ async def search_comicvine(
         "field_list": "id,name,publisher,start_year,image,count_of_issues,description",
         "limit": max_results,
     }
-    headers = {
-        "User-Agent": "CBZManager/1.0",
-        "Accept": "application/json",
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{COMICVINE_URL}/search/", params=params, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.HTTPError:
-        return []
+    # Erreurs (clé refusée, quota, service indisponible) : ServiceError, remontée telle quelle
+    # jusqu'au routeur (message clair) — plus avalée en « aucun résultat ».
+    resp = await COMICVINE.get(f"{COMICVINE_URL}/search/", params=params)
+    data = resp.json()
 
     results = []
     for item in data.get("results", [])[:max_results]:

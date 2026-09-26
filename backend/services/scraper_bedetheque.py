@@ -19,7 +19,6 @@ Architecture :
   - Recherche = consultation de l'index (aucun réseau) puis une seule requête par série
     trouvée vers sa page complète (suffixe __10000 = tous les albums sans pagination).
 """
-import asyncio
 import json
 import re
 import shutil
@@ -27,16 +26,12 @@ import unicodedata
 from pathlib import Path
 from typing import Optional
 
-import httpx
 from bs4 import BeautifulSoup
 
 from ..config import settings
+from .http_client import BEDETHEQUE, ServiceError
 
 BASE = "https://www.bedetheque.com"
-HEADERS = {
-    "User-Agent": "CBZManager (gestionnaire de bibliotheque BD personnel, usage non-commercial)",
-    "Accept-Language": "fr-FR,fr;q=0.9",
-}
 
 _ALLOWED_HOSTS = {"bedetheque.com", "www.bedetheque.com"}
 
@@ -152,34 +147,30 @@ def index_status() -> dict:
     return {"built": True, "count": count, "built_at": path.stat().st_mtime}
 
 
-async def build_index(letters: Optional[list[str]] = None, delay_seconds: float = 1.5) -> int:
+async def build_index(letters: Optional[list[str]] = None) -> int:
     """Télécharge les pages d'index A-Z (ou un sous-ensemble) et (re)construit l'index.
-    Requêtes espacées — c'est une grosse opération ponctuelle, pas répétée, mais on reste
-    poli même pour ça (pas de rafraîchissement automatique, uniquement manuel)."""
+    Requêtes espacées par le client commun (http_client.BEDETHEQUE) — grosse opération
+    ponctuelle, uniquement manuelle."""
     global _build_progress
     letters = letters or LETTERS
     _build_progress = {"status": "running", "processed": 0, "total": len(letters)}
 
     index: dict[str, str] = {}
     try:
-        async with httpx.AsyncClient(headers=HEADERS, timeout=30.0, follow_redirects=True) as client:
-            for i, letter in enumerate(letters):
-                try:
-                    resp = await client.get(f"{BASE}/bandes_dessinees_{letter}.html")
-                    if resp.status_code == 200:
-                        soup = BeautifulSoup(resp.text, "html.parser")
-                        for li in soup.find_all("li"):
-                            a = li.find("a", href=True)
-                            span = li.find("span", class_="libelle")
-                            if a and span and "/serie-" in a["href"]:
-                                name = _reorder_article(_clean_text(span.get_text()))
-                                if name:
-                                    index[name] = a["href"]
-                except Exception:
-                    pass  # une lettre en échec ne doit pas bloquer les suivantes
-                _build_progress["processed"] = i + 1
-                if i < len(letters) - 1:
-                    await asyncio.sleep(delay_seconds)
+        for i, letter in enumerate(letters):
+            try:
+                resp = await BEDETHEQUE.get(f"{BASE}/bandes_dessinees_{letter}.html")
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for li in soup.find_all("li"):
+                    a = li.find("a", href=True)
+                    span = li.find("span", class_="libelle")
+                    if a and span and "/serie-" in a["href"]:
+                        name = _reorder_article(_clean_text(span.get_text()))
+                        if name:
+                            index[name] = a["href"]
+            except ServiceError:
+                pass  # une lettre en échec ne doit pas bloquer les suivantes
+            _build_progress["processed"] = i + 1
 
         # Fusionne avec l'index existant plutôt que de l'écraser si on ne rafraîchit
         # qu'un sous-ensemble de lettres
@@ -337,13 +328,12 @@ async def fetch_album_summary(album_url: str) -> str | None:
     """Résumé d'un album précis, récupéré à la demande (sélection d'un résultat de recherche
     unique) — jamais en masse : multiplierait les requêtes par le nombre d'albums d'une série
     pour un "Compléter" ou un import en lot."""
-    async with httpx.AsyncClient(headers=HEADERS, timeout=20.0, follow_redirects=True) as client:
-        try:
-            resp = await client.get(album_url)
-        except httpx.HTTPError:
+    try:
+        resp = await BEDETHEQUE.get(album_url)
+    except ServiceError as e:
+        if e.kind == "not_found":
             return None
-    if resp.status_code != 200:
-        return None
+        raise
     return _parse_album_summary(resp.text)
 
 
@@ -386,10 +376,12 @@ async def fetch_series_page_albums(series_url: str, series_name: str) -> list[di
     Bedetheque confirmée : résultat complet et sans ambiguïté, contrairement à
     search_bedetheque() qui doit deviner parmi plusieurs séries candidates du même nom
     (ex. "Garfield" a 19 séries différentes sur Bedetheque — variantes, éditions, langues…)."""
-    async with httpx.AsyncClient(headers=HEADERS, timeout=20.0, follow_redirects=True) as client:
-        resp = await client.get(_series_all_url(series_url))
-    if resp.status_code != 200:
-        return []
+    try:
+        resp = await BEDETHEQUE.get(_series_all_url(series_url))
+    except ServiceError as e:
+        if e.kind == "not_found":
+            return []
+        raise  # panne passagère : erreur claire plutôt que « aucun album »
     albums = _parse_series_page(resp.text)
     for album in albums:
         album["series"] = series_name
@@ -405,14 +397,16 @@ async def search_bedetheque(query: str) -> list[dict]:
         return []
 
     all_results: list[dict] = []
-    async with httpx.AsyncClient(headers=HEADERS, timeout=20.0, follow_redirects=True) as client:
-        for series_name, series_url in series_matches:
-            resp = await client.get(_series_all_url(series_url))
-            if resp.status_code != 200:
+    for series_name, series_url in series_matches:
+        try:
+            resp = await BEDETHEQUE.get(_series_all_url(series_url))
+        except ServiceError as e:
+            if e.kind == "not_found":
                 continue
-            albums = _parse_series_page(resp.text)
-            for album in albums:
-                album["series"] = series_name
-            all_results.extend(albums)
+            raise
+        albums = _parse_series_page(resp.text)
+        for album in albums:
+            album["series"] = series_name
+        all_results.extend(albums)
 
     return _promote_wanted(all_results, wanted_number)

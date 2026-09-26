@@ -1,8 +1,7 @@
 """
 Google Books API client.
 """
-import httpx
-from fastapi import HTTPException
+from .http_client import GOOGLE_BOOKS
 
 
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
@@ -21,22 +20,10 @@ async def search_google_books(
     if api_key:
         params["key"] = api_key
 
-    headers = {"User-Agent": "CBZManager/1.0"}
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(GOOGLE_BOOKS_URL, params=params, headers=headers)
-            if resp.status_code == 429:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Google Books: quota dépassé. Configurez une clé API dans les paramètres.",
-                )
-            resp.raise_for_status()
-            data = resp.json()
-    except HTTPException:
-        raise
-    except httpx.HTTPError:
-        raise HTTPException(status_code=503, detail="Impossible de contacter Google Books.")
+    # 429 → ServiceError("quota") après reprises ; message côté routeur (sans clé API, le quota
+    # anonyme de Google est vite atteint — le message invite à en configurer une).
+    resp = await GOOGLE_BOOKS.get(GOOGLE_BOOKS_URL, params=params)
+    data = resp.json()
 
     results = []
     for item in data.get("items", [])[:max_results]:

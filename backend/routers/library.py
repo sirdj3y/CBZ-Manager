@@ -744,13 +744,15 @@ _ENRICH_FIELD_LABELS = {
 async def _fetch_series_html(bedetheque_url: str) -> str:
     """Une seule requête pour toute la série — la page liste déjà auteurs/éditeur/année
     pour chaque album (possédé ou non), pas besoin de visiter chaque fiche individuelle."""
-    import httpx
     from ..services import scraper_bedetheque as bd
+    from ..services.http_client import BEDETHEQUE, ServiceError
 
-    async with httpx.AsyncClient(headers=bd.HEADERS, timeout=20.0, follow_redirects=True) as client:
-        resp = await client.get(bd._series_all_url(bedetheque_url))
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail="Impossible de charger la page Bedetheque")
+    try:
+        resp = await BEDETHEQUE.get(bd._series_all_url(bedetheque_url))
+    except ServiceError as e:
+        if e.kind == "not_found":
+            raise HTTPException(status_code=502, detail="Page Bedetheque introuvable — vérifiez l'URL de la série")
+        raise
     return resp.text
 
 

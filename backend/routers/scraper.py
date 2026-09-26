@@ -10,11 +10,11 @@ from ..models.schemas import (
     BedethequeSuggestIn, BedethequeSuggestOut, BedethequeAlbumSummaryIn, BedethequeAlbumSummaryOut,
 )
 from ..services.scraper_google import search_google_books
+from ..services.http_client import BEDETHEQUE, ServiceError
 from ..services.scraper_comicvine import search_comicvine
 from ..services.scraper_bedetheque import (
     search_bedetheque, fetch_series_page_albums, _extract_wanted_number, _promote_wanted,
-    _load_index, _search_series, _series_all_url, _parse_series_page, _parse_series_info, HEADERS,
-    fetch_album_summary, is_bedetheque_url,
+    _load_index, _search_series, _series_all_url, _parse_series_page, _parse_series_info, fetch_album_summary, is_bedetheque_url,
 )
 from ..services.rate_limit import RateLimiter
 from ..config import settings
@@ -141,27 +141,25 @@ async def scrape_bedetheque_suggest(body: BedethequeSuggestIn):
     if not candidates:
         return []
 
-    import httpx
     results = []
-    async with httpx.AsyncClient(headers=HEADERS, timeout=20.0, follow_redirects=True) as client:
-        for cand_name, url in candidates:
-            try:
-                resp = await client.get(_series_all_url(url))
-            except httpx.HTTPError:
+    for cand_name, url in candidates:
+        try:
+            resp = await BEDETHEQUE.get(_series_all_url(url))
+        except ServiceError as e:
+            if e.kind == "not_found":
                 continue
-            if resp.status_code != 200:
-                continue
-            albums = _parse_series_page(resp.text)
-            info = _parse_series_info(resp.text)
-            years = sorted(a["year"] for a in albums if a.get("year"))
-            results.append(BedethequeSuggestOut(
-                name=cand_name,
-                url=url,
-                album_count=len(albums),
-                status=info.get("status"),
-                year_min=years[0] if years else None,
-                year_max=years[-1] if years else None,
-            ))
+            raise
+        albums = _parse_series_page(resp.text)
+        info = _parse_series_info(resp.text)
+        years = sorted(a["year"] for a in albums if a.get("year"))
+        results.append(BedethequeSuggestOut(
+            name=cand_name,
+            url=url,
+            album_count=len(albums),
+            status=info.get("status"),
+            year_min=years[0] if years else None,
+            year_max=years[-1] if years else None,
+        ))
     return results
 
 

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,6 +11,7 @@ from .services.scraper_bedetheque import ensure_index_bootstrapped
 from .services.storage_check import check_media_identity
 from .services import auth as auth_service
 from .services import smart_lists as smart_lists_service
+from .services.http_client import ServiceError
 from .routers import health, auth, users, profiles, library, tomes, covers, reader, scraper, converter, settings as settings_router, stats, export, logs, import_router, health_check, missing_albums, opds, opds2, notifications, smart_lists, series_hero
 from .routers.health_check import cleanup_stale_scan_jobs
 
@@ -52,6 +53,14 @@ app = FastAPI(
     docs_url="/api/docs" if settings.DEV_MODE else None,
     redoc_url=None,
 )
+
+# Service tiers (Bedetheque.com, ComicVine, Google Books) en échec : message clair pour
+# l'interface (detail, affiché tel quel par les modales) plutôt qu'une erreur 500 ou une
+# liste vide trompeuse. 404 = introuvable ; le reste (panne, quota, clé refusée) = 503.
+@app.exception_handler(ServiceError)
+async def service_error_handler(request: Request, exc: ServiceError):
+    return JSONResponse(status_code=404 if exc.kind == "not_found" else 503, content={"detail": exc.message})
+
 
 # CORS — dev only (frontend on :5173)
 if settings.DEV_MODE:
