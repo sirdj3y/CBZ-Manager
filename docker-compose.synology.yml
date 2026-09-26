@@ -38,3 +38,8 @@ services:
       - WATCHTOWER_LABEL_ENABLE=true   # ne surveille que les conteneurs étiquetés (pas tout le NAS)
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_CLEANUP=true        # supprime l'ancienne image après mise à jour
+      # Notification à chaque mise à jour (ou échec) via ntfy : remplacer le nom du canal par le
+      # vôtre, avec un suffixe aléatoire (sur ntfy.sh, qui connaît le nom peut lire et publier).
+      - WATCHTOWER_NOTIFICATION_URL=ntfy://ntfy.sh/CBZManager-xxxxxxxx?title=CBZ%20Manager
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
