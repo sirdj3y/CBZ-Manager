@@ -33,6 +33,7 @@ def test_clic_a_cote_ferme_la_modale(page):
     page.locator('.hero-btn[aria-label="Plus d\'options"]').click()
     menu(page).get_by_text("Modifier la miniature").click()
     dialog(page).wait_for()
+    page.wait_for_timeout(300)  # fin de l'animation d'ouverture (un humain ne clique pas plus vite)
     page.mouse.click(10, 450)
     dialog(page).first.wait_for(state="detached")
 
@@ -61,3 +62,73 @@ def test_modale_edition_groupee_ne_se_ferme_pas_au_clic_a_cote(page):
     page.mouse.click(10, 450)
     page.wait_for_timeout(300)
     assert dialog(page).count() == 1
+
+
+def _series_action(page, item):
+    open_first_series(page)
+    page.locator('.hero-btn[aria-label="Plus d\'options"]').click()
+    menu(page).get_by_text(item).click()
+    dialog(page).first.wait_for()
+
+
+def test_renommer(page):
+    _series_action(page, "Renommer les fichiers")
+    assert in_viewport(dialog(page).locator(".modal-box"))
+    page.keyboard.press("Escape")
+    assert gone(dialog(page))
+
+
+def test_convertir_et_carte_de_comparaison(page):
+    _series_action(page, "Convertir les fichiers")
+    page.locator(".quality-info-icon").hover()
+    card = page.locator("[data-slot=hover-card-content]")
+    assert in_viewport(card), "la carte de comparaison doit s'afficher à l'écran, au-dessus de la modale"
+    page.mouse.move(700, 450)
+    page.wait_for_timeout(300)
+    page.mouse.click(10, 450)
+    assert gone(dialog(page))
+
+
+def test_nouvelle_smart_list(page):
+    goto(page, "/")
+    page.locator('button[aria-label="Nouvelle liste"]').first.click()
+    dialog(page).first.wait_for()
+    assert dialog(page).get_by_text("Nouvelle Smart list").count() == 1
+    page.keyboard.press("Escape")
+    assert gone(dialog(page))
+
+
+def test_metadonnees_serie_confirmation_imbriquee(page):
+    open_first_series(page)
+    page.get_by_role("button", name="Éditer").first.click()
+    dialog(page).first.wait_for()
+    page.locator('button[aria-label="Plus d\'actions"]').click()
+    menu(page).get_by_text("Supprimer la série").click()
+    confirm = page.locator(".confirm-title", has_text="Supprimer la série ?")
+    confirm.wait_for()
+    assert dialog(page).count() == 2
+    # Échap ferme la couche du dessus seulement, puis la modale.
+    page.keyboard.press("Escape")
+    confirm.wait_for(state="detached")
+    assert dialog(page).count() == 1
+    page.wait_for_timeout(300)  # fin de l'animation de fermeture de la confirmation
+    # Le focus revient dans la modale (le « Supprimer » du menu qui avait ouvert la
+    # confirmation n'existe plus) : Échap y répond encore.
+    assert page.evaluate("document.activeElement.closest('[data-slot=dialog-content]') !== null")
+    page.keyboard.press("Escape")
+    assert gone(dialog(page))
+
+
+def test_scraper_depuis_le_tiroir_echap_ne_ferme_que_le_scraper(page):
+    open_first_series(page)
+    tome = page.locator(".tome-card").first
+    tome.hover()
+    tome.locator('button[aria-label="Plus d\'options"]').click()
+    menu(page).get_by_text("Rechercher les métadonnées").click()
+    scraper = dialog(page)
+    scraper.first.wait_for()
+    assert scraper.locator(".modal-title").inner_text() == "Rechercher en ligne"
+    page.keyboard.press("Escape")
+    assert gone(scraper)
+    # Le tiroir de métadonnées (toujours ouvert) reste là.
+    assert page.locator(".modal-backdrop").count() == 1

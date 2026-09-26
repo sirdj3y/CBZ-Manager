@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { tomesApi } from '../../api/tomes'
 import { settingsApi } from '../../api/settings'
 import { RENAME_TOKENS, applyRenamePattern } from '../../utils/renamePattern'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   tomes: { type: Array, required: true },
@@ -27,7 +28,6 @@ const loadingMeta = ref(true)
 const overrides = ref({})
 
 onMounted(async () => {
-  window.addEventListener('keydown', onKey)
   // Motif réellement configuré (Paramètres > Bibliothèque) — auparavant ignoré ici, cette
   // modale utilisait son propre défaut local différent (sans "T" devant {Numéro}), produisant
   // des noms de fichiers incohérents avec celui utilisé à l'import.
@@ -43,11 +43,7 @@ onMounted(async () => {
   loadingMeta.value = false
 })
 
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
-function onKey(e) {
-  if (e.key === 'Escape') emit('close')
-}
 
 function applyPatternJS(pat, tome) {
   const ext = tome.filename.includes('.') ? '.' + tome.filename.split('.').pop() : ''
@@ -144,139 +140,118 @@ async function doRename() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click="$emit('close')" />
-
-    <div class="modal-wrap">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <p class="modal-title">Renommer {{ tomes.length }} fichier{{ tomes.length !== 1 ? 's' : '' }}</p>
-          </div>
-          <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+  <AppDialog title="Renommer les fichiers" @close="$emit('close')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Renommer {{ tomes.length }} fichier{{ tomes.length !== 1 ? 's' : '' }}</p>
         </div>
+        <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
 
-        <div class="modal-body">
-          <div v-if="loadingMeta" class="loading-meta">Chargement des métadonnées…</div>
+      <div class="modal-body">
+        <div v-if="loadingMeta" class="loading-meta">Chargement des métadonnées…</div>
 
-          <template v-else>
-            <div class="rules-section">
-              <button class="rules-toggle" type="button" @click="showRules = !showRules">
-                <span class="rules-toggle-arrow" :class="{ open: showRules }">▶</span>
-                Rechercher / Remplacer
-              </button>
-
-              <div v-if="showRules" class="rules-list">
-                <div v-for="(rule, i) in rules" :key="i" class="rule-row">
-                  <input type="checkbox" v-model="rule.enabled" class="rule-checkbox" />
-                  <input type="text" v-model="rule.search" class="form-control rule-input" placeholder="Rechercher" />
-                  <span class="rule-arrow">→</span>
-                  <input type="text" v-model="rule.replace" class="form-control rule-input" placeholder="vide = supprimer" />
-                  <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="removeRule(i)">🗑</button>
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm add-rule-btn" @click="addRule">+ Ajouter une règle</button>
-              </div>
-            </div>
-
-            <div class="field-row">
-              <label class="form-label">Modèle :</label>
-              <input
-                ref="inputRef"
-                v-model="pattern"
-                class="form-control pattern-input"
-                type="text"
-                placeholder="{Série} - {Numéro} - {Titre}"
-              />
-            </div>
-
-            <div class="tokens-row">
-              <button
-                v-for="token in TOKENS"
-                :key="token"
-                class="btn btn-ghost btn-sm token-btn"
-                @click="insertToken(token)"
-                type="button"
-              >{{ token }}</button>
-            </div>
-
-            <div class="preview-table-wrap">
-              <table class="preview-table">
-                <thead>
-                  <tr>
-                    <th class="col-current">Nom actuel</th>
-                    <th class="col-next">Nouveau nom</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="row in preview"
-                    :key="row.tome.id"
-                    :class="{ 'row-unchanged': row.unchanged, 'row-conflict': row.conflict }"
-                  >
-                    <td class="cell-current">{{ row.current }}</td>
-                    <td class="cell-next">
-                      <span v-if="row.conflict" class="conflict-icon" title="Conflit : deux fichiers auraient le même nom">⚠</span>
-                      <input
-                        type="text"
-                        class="next-input"
-                        :class="{ 'next-input-conflict': row.conflict }"
-                        :value="row.final"
-                        @input="onInputChange(row.tome.id, $event.target.value)"
-                        @blur="onInputBlur(row.tome.id, $event.target.value)"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div v-if="result" class="result-summary">
-              <span v-if="result.ok" class="result-ok">✓ {{ result.ok }} renommé{{ result.ok !== 1 ? 's' : '' }}</span>
-              <ul v-if="result.errors?.length" class="result-errors">
-                <li v-for="(err, i) in result.errors" :key="i">{{ err }}</li>
-              </ul>
-            </div>
-          </template>
-        </div>
-
-        <div class="modal-footer">
-          <div class="modal-footer-spacer" />
-          <template v-if="result">
-            <button @click="emit('done'); emit('close')" class="btn btn-primary btn-sm">Fermer</button>
-          </template>
-          <template v-else>
-            <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
-            <button @click="doRename" :disabled="saving || loadingMeta" class="btn btn-primary btn-sm">
-              {{ saving ? 'Renommage…' : 'Renommer' }}
+        <template v-else>
+          <div class="rules-section">
+            <button class="rules-toggle" type="button" @click="showRules = !showRules">
+              <span class="rules-toggle-arrow" :class="{ open: showRules }">▶</span>
+              Rechercher / Remplacer
             </button>
-          </template>
-        </div>
+
+            <div v-if="showRules" class="rules-list">
+              <div v-for="(rule, i) in rules" :key="i" class="rule-row">
+                <input type="checkbox" v-model="rule.enabled" class="rule-checkbox" />
+                <input type="text" v-model="rule.search" class="form-control rule-input" placeholder="Rechercher" />
+                <span class="rule-arrow">→</span>
+                <input type="text" v-model="rule.replace" class="form-control rule-input" placeholder="vide = supprimer" />
+                <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="removeRule(i)">🗑</button>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm add-rule-btn" @click="addRule">+ Ajouter une règle</button>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <label class="form-label">Modèle :</label>
+            <input
+              ref="inputRef"
+              v-model="pattern"
+              class="form-control pattern-input"
+              type="text"
+              placeholder="{Série} - {Numéro} - {Titre}"
+            />
+          </div>
+
+          <div class="tokens-row">
+            <button
+              v-for="token in TOKENS"
+              :key="token"
+              class="btn btn-ghost btn-sm token-btn"
+              @click="insertToken(token)"
+              type="button"
+            >{{ token }}</button>
+          </div>
+
+          <div class="preview-table-wrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th class="col-current">Nom actuel</th>
+                  <th class="col-next">Nouveau nom</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="row in preview"
+                  :key="row.tome.id"
+                  :class="{ 'row-unchanged': row.unchanged, 'row-conflict': row.conflict }"
+                >
+                  <td class="cell-current">{{ row.current }}</td>
+                  <td class="cell-next">
+                    <span v-if="row.conflict" class="conflict-icon" title="Conflit : deux fichiers auraient le même nom">⚠</span>
+                    <input
+                      type="text"
+                      class="next-input"
+                      :class="{ 'next-input-conflict': row.conflict }"
+                      :value="row.final"
+                      @input="onInputChange(row.tome.id, $event.target.value)"
+                      @blur="onInputBlur(row.tome.id, $event.target.value)"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="result" class="result-summary">
+            <span v-if="result.ok" class="result-ok">✓ {{ result.ok }} renommé{{ result.ok !== 1 ? 's' : '' }}</span>
+            <ul v-if="result.errors?.length" class="result-errors">
+              <li v-for="(err, i) in result.errors" :key="i">{{ err }}</li>
+            </ul>
+          </div>
+        </template>
+      </div>
+
+      <div class="modal-footer">
+        <div class="modal-footer-spacer" />
+        <template v-if="result">
+          <button @click="emit('done'); emit('close')" class="btn btn-primary btn-sm">Fermer</button>
+        </template>
+        <template v-else>
+          <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
+          <button @click="doRename" :disabled="saving || loadingMeta" class="btn btn-primary btn-sm">
+            {{ saving ? 'Renommage…' : 'Renommer' }}
+          </button>
+        </template>
       </div>
     </div>
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: var(--overlay-bg);
-}
 
-.modal-wrap {
-  position: fixed;
-  inset: 0;
-  z-index: 201;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  pointer-events: none;
-}
 
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);

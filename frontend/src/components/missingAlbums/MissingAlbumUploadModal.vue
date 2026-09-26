@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import SvgIcon from '../SvgIcon.vue'
 import ConversionProgress from '../converter/ConversionProgress.vue'
 import { importApi } from '../../api/import'
@@ -9,6 +9,7 @@ import client from '../../api/client'
 import { useNotificationStore } from '../../stores/notifications'
 import { applyRenamePattern } from '../../utils/renamePattern'
 import { normalizeSearch } from '../../utils/text'
+import AppDialog from '../ui/AppDialog.vue'
 
 // album: { id, series_id, series_name, number, title, year }
 const props = defineProps({
@@ -116,9 +117,6 @@ async function checkDuplicate() {
 const showConvertOptions = computed(() => file.value && CONVERT_EXTS.has(extOf(file.value)))
 const canSubmit = computed(() => phase.value === 'select' && !!file.value && !!filename.value.trim())
 
-function onKey(e) { if (e.key === 'Escape' && phase.value !== 'converting') emit('close') }
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 async function submit() {
   if (!canSubmit.value) return
@@ -183,7 +181,7 @@ async function finalize() {
 </script>
 
 <template>
-  <div class="mau-backdrop" @click.self="phase !== 'converting' && $emit('close')">
+  <AppDialog title="Ajouter un album manquant" :dismissible="phase !== 'converting'" @close="$emit('close')">
     <div class="mau-modal">
       <div class="mau-header">
         <h2 class="mau-title">Ajouter — {{ albumLabel }}<span v-if="realTitle"> · {{ realTitle }}</span></h2>
@@ -249,16 +247,10 @@ async function finalize() {
 
       <ConversionProgress v-else-if="phase === 'converting' && jobId" :job-id="jobId" :labels="convertLabels" @done="onConvertDone" />
     </div>
-  </div>
+  </AppDialog>
 </template>
 
 <style scoped>
-.mau-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
 .mau-modal {
   background: var(--surface-raised); border-radius: var(--radius-lg);
   width: 100%; max-width: 460px; max-height: 90vh;

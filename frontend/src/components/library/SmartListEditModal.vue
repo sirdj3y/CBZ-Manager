@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { smartListsApi } from '../../api/smartLists'
 import { useNotificationStore } from '../../stores/notifications'
 import { useLibraryStore } from '../../stores/library'
 import AutocompleteInput from '../ui/AutocompleteInput.vue'
 import { SOURCE_LABELS, OPERATOR_LABELS, groupsToFlat, flatToGroups } from '../../utils/smartListRules'
 import Hint from '../ui/Hint.vue'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   smartList: { type: Object, default: null }, // null = création, objet = édition
@@ -135,11 +136,6 @@ onMounted(loadFields)
 // Échap pour fermer, comme les autres modales de l'app (voir SeriesMetadataModal.vue) — pas
 // de raccourci Entrée ici : le formulaire est multi-étapes et Entrée en cours de saisie
 // d'une valeur n'a pas de sens univoque (sauvegarder ? étape suivante ?).
-function onKey(e) {
-  if (e.key === 'Escape') emit('close')
-}
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 function onSourceChange(cond) {
   const first = fieldsForSource(cond.source)[0]
@@ -218,159 +214,145 @@ async function save() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click="$emit('close')" />
-
-    <div class="modal-wrap">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <p class="modal-title">{{ isEdit ? 'Modifier la liste' : 'Nouvelle Smart list' }}</p>
-          </div>
-          <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+  <AppDialog title="Liste intelligente" @close="$emit('close')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">{{ isEdit ? 'Modifier la liste' : 'Nouvelle Smart list' }}</p>
         </div>
+        <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
 
-        <!-- Stepper -->
-        <div class="stepper">
-          <template v-for="(s, i) in STEPS" :key="s.n">
-            <div v-if="i > 0" class="stepper-line" :class="{ 'stepper-line-done': step > s.n - 1 }" />
-            <button
-              type="button"
-              class="stepper-step"
-              :class="{ 'stepper-step-active': step === s.n, 'stepper-step-done': step > s.n }"
-              :disabled="s.n > step"
-              @click="s.n < step && (step = s.n)"
-            >
-              <span class="stepper-circle">{{ s.n }}</span>
-              <span class="stepper-label">{{ s.label }}</span>
-            </button>
-          </template>
-        </div>
-
-        <div class="modal-body">
-          <div v-if="loadingFields" class="state-pulse">Chargement…</div>
-          <template v-else>
-            <!-- Étape 1 : Informations -->
-            <template v-if="step === 1">
-              <div class="field">
-                <label class="form-label">Nom</label>
-                <input v-model="name" type="text" class="form-control" placeholder="ex: Mangas terminés" autofocus />
-              </div>
-              <label class="toggle-label">
-                <input type="checkbox" v-model="shared" class="toggle-checkbox" />
-                <span>Visible pour tous les utilisateurs</span>
-              </label>
-              <div v-if="!isEdit" class="field">
-                <label class="form-label">Suggestions</label>
-                <div class="suggestion-badges">
-                  <button v-for="s in SUGGESTED_FILTERS" :key="s.label" type="button" class="suggestion-badge" @click="applySuggestedFilter(s)">{{ s.label }}</button>
-                </div>
-              </div>
-            </template>
-
-            <!-- Étape 2 : Filtres -->
-            <template v-if="step === 2">
-              <p class="step-hint">ET est évalué avant OU (de gauche à droite) — comme la plupart des lecteurs à listes intelligentes.</p>
-              <div class="rules">
-                <template v-for="(cond, idx) in conditions" :key="idx">
-                  <div v-if="idx > 0" class="connector-toggle">
-                    <button type="button" :class="['connector-btn', { 'connector-btn-active': cond.connector === 'AND' }]" @click="cond.connector = 'AND'">ET</button>
-                    <button type="button" :class="['connector-btn', { 'connector-btn-active': cond.connector === 'OR' }]" @click="cond.connector = 'OR'">OU</button>
-                  </div>
-                  <div class="rule-row">
-                    <select v-model="cond.source" class="form-control rule-select-source" @change="onSourceChange(cond)">
-                      <option v-for="s in ['file','metadata','series']" :key="s" :value="s">{{ SOURCE_LABELS[s] }}</option>
-                    </select>
-                    <select v-model="cond.field" class="form-control rule-select-field" @change="onFieldChange(cond)">
-                      <option v-for="f in fieldsForSource(cond.source)" :key="f.field" :value="f.field">{{ f.label }}</option>
-                    </select>
-                    <select v-model="cond.operator" class="form-control rule-select-operator" @change="onOperatorChange(cond)">
-                      <option v-for="op in operatorsFor(cond)" :key="op" :value="op">{{ OPERATOR_LABELS[op] || op }}</option>
-                    </select>
-                    <template v-if="needsValue(cond)">
-                      <select v-if="typeFor(cond) === 'boolean'" v-model="cond.value" class="form-control rule-value">
-                        <option value="true">Oui</option>
-                        <option value="false">Non</option>
-                      </select>
-                      <select v-else-if="choicesFor(cond)" v-model="cond.value" class="form-control rule-value">
-                        <option value="">—</option>
-                        <option v-for="c in choicesFor(cond)" :key="c" :value="c">{{ c }}</option>
-                      </select>
-                      <AutocompleteInput
-                        v-else-if="suggestionsFor(cond)"
-                        v-model="cond.value"
-                        :suggestions="suggestionsFor(cond)"
-                        show-all-on-focus
-                        class="rule-value"
-                      />
-                      <input v-else v-model="cond.value" :type="inputType(cond)" class="form-control rule-value" :step="typeFor(cond) === 'numeric' ? 'any' : undefined" />
-                      <template v-if="cond.operator === 'between'">
-                        <span class="rule-between-and">et</span>
-                        <input v-model="cond.value2" :type="inputType(cond)" class="form-control rule-value" :step="typeFor(cond) === 'numeric' ? 'any' : undefined" />
-                      </template>
-                    </template>
-                    <Hint label="Retirer cette condition">
-                      <button type="button" class="rule-remove" @click="removeCondition(idx)">✕</button>
-                    </Hint>
-                  </div>
-                </template>
-                <button type="button" class="btn btn-ghost btn-sm rule-add-cond" @click="addCondition">+ condition</button>
-              </div>
-            </template>
-
-            <!-- Étape 3 : Vérification -->
-            <template v-if="step === 3">
-              <div class="review-block">
-                <p class="review-label">Nom</p>
-                <p class="review-value">{{ name }}</p>
-              </div>
-              <div class="review-block">
-                <p class="review-label">Visibilité</p>
-                <p class="review-value">{{ shared ? 'Visible pour tous les utilisateurs' : 'Privée' }}</p>
-              </div>
-              <div class="review-block">
-                <p class="review-label">Règles</p>
-                <div class="review-group">
-                  <p v-for="(cond, idx) in conditions" :key="idx" class="review-cond">
-                    <span v-if="idx > 0" :class="['review-connector', cond.connector === 'OR' ? 'review-connector-or' : 'review-connector-and']">{{ cond.connector === 'OR' ? 'OU' : 'ET' }}</span>
-                    {{ SOURCE_LABELS[cond.source] }} · {{ fieldMeta(cond)?.label || cond.field }}
-                    {{ OPERATOR_LABELS[cond.operator] || cond.operator }}
-                    <template v-if="needsValue(cond)">« {{ cond.value }} »<template v-if="cond.operator === 'between'"> et « {{ cond.value2 }} »</template></template>
-                  </p>
-                </div>
-              </div>
-            </template>
-
-            <p v-if="errorMsg" class="rule-error">{{ errorMsg }}</p>
-          </template>
-        </div>
-
-        <div class="modal-footer">
-          <button v-if="step > 1" @click="goPrev" class="btn btn-ghost btn-sm">← Précédent</button>
-          <button v-else @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
-          <div style="flex:1"></div>
-          <button v-if="step < 3" @click="goNext" :disabled="loadingFields" class="btn btn-primary btn-sm">Suivant →</button>
-          <button v-else @click="save" :disabled="saving" class="btn btn-primary btn-sm">
-            {{ saving ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer') }}
+      <!-- Stepper -->
+      <div class="stepper">
+        <template v-for="(s, i) in STEPS" :key="s.n">
+          <div v-if="i > 0" class="stepper-line" :class="{ 'stepper-line-done': step > s.n - 1 }" />
+          <button
+            type="button"
+            class="stepper-step"
+            :class="{ 'stepper-step-active': step === s.n, 'stepper-step-done': step > s.n }"
+            :disabled="s.n > step"
+            @click="s.n < step && (step = s.n)"
+          >
+            <span class="stepper-circle">{{ s.n }}</span>
+            <span class="stepper-label">{{ s.label }}</span>
           </button>
-        </div>
+        </template>
+      </div>
+
+      <div class="modal-body">
+        <div v-if="loadingFields" class="state-pulse">Chargement…</div>
+        <template v-else>
+          <!-- Étape 1 : Informations -->
+          <template v-if="step === 1">
+            <div class="field">
+              <label class="form-label">Nom</label>
+              <input v-model="name" type="text" class="form-control" placeholder="ex: Mangas terminés" autofocus />
+            </div>
+            <label class="toggle-label">
+              <input type="checkbox" v-model="shared" class="toggle-checkbox" />
+              <span>Visible pour tous les utilisateurs</span>
+            </label>
+            <div v-if="!isEdit" class="field">
+              <label class="form-label">Suggestions</label>
+              <div class="suggestion-badges">
+                <button v-for="s in SUGGESTED_FILTERS" :key="s.label" type="button" class="suggestion-badge" @click="applySuggestedFilter(s)">{{ s.label }}</button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Étape 2 : Filtres -->
+          <template v-if="step === 2">
+            <p class="step-hint">ET est évalué avant OU (de gauche à droite) — comme la plupart des lecteurs à listes intelligentes.</p>
+            <div class="rules">
+              <template v-for="(cond, idx) in conditions" :key="idx">
+                <div v-if="idx > 0" class="connector-toggle">
+                  <button type="button" :class="['connector-btn', { 'connector-btn-active': cond.connector === 'AND' }]" @click="cond.connector = 'AND'">ET</button>
+                  <button type="button" :class="['connector-btn', { 'connector-btn-active': cond.connector === 'OR' }]" @click="cond.connector = 'OR'">OU</button>
+                </div>
+                <div class="rule-row">
+                  <select v-model="cond.source" class="form-control rule-select-source" @change="onSourceChange(cond)">
+                    <option v-for="s in ['file','metadata','series']" :key="s" :value="s">{{ SOURCE_LABELS[s] }}</option>
+                  </select>
+                  <select v-model="cond.field" class="form-control rule-select-field" @change="onFieldChange(cond)">
+                    <option v-for="f in fieldsForSource(cond.source)" :key="f.field" :value="f.field">{{ f.label }}</option>
+                  </select>
+                  <select v-model="cond.operator" class="form-control rule-select-operator" @change="onOperatorChange(cond)">
+                    <option v-for="op in operatorsFor(cond)" :key="op" :value="op">{{ OPERATOR_LABELS[op] || op }}</option>
+                  </select>
+                  <template v-if="needsValue(cond)">
+                    <select v-if="typeFor(cond) === 'boolean'" v-model="cond.value" class="form-control rule-value">
+                      <option value="true">Oui</option>
+                      <option value="false">Non</option>
+                    </select>
+                    <select v-else-if="choicesFor(cond)" v-model="cond.value" class="form-control rule-value">
+                      <option value="">—</option>
+                      <option v-for="c in choicesFor(cond)" :key="c" :value="c">{{ c }}</option>
+                    </select>
+                    <AutocompleteInput
+                      v-else-if="suggestionsFor(cond)"
+                      v-model="cond.value"
+                      :suggestions="suggestionsFor(cond)"
+                      show-all-on-focus
+                      class="rule-value"
+                    />
+                    <input v-else v-model="cond.value" :type="inputType(cond)" class="form-control rule-value" :step="typeFor(cond) === 'numeric' ? 'any' : undefined" />
+                    <template v-if="cond.operator === 'between'">
+                      <span class="rule-between-and">et</span>
+                      <input v-model="cond.value2" :type="inputType(cond)" class="form-control rule-value" :step="typeFor(cond) === 'numeric' ? 'any' : undefined" />
+                    </template>
+                  </template>
+                  <Hint label="Retirer cette condition">
+                    <button type="button" class="rule-remove" @click="removeCondition(idx)">✕</button>
+                  </Hint>
+                </div>
+              </template>
+              <button type="button" class="btn btn-ghost btn-sm rule-add-cond" @click="addCondition">+ condition</button>
+            </div>
+          </template>
+
+          <!-- Étape 3 : Vérification -->
+          <template v-if="step === 3">
+            <div class="review-block">
+              <p class="review-label">Nom</p>
+              <p class="review-value">{{ name }}</p>
+            </div>
+            <div class="review-block">
+              <p class="review-label">Visibilité</p>
+              <p class="review-value">{{ shared ? 'Visible pour tous les utilisateurs' : 'Privée' }}</p>
+            </div>
+            <div class="review-block">
+              <p class="review-label">Règles</p>
+              <div class="review-group">
+                <p v-for="(cond, idx) in conditions" :key="idx" class="review-cond">
+                  <span v-if="idx > 0" :class="['review-connector', cond.connector === 'OR' ? 'review-connector-or' : 'review-connector-and']">{{ cond.connector === 'OR' ? 'OU' : 'ET' }}</span>
+                  {{ SOURCE_LABELS[cond.source] }} · {{ fieldMeta(cond)?.label || cond.field }}
+                  {{ OPERATOR_LABELS[cond.operator] || cond.operator }}
+                  <template v-if="needsValue(cond)">« {{ cond.value }} »<template v-if="cond.operator === 'between'"> et « {{ cond.value2 }} »</template></template>
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <p v-if="errorMsg" class="rule-error">{{ errorMsg }}</p>
+        </template>
+      </div>
+
+      <div class="modal-footer">
+        <button v-if="step > 1" @click="goPrev" class="btn btn-ghost btn-sm">← Précédent</button>
+        <button v-else @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
+        <div style="flex:1"></div>
+        <button v-if="step < 3" @click="goNext" :disabled="loadingFields" class="btn btn-primary btn-sm">Suivant →</button>
+        <button v-else @click="save" :disabled="saving" class="btn btn-primary btn-sm">
+          {{ saving ? 'Enregistrement…' : (isEdit ? 'Enregistrer' : 'Créer') }}
+        </button>
       </div>
     </div>
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 200;
-  background: var(--overlay-bg);
-}
-.modal-wrap {
-  position: fixed; inset: 0; z-index: 201;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);

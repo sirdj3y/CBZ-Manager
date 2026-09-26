@@ -188,6 +188,9 @@ onUnmounted(() => {
 })
 
 function onKey(e) {
+  // Touche tapée dans une couche shadcn ouverte depuis le tiroir (modale Scraper, menu…) :
+  // elle la gère et se ferme seule — sinon Échap refermerait aussi le tiroir.
+  if (e.target?.closest?.('[data-slot$="-content"]')) return
   if (e.key === 'Escape') {
     // Referme d'abord la couche visible au-dessus (scraper, menu ou confirmation de
     // suppression), jamais toute la modale directement — sinon des modifications en cours

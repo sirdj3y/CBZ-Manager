@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import ConversionProgress from './ConversionProgress.vue'
 import { useNotificationStore } from '../../stores/notifications'
 import client from '../../api/client'
@@ -20,9 +20,6 @@ const starting = ref(false)
 // Checked tome IDs — all checked by default
 const checked = ref(new Set(props.tomes.map(t => t.id)))
 
-function onKey(e) { if (e.key === 'Escape') emit('close') }
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 function toggleTome(id) {
   if (checked.value.has(id)) { checked.value.delete(id) }
@@ -68,6 +65,7 @@ const PRESET_DESC = {
 import imgLight    from '../../assets/images/quality-light.jpg'
 import imgOriginal from '../../assets/images/quality-originale.jpg'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/shadcn/hover-card'
+import AppDialog from '../ui/AppDialog.vue'
 
 function formatSize(bytes) {
   if (!bytes) return '?'
@@ -135,7 +133,7 @@ async function start() {
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <AppDialog title="Convertir en CBZ" @close="$emit('close')">
     <div class="modal">
       <!-- Header -->
       <div class="modal-header">
@@ -280,17 +278,10 @@ async function start() {
       <!-- Progress -->
       <ConversionProgress v-else :job-id="jobId" :labels="tomeLabels" @done="emit('done'); emit('close')" />
     </div>
-  </div>
-
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 300;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
 .modal {
   background: var(--surface-raised); border-radius: var(--radius-lg);
   width: 100%; max-width: 500px; max-height: 90vh;

@@ -8,6 +8,8 @@ import { useLibraryStore } from '../../stores/library'
 import TagInput from '../ui/TagInput.vue'
 import SvgIcon from '../SvgIcon.vue'
 import Hint from '../ui/Hint.vue'
+import AppDialog from '../ui/AppDialog.vue'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/shadcn/dropdown-menu'
 
 const props = defineProps({
   series: { type: Object, required: true },
@@ -36,12 +38,6 @@ const deleting = ref(false)
 // Menu "⋮" du header — regroupe les actions destructives/secondaires (Supprimer la série),
 // pour ne pas les laisser à portée de clic en permanence dans le footer sur les 2 onglets.
 const showHeaderMenu = ref(false)
-const headerMenuRef = ref(null)
-function onDocClick(e) {
-  if (showHeaderMenu.value && headerMenuRef.value && !headerMenuRef.value.contains(e.target)) {
-    showHeaderMenu.value = false
-  }
-}
 
 // Onglets — "Détails" fusionné dans "Série" (retour utilisateur : pas besoin d'un onglet à
 // part pour 4 champs). "Images" reste séparé : upload de fichiers, nature différente du
@@ -181,24 +177,16 @@ onMounted(async () => {
   // CBZ de la série (coûteuse en I/O) quand seuls l'URL et/ou le statut Bedetheque ont changé.
   originalForm.value = { ...form.value }
   window.addEventListener('keydown', onKey)
-  window.addEventListener('click', onDocClick)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
-  window.removeEventListener('click', onDocClick)
 })
 
+// Échap : géré par les Dialog (AppDialog) et le menu — chaque couche se ferme seule, la plus
+// haute d'abord (confirmation, menu, puis la modale).
 function onKey(e) {
-  if (e.key === 'Escape') {
-    // Un Échap doit d'abord fermer la couche visible au-dessus, pas toute la modale par-dessus
-    // (qui perdrait les modifications en cours sans prévenir).
-    if (confirmDelete.value) { confirmDelete.value = false; return }
-    if (showHeaderMenu.value) { showHeaderMenu.value = false; return }
-    emit('close')
-  } else if (e.key === 'Enter' && !confirmDelete.value && !saving.value) {
-    save()
-  }
+  if (e.key === 'Enter' && !confirmDelete.value && !showHeaderMenu.value && !saving.value) save()
 }
 
 async function deleteSeries() {
@@ -310,12 +298,7 @@ async function openEnrich() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <!-- Backdrop -->
-    <div class="modal-backdrop" @click="$emit('close')" />
-
-    <!-- Modal -->
-    <div class="modal-wrap">
+  <AppDialog title="Métadonnées de la série" @close="$emit('close')">
       <div class="modal-box">
         <!-- Header -->
         <div class="modal-header">
@@ -327,18 +310,18 @@ async function openEnrich() {
                plutôt qu'un bouton en texte visible en permanence dans le footer sur les 3
                onglets — un clic supplémentaire pour y accéder, moins de risque de clic
                accidentel sur une action irréversible. -->
-          <div class="header-menu-wrap" ref="headerMenuRef">
-            <Hint label="Plus d'actions">
-              <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="showHeaderMenu = !showHeaderMenu">
+          <DropdownMenu v-model:open="showHeaderMenu" :modal="false">
+            <DropdownMenuTrigger as-child>
+              <button type="button" class="btn btn-ghost btn-icon btn-sm" title="Plus d'actions" aria-label="Plus d'actions">
                 <SvgIcon name="more-vertical" />
               </button>
-            </Hint>
-            <div v-if="showHeaderMenu" class="header-menu">
-              <button type="button" class="header-menu-item header-menu-danger" @click="showHeaderMenu = false; confirmDelete = true">
-                <SvgIcon name="trash-2" class="header-menu-icon" /> Supprimer la série
-              </button>
-            </div>
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="min-w-[200px]">
+              <DropdownMenuItem variant="destructive" @select="confirmDelete = true">
+                <SvgIcon name="trash-2" /> Supprimer la série
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
         </div>
 
@@ -500,10 +483,9 @@ async function openEnrich() {
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- Popup confirmation suppression -->
-    <div v-if="confirmDelete" class="confirm-backdrop" @click.self="confirmDelete = false">
+    <!-- Confirmation de suppression : Dialog imbriquée (Échap ne ferme qu'elle). -->
+    <AppDialog v-if="confirmDelete" title="Supprimer la série ?" @close="confirmDelete = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer la série ?</p>
         <p class="confirm-desc"><strong>{{ series.name }}</strong> et tous ses fichiers seront supprimés définitivement.</p>
@@ -514,29 +496,14 @@ async function openEnrich() {
           </button>
         </div>
       </div>
-    </div>
-  </Teleport>
+    </AppDialog>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 200;
-  background: var(--overlay-bg);
-}
 
-.modal-wrap {
-  position: fixed;
-  inset: 0;
-  z-index: 201;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  pointer-events: none;
-}
 
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -561,22 +528,6 @@ async function openEnrich() {
 .modal-subtitle { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
 
 /* Menu "⋮" du header */
-.header-menu-wrap { position: relative; flex-shrink: 0; }
-.header-menu {
-  position: absolute; top: calc(100% + 4px); right: 0; z-index: 10;
-  background: var(--surface-raised); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
-  min-width: 180px; overflow: hidden;
-}
-.header-menu-item {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  background: none; border: none; cursor: pointer; text-align: left;
-  padding: 9px 12px; font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-}
-.header-menu-item:hover { background: var(--light); }
-.header-menu-danger { color: var(--danger); }
-.header-menu-danger:hover { background: var(--danger-bg-light); }
-.header-menu-icon { width: 15px; height: 15px; flex-shrink: 0; }
 
 /* Onglets */
 .modal-tabs {
@@ -725,11 +676,6 @@ async function openEnrich() {
   clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 300;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

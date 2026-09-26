@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import ScraperResultCard from './ScraperResultCard.vue'
 import SvgIcon from '../SvgIcon.vue'
 import { scraperApi } from '../../api/scraper'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   series: String,
@@ -34,9 +35,6 @@ const selectedResult = ref(null)
 // au clavier passe cet indicateur à true.
 const userEdited = ref(false)
 
-function onKeydown(e) {
-  if (e.key === 'Escape') emit('close')
-}
 
 onMounted(() => {
   // Un one-shot n'a ni série ni numéro (voir Tome.is_oneshot) — jamais de repli sur ces
@@ -46,12 +44,8 @@ onMounted(() => {
     ? (props.title || '')
     : [props.series, props.number].filter(Boolean).join(' ')
   if (query.value) search()
-  window.addEventListener('keydown', onKeydown)
 })
 
-onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
-})
 
 async function search() {
   if (!query.value.trim()) return
@@ -89,7 +83,7 @@ function apply() {
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <AppDialog title="Rechercher en ligne" @close="$emit('close')">
     <div class="modal">
       <!-- Header -->
       <div class="modal-header">
@@ -140,20 +134,10 @@ function apply() {
         <button @click="apply" :disabled="!selectedResult" class="btn btn-primary btn-sm">Appliquer</button>
       </div>
     </div>
-  </div>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
 
 .modal {
   background: var(--surface-raised);

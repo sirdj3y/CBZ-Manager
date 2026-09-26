@@ -47,6 +47,18 @@ function onOpenAutoFocus(e) {
     target.focus()
   }
 }
+// Focus à la fermeture : Reka le rend à l'élément qui l'avait avant l'ouverture. S'il n'existe
+// plus (élément d'un menu déjà refermé, ex. « Supprimer » d'un menu ⋮ qui ouvre une
+// confirmation), le focus tomberait sur <body> — hors de la modale parente encore ouverte,
+// dont Échap et Tab ne répondraient plus au clavier. On le ramène alors dans la Dialog ouverte
+// la plus haute.
+function onCloseAutoFocus() {
+  setTimeout(() => {
+    if (document.activeElement && document.activeElement !== document.body) return
+    const open = [...document.querySelectorAll('[data-slot="dialog-content"][data-state="open"]')].pop()
+    open?.focus()
+  })
+}
 </script>
 
 <template>
@@ -58,6 +70,7 @@ function onOpenAutoFocus(e) {
       @interact-outside="onInteractOutside"
       @escape-key-down="onEscape"
       @open-auto-focus="onOpenAutoFocus"
+      @close-auto-focus="onCloseAutoFocus"
     >
       <DialogTitle class="sr-only">{{ title }}</DialogTitle>
       <slot />

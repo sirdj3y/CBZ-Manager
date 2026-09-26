@@ -16,7 +16,9 @@
 - **Recherche globale (⌘K ou champ du haut) refaite en palette shadcn** : même recherche (sans accents, séries/albums/auteurs, suggestions récentes), avec navigation clavier, focus et accessibilité gérés par la bibliothèque.
 - **Menus « ⋯ » et panneaux en composants shadcn** : menus des cartes (accueil, Séries, Albums, fiche Série), menus Actions et Sélection de la fiche Série, menu de la fiche Album, menus du haut (Nouveautés, Scanner, Mon compte), menus des listes intelligentes, sélecteur de mode du lecteur ; panneaux Trier/Filtrer et liste des Smart lists en barre latérale réduite. Plus jamais coupés par une zone qui défile, navigables au clavier. Les menus des cartes Série et Album sont désormais partagés (un seul composant chacun).
 - **Infobulles** sur les boutons à icône seule (≈ 55 boutons) : apparaissent vite au survol et au clavier, et donnent un nom aux boutons pour les lecteurs d'écran. Comparateurs de qualité (conversion, import) en carte de survol, jamais coupée par le bord de l'écran.
-- **Modales en Dialog shadcn** (en cours) : changement de mot de passe, déplacement d'albums, choix de la miniature, édition de plusieurs albums. Focus gardé dans la modale et rendu à la fermeture, Échap, clic à côté pour fermer.
+- **Modales en Dialog shadcn** (en cours) : changement de mot de passe, déplacement d'albums, choix de la miniature, édition de plusieurs albums, renommage, conversion, liste intelligente, complément Bedetheque, recherche en ligne, album manquant (non fermable pendant la conversion), métadonnées de série (confirmation de suppression imbriquée : Échap ferme d'abord la confirmation). Focus gardé dans la modale et rendu à la fermeture, Échap, clic à côté pour fermer.
+- **Tests de bout en bout** (navigateur réel) dans la CI : menus, panneaux, infobulles, palette, modales.
+- **Correctif** : les menus du haut et « ⋯ » ne s'affichaient plus (positionnés hors écran) depuis l'ajout des infobulles.
 - **Préprod : date du build** affichée discrètement sous la version ; environnement et date du build dans À propos.
 
 ### Corrections

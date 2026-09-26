@@ -1,9 +1,10 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { libraryApi } from '../../api/library'
 import { useNotificationStore } from '../../stores/notifications'
 import { useLibraryStore } from '../../stores/library'
 import AutocompleteInput from '../ui/AutocompleteInput.vue'
+import AppDialog from '../ui/AppDialog.vue'
 
 const props = defineProps({
   series: { type: Object, required: true },
@@ -150,118 +151,103 @@ async function apply() {
 onMounted(() => {
   if (!library.authorNames.writers.length) library.fetchAuthors()
   load()
-  window.addEventListener('keydown', onKey)
 })
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
-function onKey(e) {
-  if (e.key === 'Escape') emit('close')
-}
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click="$emit('close')" />
-    <div class="modal-wrap">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-header-info">
-            <p class="modal-title">Compléter depuis Bedetheque.com</p>
-            <p class="modal-subtitle">{{ series.name }}</p>
-          </div>
-          <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+  <AppDialog title="Compléter depuis Bedetheque.com" @close="$emit('close')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Compléter depuis Bedetheque.com</p>
+          <p class="modal-subtitle">{{ series.name }}</p>
+        </div>
+        <button @click="$emit('close')" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
+
+      <div v-if="loading" class="state-box"><span class="state-pulse">Analyse…</span></div>
+      <div v-else-if="loadError" class="state-box"><span class="state-text">{{ loadError }}</span></div>
+      <div v-else-if="!files.length" class="state-box">
+        <span class="state-text">Aucun album possédé ne correspond à un album trouvé sur Bedetheque.</span>
+      </div>
+      <template v-else>
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm" @click="acceptAllSuggestions">Accepter toutes les modifications</button>
+          <input v-model="filterText" type="search" class="form-control filter-input" placeholder="Filtrer par titre…" />
         </div>
 
-        <div v-if="loading" class="state-box"><span class="state-pulse">Analyse…</span></div>
-        <div v-else-if="loadError" class="state-box"><span class="state-text">{{ loadError }}</span></div>
-        <div v-else-if="!files.length" class="state-box">
-          <span class="state-text">Aucun album possédé ne correspond à un album trouvé sur Bedetheque.</span>
-        </div>
-        <template v-else>
-          <div class="toolbar">
-            <button class="btn btn-secondary btn-sm" @click="acceptAllSuggestions">Accepter toutes les modifications</button>
-            <input v-model="filterText" type="search" class="form-control filter-input" placeholder="Filtrer par titre…" />
-          </div>
-
-          <div class="modal-body">
-            <div class="table-scroll">
-              <table class="enrich-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">N°</th>
-                    <th class="col-title">Titre</th>
-                    <th v-for="col in COLUMNS" :key="col.key" class="col-field">{{ col.label }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="file in filteredFiles" :key="file.id">
-                    <td class="col-num">{{ fmtNumber(file.number) }}</td>
-                    <td class="col-title">
-                      <input
-                        v-model="draft[dkey(file.id, 'Title')]"
-                        type="text"
-                        :placeholder="stem(file.name)"
-                        :class="['cell-input', { 'cell-input-fill': isChanged(file, 'Title') }]"
-                      />
-                      <button
-                        v-if="fieldOf(file, 'Title')?.scraped && fieldOf(file, 'Title').scraped !== draft[dkey(file.id, 'Title')]"
-                        class="cell-suggest"
-                        title="Reprendre cette valeur"
-                        @click="useSuggestion(file, 'Title')"
-                      >→ {{ fieldOf(file, 'Title').scraped }}</button>
-                    </td>
-                    <td v-for="col in COLUMNS" :key="col.key" class="col-field">
-                      <input
-                        v-if="PLAIN_FIELDS.has(col.key)"
+        <div class="modal-body">
+          <div class="table-scroll">
+            <table class="enrich-table">
+              <thead>
+                <tr>
+                  <th class="col-num">N°</th>
+                  <th class="col-title">Titre</th>
+                  <th v-for="col in COLUMNS" :key="col.key" class="col-field">{{ col.label }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="file in filteredFiles" :key="file.id">
+                  <td class="col-num">{{ fmtNumber(file.number) }}</td>
+                  <td class="col-title">
+                    <input
+                      v-model="draft[dkey(file.id, 'Title')]"
+                      type="text"
+                      :placeholder="stem(file.name)"
+                      :class="['cell-input', { 'cell-input-fill': isChanged(file, 'Title') }]"
+                    />
+                    <button
+                      v-if="fieldOf(file, 'Title')?.scraped && fieldOf(file, 'Title').scraped !== draft[dkey(file.id, 'Title')]"
+                      class="cell-suggest"
+                      title="Reprendre cette valeur"
+                      @click="useSuggestion(file, 'Title')"
+                    >→ {{ fieldOf(file, 'Title').scraped }}</button>
+                  </td>
+                  <td v-for="col in COLUMNS" :key="col.key" class="col-field">
+                    <input
+                      v-if="PLAIN_FIELDS.has(col.key)"
+                      v-model="draft[dkey(file.id, col.key)]"
+                      type="text"
+                      :class="['cell-input', { 'cell-input-fill': isChanged(file, col.key) }]"
+                    />
+                    <div v-else :class="['cell-autocomplete', { 'cell-autocomplete-fill': isChanged(file, col.key) }]">
+                      <AutocompleteInput
                         v-model="draft[dkey(file.id, col.key)]"
-                        type="text"
-                        :class="['cell-input', { 'cell-input-fill': isChanged(file, col.key) }]"
+                        :suggestions="suggestionsFor(col.key)"
                       />
-                      <div v-else :class="['cell-autocomplete', { 'cell-autocomplete-fill': isChanged(file, col.key) }]">
-                        <AutocompleteInput
-                          v-model="draft[dkey(file.id, col.key)]"
-                          :suggestions="suggestionsFor(col.key)"
-                        />
-                      </div>
-                      <button
-                        v-if="fieldOf(file, col.key)?.scraped && fieldOf(file, col.key).scraped !== draft[dkey(file.id, col.key)]"
-                        class="cell-suggest"
-                        title="Reprendre cette valeur"
-                        @click="useSuggestion(file, col.key)"
-                      >→ {{ fieldOf(file, col.key).scraped }}</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                    </div>
+                    <button
+                      v-if="fieldOf(file, col.key)?.scraped && fieldOf(file, col.key).scraped !== draft[dkey(file.id, col.key)]"
+                      class="cell-suggest"
+                      title="Reprendre cette valeur"
+                      @click="useSuggestion(file, col.key)"
+                    >→ {{ fieldOf(file, col.key).scraped }}</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </template>
-
-        <div class="modal-footer">
-          <span v-if="files.length" class="selection-count">{{ changedCount }} champ{{ changedCount > 1 ? 's' : '' }} à appliquer</span>
-          <div class="footer-spacer" />
-          <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
-          <button
-            v-if="files.length"
-            @click="apply"
-            :disabled="applying || !changedCount"
-            class="btn btn-primary btn-sm"
-          >{{ applying ? 'Application…' : 'Appliquer' }}</button>
         </div>
+      </template>
+
+      <div class="modal-footer">
+        <span v-if="files.length" class="selection-count">{{ changedCount }} champ{{ changedCount > 1 ? 's' : '' }} à appliquer</span>
+        <div class="footer-spacer" />
+        <button @click="$emit('close')" class="btn btn-ghost btn-sm">Annuler</button>
+        <button
+          v-if="files.length"
+          @click="apply"
+          :disabled="applying || !changedCount"
+          class="btn btn-primary btn-sm"
+        >{{ applying ? 'Application…' : 'Appliquer' }}</button>
       </div>
     </div>
-  </Teleport>
+  </AppDialog>
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--overlay-bg); }
-.modal-wrap {
-  position: fixed; inset: 0; z-index: 201;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   width: 100%; max-width: 920px; max-height: 85vh;
   display: flex; flex-direction: column;
