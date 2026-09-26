@@ -44,15 +44,22 @@ function startAddPasskey() {
   pkName.value = defaultPasskeyName()
   pkNameOpen.value = true
 }
+// La fenêtre du nom est FERMÉE avant de lancer la création : les gestionnaires de mots de
+// passe en extension (Bitwarden, 1Password…) affichent leur propre fenêtre DANS la page, et
+// une Dialog modale ouverte bloque les clics sur tout le reste, la leur comprise (seul le
+// clavier passait). L'attente, le succès ou l'erreur s'affichent dans la section.
+const pkError = ref('')
 async function confirmAddPasskey() {
+  const name = pkName.value.trim() || defaultPasskeyName()
+  pkNameOpen.value = false
+  pkError.value = ''
   pkBusy.value = true
   try {
-    const created = await registerPasskey(pkName.value.trim() || defaultPasskeyName())
+    const created = await registerPasskey(name)
     passkeys.value.push(created)
-    pkNameOpen.value = false
     notif.success('Passkey ajoutée')
   } catch (e) {
-    if (!isCancelled(e)) notif.error(passkeyErrorMessage(e, "Impossible d'ajouter la passkey"))
+    if (!isCancelled(e)) pkError.value = passkeyErrorMessage(e, "Impossible d'ajouter la passkey")
   } finally {
     pkBusy.value = false
   }
@@ -277,23 +284,26 @@ async function saveUsername() {
             </li>
           </ul>
           <div v-if="pkStatus.usable" class="settings-actions">
-            <button class="btn btn-secondary btn-sm" @click="startAddPasskey">Ajouter une passkey</button>
+            <button class="btn btn-secondary btn-sm" :disabled="pkBusy" @click="startAddPasskey">
+              {{ pkBusy ? 'En attente de l’appareil…' : 'Ajouter une passkey' }}
+            </button>
           </div>
+          <p v-if="pkError" class="pk-error" role="alert">{{ pkError }}</p>
           <p v-else class="form-hint">
             Pour ajouter une passkey, ouvrez l'application depuis <a :href="pkStatus.origin + '/account'">{{ pkStatus.origin }}</a>.
           </p>
         </div>
       </section>
 
-      <AppDialog v-if="pkNameOpen" title="Ajouter une passkey" :dismissible="!pkBusy" @close="pkNameOpen = false">
+      <AppDialog v-if="pkNameOpen" title="Ajouter une passkey" @close="pkNameOpen = false">
         <form class="pk-dialog" @submit.prevent="confirmAddPasskey">
           <p class="pk-dialog-title">Ajouter une passkey</p>
           <label class="form-label" for="pk-name">Nom de l'appareil</label>
           <input id="pk-name" v-model="pkName" class="form-control" maxlength="60" autofocus />
           <p class="form-hint">Pour la reconnaître dans la liste, par exemple « iPhone » ou « Mac du salon ».</p>
           <div class="pk-dialog-btns">
-            <button type="button" class="btn btn-ghost btn-sm" :disabled="pkBusy" @click="pkNameOpen = false">Annuler</button>
-            <button type="submit" class="btn btn-primary btn-sm" :disabled="pkBusy">{{ pkBusy ? 'En attente de l’appareil…' : 'Continuer' }}</button>
+            <button type="button" class="btn btn-ghost btn-sm" @click="pkNameOpen = false">Annuler</button>
+            <button type="submit" class="btn btn-primary btn-sm">Continuer</button>
           </div>
         </form>
       </AppDialog>
@@ -324,6 +334,7 @@ async function saveUsername() {
   display: flex; flex-direction: column; gap: 8px;
 }
 .pk-dialog-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.pk-error { margin-top: 10px; font-size: 0.82rem; color: var(--danger); }
 .pk-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .settings-main {
   flex: 1; padding: 24px 20px;

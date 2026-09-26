@@ -21,7 +21,9 @@ def test_ajouter_une_passkey_puis_se_connecter_avec(page, server):
     box.first.wait_for()
     box.locator("input").fill("Test e2e")
     box.get_by_role("button", name="Continuer").click()
-    assert gone(box, timeout=10)
+    # La fenêtre du nom se ferme AVANT la cérémonie (rien de modal par-dessus l'éventuelle
+    # fenêtre d'un gestionnaire de mots de passe en extension).
+    assert gone(box, timeout=2)
     item = page.locator(".pk-item", has_text="Test e2e")
     item.wait_for()
     assert "jamais utilisée" in item.inner_text()
@@ -72,11 +74,12 @@ def test_deuxieme_passkey_sur_le_meme_appareil_message_clair(page, server):
     assert gone(add("Premier"), timeout=10)
     page.locator(".pk-item", has_text="Premier").wait_for()
     add("Second")
-    page.get_by_text("Cet appareil a déjà une passkey pour ce compte").first.wait_for(timeout=10000)
+    # Message dans la section (pas dans une fenêtre modale, déjà refermée).
+    page.locator(".pk-error", has_text="Cet appareil a déjà une passkey pour ce compte").wait_for(timeout=10000)
+    assert dialog(page).count() == 0
     assert page.locator(".pk-item").count() == 1
 
     # Nettoyage
-    page.keyboard.press("Escape")
     page.locator(".pk-item", has_text="Premier").locator("button").click()
     confirm = dialog(page)
     confirm.first.wait_for()
