@@ -328,12 +328,14 @@ class SettingsOut(BaseModel):
     google_books_configured: bool
     comicvine_configured: bool
     rename_pattern: str = ""
+    scan_excluded_folders: list[str] = []
 
 class SettingsIn(BaseModel):
     library_subdir: Optional[str] = None
     google_books_api_key: Optional[str] = None
     comicvine_api_key: Optional[str] = None
     rename_pattern: Optional[str] = None
+    scan_excluded_folders: Optional[list[str]] = None
 
 
 # ── Rename ────────────────────────────────────────────────────────────────────

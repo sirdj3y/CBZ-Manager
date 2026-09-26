@@ -1,3 +1,4 @@
+import json
 import re
 import shutil
 from pathlib import Path
@@ -187,6 +188,7 @@ async def get_current_settings():
         google_books_configured=bool(settings.GOOGLE_BOOKS_API_KEY),
         comicvine_configured=bool(settings.COMICVINE_API_KEY),
         rename_pattern=settings.RENAME_PATTERN,
+        scan_excluded_folders=settings.scan_excluded_folders,
     )
 
 
@@ -230,9 +232,27 @@ async def update_settings(body: SettingsIn, db: AsyncSession = Depends(get_db)):
         _rewrite_env("RENAME_PATTERN", body.rename_pattern)
         settings.RENAME_PATTERN = body.rename_pattern
 
+    if body.scan_excluded_folders is not None:
+        # Chemins relatifs à MEDIA_ROOT (ceux du sélecteur de dossier) — même confinement que
+        # LIBRARY_SUBDIR. Un dossier disparu depuis reste accepté (l'exclusion ne gêne rien).
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        cleaned = []
+        for rel in body.scan_excluded_folders:
+            rel = rel.strip().strip("/")
+            if not rel:
+                continue
+            if not (media_root / rel).resolve().is_relative_to(media_root):
+                raise HTTPException(status_code=403, detail="Accès refusé : chemin hors de MEDIA_ROOT")
+            if rel not in cleaned:
+                cleaned.append(rel)
+        value = json.dumps(cleaned, ensure_ascii=False)
+        _rewrite_env("SCAN_EXCLUDED_FOLDERS", value)
+        settings.SCAN_EXCLUDED_FOLDERS = value
+
     return SettingsOut(
         library_subdir=settings.LIBRARY_SUBDIR,
         google_books_configured=bool(settings.GOOGLE_BOOKS_API_KEY),
         comicvine_configured=bool(settings.COMICVINE_API_KEY),
         rename_pattern=settings.RENAME_PATTERN,
+        scan_excluded_folders=settings.scan_excluded_folders,
     )

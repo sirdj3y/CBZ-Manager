@@ -6,6 +6,8 @@
 
 ### Nouveau
 
+- **Exclure des dossiers du scan** (Paramètres › Bibliothèque) : leurs séries disparaissent de la bibliothèque au scan suivant, sans toucher aux fichiers. Les dossiers cachés et les dossiers système Synology (`@eaDir`, `#recycle`, `#snapshot`) sont désormais toujours ignorés — la corbeille d'un partage pouvait faire réapparaître des BD supprimées.
+- **Sélecteur de dossier** en fenêtre shadcn, comme les autres (focus, Échap, clic à côté).
 - **Import : glisser-déposer un dossier complet** (sous-dossiers compris) dans la zone de l'étape 1 ; un dossier unique pré-remplit la série à son nom, comme « choisir un dossier ».
 - **Services tiers plus robustes** (Bedetheque.com, ComicVine, Google Books) : requêtes espacées par service quelle que soit leur origine (recherche, import, scan des albums manquants), nouvelles tentatives automatiques en cas d'erreur passagère, et messages clairs (« Bedetheque.com ne répond pas pour le moment », « limite de requêtes atteinte », « clé API refusée ») au lieu d'une liste vide.
 

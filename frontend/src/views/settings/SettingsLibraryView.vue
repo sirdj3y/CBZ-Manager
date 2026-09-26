@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../../components/layout/AppLayout.vue'
 import FolderBrowser from '../../components/ui/FolderBrowser.vue'
+import Hint from '../../components/ui/Hint.vue'
 import { settingsApi } from '../../api/settings'
 import { libraryApi } from '../../api/library'
 import client from '../../api/client'
@@ -31,6 +32,27 @@ const saving = ref(false)
 const savingKeys = ref(false)
 const savingRename = ref(false)
 const showFolderBrowser = ref(false)
+
+// Dossiers exclus du scan — chemins relatifs à la racine montée (ceux du sélecteur de dossier).
+const excludedFolders = ref([])
+const showExcludeBrowser = ref(false)
+async function saveExcluded(list) {
+  try {
+    const { data } = await settingsApi.update({ scan_excluded_folders: list })
+    excludedFolders.value = data.scan_excluded_folders
+    notif.success('Exclusions enregistrées — relancez un scan pour les appliquer')
+  } catch (e) {
+    notif.error(e.response?.data?.detail || 'Erreur')
+  }
+}
+function addExcluded(path) {
+  showExcludeBrowser.value = false
+  if (!path || excludedFolders.value.includes(path)) return
+  saveExcluded([...excludedFolders.value, path])
+}
+function removeExcluded(path) {
+  saveExcluded(excludedFolders.value.filter(p => p !== path))
+}
 
 const bdIndex = ref({ built: false, count: 0, built_at: null })
 const bdProgress = ref({ status: 'idle', processed: 0, total: 0 })
@@ -68,6 +90,7 @@ onMounted(async () => {
   settings.value = data
   form.value.library_subdir = data.library_subdir
   form.value.rename_pattern = data.rename_pattern
+  excludedFolders.value = data.scan_excluded_folders || []
   const { data: scanData } = await libraryApi.getLastScan()
   lastScan.value = scanData
   await refreshBdStatus()
@@ -253,6 +276,35 @@ async function resetDatabase() {
 
           <div class="section-divider" />
 
+          <div class="settings-section-title">Dossiers exclus du scan</div>
+          <div class="form-group">
+            <ul v-if="excludedFolders.length" class="excluded-list">
+              <li v-for="p in excludedFolders" :key="p" class="excluded-item">
+                <code class="excluded-path">{{ settings.media_root_name }}/{{ p }}</code>
+                <Hint label="Retirer l'exclusion">
+                  <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="removeExcluded(p)">✕</button>
+                </Hint>
+              </li>
+            </ul>
+            <p v-else class="excluded-empty">Aucun dossier exclu.</p>
+            <div>
+              <button class="btn btn-secondary btn-sm" type="button" @click="showExcludeBrowser = true">Exclure un dossier…</button>
+            </div>
+            <div class="form-hint">
+              Ses séries disparaissent de la bibliothèque au prochain scan — les fichiers ne sont pas touchés.
+              Toujours ignorés : dossiers cachés et dossiers système Synology (<code>@eaDir</code>, <code>#recycle</code>, <code>#snapshot</code>).
+            </div>
+          </div>
+
+          <FolderBrowser
+            v-if="showExcludeBrowser"
+            :initial-path="form.library_subdir"
+            @select="addExcluded"
+            @cancel="showExcludeBrowser = false"
+          />
+
+          <div class="section-divider" />
+
           <div class="settings-section-title">Renommage à l'import</div>
           <div class="form-group">
             <label class="form-label">Modèle</label>
@@ -392,6 +444,10 @@ async function resetDatabase() {
   letter-spacing: 0.05em; color: var(--muted); margin-bottom: 14px;
 }
 .section-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+.excluded-list { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.excluded-item { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; background: var(--light); border-radius: var(--radius-sm); }
+.excluded-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 0.8rem; }
+.excluded-empty { font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; }
 .form-group { margin-bottom: 14px; }
 .form-hint { margin-top: 5px; font-size: 0.8rem; color: var(--muted); }
 .form-hint code { background: var(--light); padding: 1px 5px; border-radius: 3px; font-size: 0.8rem; }

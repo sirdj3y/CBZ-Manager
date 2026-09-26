@@ -27,6 +27,19 @@ class Settings(BaseSettings):
     # conteneur/VM) — jamais tout un LAN entier par défaut, un autre appareil du même réseau
     # pourrait sinon usurper ces en-têtes tout autant qu'un vrai reverse proxy.
     TRUSTED_PROXY_IPS: str = "127.0.0.1,::1"
+    # Dossiers ignorés par le scan (liste JSON de chemins relatifs à MEDIA_ROOT, réglable dans
+    # Paramètres › Bibliothèque) — en plus des dossiers système toujours ignorés (voir
+    # services/scanner.py::ALWAYS_EXCLUDED).
+    SCAN_EXCLUDED_FOLDERS: str = "[]"
+
+    @property
+    def scan_excluded_folders(self) -> list[str]:
+        import json
+        try:
+            value = json.loads(self.SCAN_EXCLUDED_FOLDERS or "[]")
+        except ValueError:
+            return []
+        return [str(v).strip("/") for v in value if isinstance(v, str) and v.strip("/")]
 
     @property
     def LIBRARY_PATH(self) -> str:
@@ -39,7 +52,7 @@ class Settings(BaseSettings):
         Path(self.DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 
-_PERSISTED_KEYS = ("LIBRARY_SUBDIR", "GOOGLE_BOOKS_API_KEY", "COMICVINE_API_KEY", "RENAME_PATTERN")
+_PERSISTED_KEYS = ("LIBRARY_SUBDIR", "GOOGLE_BOOKS_API_KEY", "COMICVINE_API_KEY", "RENAME_PATTERN", "SCAN_EXCLUDED_FOLDERS")
 
 
 @lru_cache

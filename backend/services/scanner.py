@@ -94,6 +94,29 @@ async def create_scan_job(db: AsyncSession) -> ScanJob:
     return job
 
 
+# Dossiers toujours ignorés : dossiers système de Synology (miniatures @eaDir, corbeille
+# #recycle, instantanés #snapshot — la corbeille d'un partage contient des BD supprimées qui
+# reviendraient sinon comme séries) et tout dossier caché (nom commençant par un point).
+ALWAYS_EXCLUDED = {"@eaDir", "#recycle", "#snapshot", "@Recycle", "@tmp"}
+
+
+def excluded_roots() -> list[Path]:
+    """Dossiers exclus par l'utilisateur (Paramètres › Bibliothèque), en chemins absolus."""
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    return [(media_root / rel).resolve() for rel in settings.scan_excluded_folders]
+
+
+def is_excluded(path: Path, lib: Path, excluded: list[Path]) -> bool:
+    try:
+        parts = path.relative_to(lib).parts[:-1]  # dossiers seulement, pas le nom du fichier
+    except ValueError:
+        return False
+    if any(p in ALWAYS_EXCLUDED or p.startswith(".") for p in parts):
+        return True
+    resolved = path.resolve()
+    return any(resolved.is_relative_to(root) for root in excluded)
+
+
 async def scan_library(
     library_path: str,
     db: AsyncSession,
@@ -124,10 +147,11 @@ async def scan_library(
                 f"Dossier de bibliothèque introuvable : {library_path} — scan interrompu, rien n'a été supprimé."
             )
 
-        # Collect all comic files
+        # Collect all comic files (hors dossiers exclus — voir is_excluded)
+        excluded = excluded_roots()
         all_files: list[Path] = []
         for ext in COMIC_EXTS:
-            all_files.extend(lib.rglob(f"*{ext}"))
+            all_files.extend(f for f in lib.rglob(f"*{ext}") if not is_excluded(f, lib, excluded))
 
         total = len(all_files)
 

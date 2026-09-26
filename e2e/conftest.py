@@ -60,11 +60,13 @@ def server():
         _cbz(media / "Akira" / f"Akira - T{n:02d} - Titre {n}.cbz")
     _cbz(media / "Blacksad" / "Blacksad - T01 - Quelque part entre les ombres.cbz")
     port = _free_port()
+    # Lancé depuis le dossier temporaire (PYTHONPATH pour trouver `backend`) : un réglage
+    # enregistré depuis l'interface s'écrit dans ./.env hors Docker — jamais dans celui du dépôt.
     env = {**os.environ, "MEDIA_ROOT": str(media), "LIBRARY_SUBDIR": "", "DB_PATH": str(data / "db.sqlite"),
-           "COVER_CACHE_DIR": str(data / "covers"), "DEV_MODE": "false"}
+           "COVER_CACHE_DIR": str(data / "covers"), "DEV_MODE": "false", "PYTHONPATH": str(ROOT)}
     log = open(tmp / "server.log", "w")
     proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.main:app", "--port", str(port)],
-                            cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
+                            cwd=tmp, env=env, stdout=log, stderr=subprocess.STDOUT)
     base = f"http://127.0.0.1:{port}"
     try:
         for _ in range(100):

@@ -209,3 +209,18 @@ def test_tiroir_metadonnees_album(page):
     assert dialog(page).count() == 1
     page.keyboard.press("Escape")
     assert gone(dialog(page))
+
+
+def test_exclure_un_dossier_du_scan(page):
+    goto(page, "/settings/library")
+    page.get_by_role("button", name="Exclure un dossier…").click()
+    box = dialog(page)
+    box.first.wait_for()
+    box.get_by_text("Horimiya", exact=True).click()
+    box.get_by_role("button", name="Sélectionner").click()
+    assert gone(box)
+    item = page.locator(".excluded-item", has_text="Horimiya")
+    item.wait_for()
+    item.locator("button").click()
+    item.wait_for(state="detached")
+    assert page.get_by_text("Aucun dossier exclu.").count() == 1

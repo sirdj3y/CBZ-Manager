@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { settingsApi } from '../../api/settings'
+import AppDialog from './AppDialog.vue'
 
 const props = defineProps({
   initialPath: { type: String, default: '' }
@@ -49,11 +50,8 @@ function confirmSelection() {
   emit('select', selectedPath.value)
 }
 
-function onKey(e) { if (e.key === 'Escape') emit('cancel') }
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 onMounted(() => {
-  window.addEventListener('keydown', onKey)
   const startPath = props.initialPath || ''
   selectedPath.value = startPath
   loadFolders(startPath)
@@ -61,7 +59,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="fb-overlay" @click.self="$emit('cancel')">
+  <AppDialog title="Sélectionner un dossier" @close="$emit('cancel')">
     <div class="fb-modal">
       <div class="fb-header">
         <span>Sélectionner un dossier</span>
@@ -117,16 +115,10 @@ onMounted(() => {
         <button class="btn btn-primary btn-sm" @click="confirmSelection">Sélectionner</button>
       </div>
     </div>
-  </div>
+  </AppDialog>
 </template>
 
 <style scoped>
-.fb-overlay {
-  position: fixed; inset: 0; z-index: 600;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
 .fb-modal {
   background: var(--surface-raised);
   border-radius: var(--radius);
