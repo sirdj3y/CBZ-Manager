@@ -39,9 +39,9 @@ class ServiceError(Exception):
         """Message affichable à l'utilisateur."""
         return {
             "not_found": f"{self.service} : page ou ressource introuvable.",
-            "quota": f"{self.service} : limite de requêtes atteinte — réessayez plus tard.",
-            "unauthorized": f"{self.service} : clé API refusée — vérifiez-la dans les paramètres.",
-        }.get(self.kind, f"{self.service} ne répond pas pour le moment — réessayez dans quelques minutes.")
+            "quota": f"{self.service} : limite de requêtes atteinte. Réessayez plus tard.",
+            "unauthorized": f"{self.service} : clé API refusée. Vérifiez-la dans les paramètres.",
+        }.get(self.kind, f"{self.service} ne répond pas pour le moment. Réessayez dans quelques minutes.")
 
 
 @dataclass

@@ -82,6 +82,65 @@ async def browse_folders(path: str = ""):
     }
 
 
+_SEARCH_LIMIT = 50
+_SEARCH_MAX_DEPTH = 6
+
+
+def _fold(text: str) -> str:
+    """Minuscules sans accents : « Château » et « chateau » se trouvent l'un l'autre."""
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").lower()
+
+
+def _search_folders_sync(media_root: Path, query: str) -> list[dict]:
+    """Parcours en largeur (niveau par niveau) : avec la limite de résultats, les dossiers les
+    moins profonds — les plus probables, une série par dossier — sont trouvés en premier."""
+    import os
+    from collections import deque
+    from ..services.scanner import ALWAYS_EXCLUDED
+
+    def subdirs(path: Path) -> list[os.DirEntry]:
+        try:
+            return sorted(
+                (e for e in os.scandir(path)
+                 if e.is_dir(follow_symlinks=False) and not e.name.startswith(".") and e.name not in ALWAYS_EXCLUDED),
+                key=lambda e: e.name.lower(),
+            )
+        except OSError:
+            return []
+
+    q = _fold(query)
+    found = []
+    # Chaque file d'attente garde les sous-dossiers déjà lus : un dossier n'est lu qu'une fois.
+    queue = deque([(subdirs(media_root), 0)])
+    while queue:
+        entries, depth = queue.popleft()
+        for entry in entries:
+            children = subdirs(entry.path) if depth + 1 < _SEARCH_MAX_DEPTH else []
+            if q in _fold(entry.name):
+                found.append({"name": entry.name, "path": str(Path(entry.path).relative_to(media_root)),
+                              "has_children": bool(children)})
+                if len(found) >= _SEARCH_LIMIT:
+                    return found
+            if children:
+                queue.append((children, depth + 1))
+    return found
+
+
+@router.get("/browse/search")
+async def search_folders(q: str = ""):
+    """Recherche d'un dossier par son nom dans toute la bibliothèque (sélecteur de dossier) :
+    insensible aux accents et à la casse, dossiers cachés/système écartés, 50 résultats max,
+    les moins profonds d'abord."""
+    import asyncio
+    q = q.strip()
+    if not q:
+        return {"folders": [], "truncated": False}
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    found = await asyncio.to_thread(_search_folders_sync, media_root, q)
+    return {"folders": found, "truncated": len(found) >= _SEARCH_LIMIT}
+
+
 @router.get("/bedetheque-index")
 async def bedetheque_index_status():
     return scraper_bedetheque.index_status()

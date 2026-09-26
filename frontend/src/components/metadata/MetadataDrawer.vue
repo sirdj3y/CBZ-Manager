@@ -268,7 +268,7 @@ function applyScraperResult(result) {
 </script>
 
 <template>
-  <AppDialog :title="`Métadonnées — ${tome.title || tome.filename}`" @close="$emit('close')">
+  <AppDialog :title="`Métadonnées : ${tome.title || tome.filename}`" @close="$emit('close')">
       <div class="modal-box">
         <!-- Header -->
         <div class="modal-header">

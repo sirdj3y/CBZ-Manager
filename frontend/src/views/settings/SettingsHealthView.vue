@@ -293,7 +293,7 @@ const filteredIssues = computed(() => {
                   v-else-if="issue.type === 'orphaned_data'"
                   class="btn btn-danger btn-xs"
                   :disabled="deletingIds.has(issue.orphan_key)"
-                  title="Supprime ces lignes de la base — elles ne se rattachent plus à rien"
+                  title="Supprime ces lignes de la base : elles ne se rattachent plus à rien"
                   @click="cleanOrphans(issue)"
                 >
                   {{ deletingIds.has(issue.orphan_key) ? 'Nettoyage…' : 'Nettoyer' }}

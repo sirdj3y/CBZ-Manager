@@ -52,3 +52,20 @@ def test_exclure_puis_reinclure_un_dossier(scanned, isolated_settings):
 def test_exclusion_hors_bibliotheque_refusee(scanned, isolated_settings):
     r = scanned.put("/api/settings", json={"scan_excluded_folders": ["../../etc"]})
     assert r.status_code == 403
+
+
+def test_recherche_de_dossier(scanned):
+    extra = MEDIA / "Manga"
+    try:
+        (extra / "Château ambulant").mkdir(parents=True)
+        (MEDIA / ".cache" / "chateau").mkdir(parents=True)
+        r = scanned.get("/api/settings/browse/search", params={"q": "CHATEAU"}).json()
+        paths = [f["path"] for f in r["folders"]]
+        assert paths == ["Manga/Château ambulant"], "accents/casse ignorés, dossiers cachés écartés"
+        r = scanned.get("/api/settings/browse/search", params={"q": "a"}).json()
+        depths = [f["path"].count("/") for f in r["folders"]]
+        assert depths == sorted(depths), "les moins profonds d'abord"
+        assert scanned.get("/api/settings/browse/search", params={"q": " "}).json()["folders"] == []
+    finally:
+        shutil.rmtree(extra, ignore_errors=True)
+        shutil.rmtree(MEDIA / ".cache", ignore_errors=True)

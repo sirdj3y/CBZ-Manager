@@ -40,7 +40,7 @@ async function saveExcluded(list) {
   try {
     const { data } = await settingsApi.update({ scan_excluded_folders: list })
     excludedFolders.value = data.scan_excluded_folders
-    notif.success('Exclusions enregistrées — relancez un scan pour les appliquer')
+    notif.success('Exclusions enregistrées. Relancez un scan pour les appliquer.')
   } catch (e) {
     notif.error(e.response?.data?.detail || 'Erreur')
   }
@@ -291,8 +291,8 @@ async function resetDatabase() {
               <button class="btn btn-secondary btn-sm" type="button" @click="showExcludeBrowser = true">Exclure un dossier…</button>
             </div>
             <div class="form-hint">
-              Ses séries disparaissent de la bibliothèque au prochain scan — les fichiers ne sont pas touchés.
-              Toujours ignorés : dossiers cachés et dossiers système Synology (<code>@eaDir</code>, <code>#recycle</code>, <code>#snapshot</code>).
+              Les séries de ces dossiers seront retirées de la bibliothèque au prochain scan. Les fichiers ne sont pas modifiés.
+              Les dossiers cachés et les dossiers système sont toujours ignorés.
             </div>
           </div>
 

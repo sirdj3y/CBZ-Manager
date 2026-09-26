@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { settingsApi } from '../../api/settings'
 import AppDialog from './AppDialog.vue'
 
@@ -38,9 +38,36 @@ async function loadFolders(path) {
 }
 
 function navigateTo(path) {
+  query.value = ''
   selectedPath.value = path
   loadFolders(path)
 }
+
+// Recherche par nom dans toute la bibliothèque (pas seulement le dossier affiché) : un dossier
+// rangé plus bas (ex. Manga/Horimiya) se trouve aussi. Vide : navigation normale.
+const query = ref('')
+const results = ref([])
+const truncated = ref(false)
+const searching = ref(false)
+let searchTimer = null
+watch(query, q => {
+  clearTimeout(searchTimer)
+  if (!q.trim()) { results.value = []; return }
+  searching.value = true
+  searchTimer = setTimeout(async () => {
+    try {
+      const { data } = await settingsApi.searchFolders(q.trim())
+      if (q !== query.value) return
+      results.value = data.folders
+      truncated.value = data.truncated
+    } catch {
+      results.value = []
+    } finally {
+      searching.value = false
+    }
+  }, 250)
+})
+const listed = computed(() => (query.value.trim() ? results.value : folders.value))
 
 function selectFolder(folder) {
   selectedPath.value = folder.path
@@ -66,8 +93,19 @@ onMounted(() => {
         <button class="btn btn-ghost btn-sm" @click="$emit('cancel')">✕</button>
       </div>
 
+      <div class="fb-search">
+        <input
+          v-model="query"
+          type="search"
+          class="form-control"
+          placeholder="Rechercher un dossier…"
+          aria-label="Rechercher un dossier"
+          autofocus
+        />
+      </div>
+
       <!-- Breadcrumb -->
-      <div class="fb-breadcrumb">
+      <div v-if="!query.trim()" class="fb-breadcrumb">
         <span class="fb-crumb" :class="{ 'fb-crumb-active': currentPath === '' }" @click="navigateTo('')">Racine</span>
         <template v-for="(segment, index) in pathSegments" :key="index">
           <span class="fb-sep">/</span>
@@ -87,15 +125,19 @@ onMounted(() => {
 
       <!-- Liste -->
       <div class="fb-content">
-        <div v-if="loading" class="fb-state">Chargement…</div>
+        <template v-if="query.trim()">
+          <div v-if="searching && !results.length" class="fb-state">Recherche…</div>
+          <div v-else-if="!results.length" class="fb-state">Aucun dossier ne correspond à « {{ query.trim() }} ».</div>
+        </template>
+        <div v-else-if="loading" class="fb-state">Chargement…</div>
         <div v-else-if="error" class="fb-state fb-error">
           {{ error }}
           <button class="btn btn-ghost btn-sm" @click="loadFolders(currentPath)">Réessayer</button>
         </div>
         <div v-else-if="folders.length === 0" class="fb-state">Aucun sous-dossier</div>
-        <ul v-else class="fb-list">
+        <ul v-if="listed.length && !(loading && !query.trim()) && !(error && !query.trim())" class="fb-list">
           <li
-            v-for="folder in folders"
+            v-for="folder in listed"
             :key="folder.path"
             class="fb-item"
             :class="{ 'fb-item-selected': selectedPath === folder.path }"
@@ -103,10 +145,14 @@ onMounted(() => {
             @dblclick="navigateTo(folder.path)"
           >
             <span class="fb-icon">📁</span>
-            <span class="fb-name">{{ folder.name }}</span>
+            <span class="fb-name">
+              {{ folder.name }}
+              <span v-if="query.trim() && folder.path.includes('/')" class="fb-parent">{{ folder.path.slice(0, folder.path.lastIndexOf('/')) }}</span>
+            </span>
             <span v-if="folder.has_children" class="fb-arrow" @click.stop="navigateTo(folder.path)">›</span>
           </li>
         </ul>
+        <p v-if="query.trim() && truncated" class="fb-state">Seuls les 50 premiers résultats sont affichés. Précisez la recherche.</p>
       </div>
 
       <!-- Actions -->
@@ -119,6 +165,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.fb-search { padding: 10px 16px 0; }
+.fb-parent { display: block; font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .fb-modal {
   background: var(--surface-raised);
   border-radius: var(--radius);

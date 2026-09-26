@@ -359,6 +359,6 @@ async def delete_orphaned_data(key: str, request: Request, db: AsyncSession = De
     except KeyError:
         raise HTTPException(status_code=404, detail="Type de données inconnu")
     from ..services.activity import log as activity_log
-    await activity_log(db, "cleanup_orphans", f"Diagnostic — {deleted} ligne(s) orpheline(s) supprimée(s) ({key})", user=current_user, ip=get_client_ip(request))
+    await activity_log(db, "cleanup_orphans", f"Diagnostic : {deleted} ligne(s) orpheline(s) supprimée(s) ({key})", user=current_user, ip=get_client_ip(request))
     await db.commit()
     return {"deleted": deleted}

@@ -216,7 +216,12 @@ def test_exclure_un_dossier_du_scan(page):
     page.get_by_role("button", name="Exclure un dossier…").click()
     box = dialog(page)
     box.first.wait_for()
-    box.get_by_text("Horimiya", exact=True).click()
+    # Le champ de recherche a le focus : on tape directement, sans accent ni majuscule.
+    page.keyboard.type("hori")
+    result = box.locator(".fb-item", has_text="Horimiya")
+    result.wait_for()
+    assert box.locator(".fb-item").count() == 1
+    result.click()
     box.get_by_role("button", name="Sélectionner").click()
     assert gone(box)
     item = page.locator(".excluded-item", has_text="Horimiya")

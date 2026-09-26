@@ -164,4 +164,4 @@ def test_google_books_quota_message_clair(scanned, monkeypatch):
     monkeypatch.setattr(http_client.GOOGLE_BOOKS, "backoff", 0.01)
     r = scanned.post("/api/scrape/googlebooks", json={"query": "Blacksad"})
     assert r.status_code == 503
-    assert "limite de requêtes" in r.json()["detail"]
+    assert "limite de requêtes" in r.json()["detail"] and "—" not in r.json()["detail"]

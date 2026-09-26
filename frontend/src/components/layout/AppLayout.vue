@@ -54,7 +54,7 @@ const appVersion = __APP_VERSION__
 // Préprod uniquement : date du build affichée discrètement sous la version, pour savoir si la
 // dernière mise à jour poussée sur develop est bien arrivée (voir utils/buildInfo.js).
 const preprodBuild = buildInfo.channel === 'preprod' && buildInfo.date
-  ? { label: `préprod · ${formatBuildDate(buildInfo.date)}`, title: `Préprod construite le ${formatBuildDate(buildInfo.date, { withYear: true })} — commit ${buildInfo.sha}` }
+  ? { label: `préprod · ${formatBuildDate(buildInfo.date)}`, title: `Préprod construite le ${formatBuildDate(buildInfo.date, { withYear: true })}, commit ${buildInfo.sha}` }
   : null
 
 // Recherche globale (Ctrl/Cmd+K, ou la "boîte" du topbar — voir plus bas) : point d'entrée
