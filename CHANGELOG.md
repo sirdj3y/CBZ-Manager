@@ -6,7 +6,12 @@
 
 ### Nouveau
 
+- **Import : glisser-déposer un dossier complet** (sous-dossiers compris) dans la zone de l'étape 1 ; un dossier unique pré-remplit la série à son nom, comme « choisir un dossier ».
 - **Services tiers plus robustes** (Bedetheque.com, ComicVine, Google Books) : requêtes espacées par service quelle que soit leur origine (recherche, import, scan des albums manquants), nouvelles tentatives automatiques en cas d'erreur passagère, et messages clairs (« Bedetheque.com ne répond pas pour le moment », « limite de requêtes atteinte », « clé API refusée ») au lieu d'une liste vide.
+
+### Technique
+
+- CI : actions GitHub à jour (fin des avertissements Node 20), machines de build fixées sur Ubuntu 24.04 avant la bascule d'ubuntu-latest vers Ubuntu 26 (19 octobre).
 
 ### Corrections
 

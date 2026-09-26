@@ -22,6 +22,7 @@ import { tomesApi } from '../api/tomes'
 import Hint from '../components/ui/Hint.vue'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/shadcn/hover-card'
 import AppDialog from '../components/ui/AppDialog.vue'
+import { filesFromDataTransfer } from '../utils/droppedFiles'
 
 const router = useRouter()
 const route = useRoute()
@@ -197,15 +198,15 @@ function onFilesSelected(e) {
   if (folder && !seriesSearch.value) seriesSearch.value = folder
 }
 
-function onDrop(e) {
+// Glisser-déposer : fichiers ET dossiers (parcourus récursivement, voir utils/droppedFiles).
+// Un seul dossier déposé pré-remplit la série à son nom, comme « choisir un dossier ».
+async function onDrop(e) {
   dragging.value = false
-  const files = e.dataTransfer?.files
-  if (files?.length) {
-    rawFiles.value = filterFiles(files)
-    initSelection(rawFiles.value)
-    const folder = detectFolderName(files)
-    if (folder && !seriesSearch.value) seriesSearch.value = folder
-  }
+  const { files, folders } = await filesFromDataTransfer(e.dataTransfer)
+  if (!files.length) return
+  rawFiles.value = filterFiles(files)
+  initSelection(rawFiles.value)
+  if (folders.length === 1 && !seriesSearch.value) seriesSearch.value = folders[0]
 }
 
 const allStep1Selected = computed(() => rawFiles.value.every(f => rawFileSelection.value[f.name]))
@@ -1055,7 +1056,7 @@ watch(() => route.path, (path) => {
               @change="onFilesSelected"
             />
             <SvgIcon :name="dragging ? 'upload' : 'folder-up'" class="drop-icon" />
-            <p class="drop-label">{{ dragging ? 'Déposer les fichiers ici' : 'Cliquer ou glisser-déposer des fichiers' }}</p>
+            <p class="drop-label">{{ dragging ? 'Déposer ici' : 'Cliquer ou glisser-déposer des fichiers ou un dossier' }}</p>
             <p class="drop-hint">
               Formats acceptés : CBZ, CBR, PDF — ou
               <button type="button" class="link-btn" @click.stop="folderInput.click()">choisir un dossier</button>

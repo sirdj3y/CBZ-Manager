@@ -144,6 +144,9 @@ jobs:
       # linux/amd64 uniquement : le DS423+ est en Intel x86_64.
       # provenance: false évite les manifestes d'attestation sans tag, qui encombrent le registre.
       - name: Build (et publication)
+        # Pas d'artefact « dockerbuild » (historique de build) à chaque run : inutile ici.
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
         uses: docker/build-push-action@v7
         with:
           context: .
