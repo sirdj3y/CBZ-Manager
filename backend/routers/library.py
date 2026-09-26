@@ -21,6 +21,7 @@ from ..services.classification import CLASSIFICATIONS
 from ..services.age_rating import AGE_RATINGS
 from .auth import get_client_ip
 from ..config import settings
+from ..clock import utcnow
 
 router = APIRouter(prefix="/api", tags=["library"], dependencies=[Depends(require_permission("library.read"))])
 
@@ -411,7 +412,7 @@ async def merge_authors(body: MergeAuthorsIn, request: Request, db: AsyncSession
             continue
         for k, v in updates.items():
             setattr(meta, k, v)
-        tome.updated_at = datetime.utcnow()
+        tome.updated_at = utcnow()
         merged += 1
 
     await db.commit()
@@ -717,7 +718,7 @@ async def update_series_metadata(series_id: int, body: dict, request: Request, d
             if hasattr(meta, key):
                 setattr(meta, key, val)
         tome.has_metadata = True
-        tome.updated_at = datetime.utcnow()
+        tome.updated_at = utcnow()
 
     if "Series" in body and body["Series"]:
         series.name = body["Series"]
@@ -935,7 +936,7 @@ async def apply_series_enrich(series_id: int, body: EnrichApplyIn, request: Requ
             if key == "Title":
                 tome.title = val
         tome.has_metadata = True
-        tome.updated_at = datetime.utcnow()
+        tome.updated_at = utcnow()
         ok += 1
 
     await activity_log(db, "edit_metadata", f"Métadonnées complétées depuis Bedetheque : série « {series.name} » ({ok} album(s))", status="ok" if not errors else "error", user=current_user, ip=get_client_ip(request))

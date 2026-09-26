@@ -15,6 +15,7 @@ from .filename_parser import parse_filename
 from .cover_cache import ensure_cover
 from .archive_format import detect_archive_ext
 from .archive_safety import read_entry_bounded
+from ..clock import utcnow
 
 COMIC_EXTS = {".cbz", ".cbr", ".pdf", ".zip", ".rar"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
@@ -87,7 +88,7 @@ async def get_running_scan(db: AsyncSession) -> Optional[ScanJob]:
 
 
 async def create_scan_job(db: AsyncSession) -> ScanJob:
-    job = ScanJob(status="pending", started_at=datetime.utcnow())
+    job = ScanJob(status="pending", started_at=utcnow())
     db.add(job)
     await db.commit()
     await db.refresh(job)
@@ -133,7 +134,7 @@ async def scan_library(
     await db.execute(
         update(ScanJob)
         .where(ScanJob.id == job_id)
-        .values(status="running", started_at=datetime.utcnow())
+        .values(status="running", started_at=utcnow())
     )
     await db.commit()
 
@@ -244,7 +245,7 @@ async def scan_library(
             )
             count = len(count_result.scalars().all())
             series.tome_count = count
-            series.updated_at = datetime.utcnow()
+            series.updated_at = utcnow()
 
         await db.commit()
 
@@ -255,7 +256,7 @@ async def scan_library(
         await db.execute(
             update(ScanJob)
             .where(ScanJob.id == job_id)
-            .values(status="done", processed=processed, total=total, finished_at=datetime.utcnow())
+            .values(status="done", processed=processed, total=total, finished_at=utcnow())
         )
         await db.commit()
 
@@ -263,7 +264,7 @@ async def scan_library(
         await db.execute(
             update(ScanJob)
             .where(ScanJob.id == job_id)
-            .values(status="error", error_msg=str(e), finished_at=datetime.utcnow())
+            .values(status="error", error_msg=str(e), finished_at=utcnow())
         )
         await db.commit()
         raise
@@ -420,7 +421,7 @@ async def _process_file(
             tome.file_mtime = file_mtime
             tome.number = parsed.get("number")
             tome.title = parsed.get("title")
-            tome.updated_at = datetime.utcnow()
+            tome.updated_at = utcnow()
             # Fichier remplacé (taille/date différentes) : un ancien hash de contenu ne
             # correspondrait plus à rien — remis à None, le prochain scan de doublons
             # (services/duplicates.py) le recalculera.
@@ -438,7 +439,7 @@ async def _process_file(
                 # motif reconnu à l'époque) ne doit pas rester figé indéfiniment.
                 tome.number = parsed.get("number")
                 tome.title = parsed.get("title")
-                tome.updated_at = datetime.utcnow()
+                tome.updated_at = utcnow()
             elif tome.title is None and parsed.get("title") is not None:
                 # Même rattrapage que ci-dessus mais indépendant du numéro : un one-shot n'a
                 # justement pas de numéro (parsed["number"] reste toujours None pour lui), la
@@ -446,7 +447,7 @@ async def _process_file(
                 # ce cas séparé, un titre resté à None (motif de nom de fichier corrigé après
                 # coup, voir filename_parser.py) ne se rattraperait jamais.
                 tome.title = parsed.get("title")
-                tome.updated_at = datetime.utcnow()
+                tome.updated_at = utcnow()
 
             if not tome.has_metadata:
                 # Idem pour has_metadata : certains flux d'écriture (complétion Bedetheque en
@@ -458,7 +459,7 @@ async def _process_file(
                 meta = meta_result.scalar_one_or_none()
                 if meta and any(getattr(meta, f) for f in ("Title", "Series", "Number", "Writer", "Publisher")):
                     tome.has_metadata = True
-                    tome.updated_at = datetime.utcnow()
+                    tome.updated_at = utcnow()
 
             if tome.page_count:
                 # Rattrapage du champ ComicInfo "Pages" pour les tomes déjà scannés avant

@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.db_models import AuthConfig, User, UserTomeData, Profile
+from ..clock import utcnow
 
 SESSION_COOKIE_NAME = "cbz_session"
 SESSION_MAX_AGE = 60 * 60 * 24 * 30  # 30 jours
@@ -92,7 +93,7 @@ async def bootstrap_first_admin(db: AsyncSession) -> None:
         # Bibliothèque déjà en place le cas échéant — rien de tout ça n'est "nouveau", sinon
         # le menu Nouveautés se retrouverait avec potentiellement des années de contenu au
         # premier login post-migration.
-        notifications_last_seen_at=datetime.utcnow(),
+        notifications_last_seen_at=utcnow(),
     ))
     await db.commit()
 
@@ -201,7 +202,7 @@ async def create_user(
         age_rating_limit=age_rating_limit if not is_admin else None,
         # Voir bootstrap_first_admin — un compte tout juste créé ne doit rien voir de
         # "nouveau" dans la bibliothèque déjà en place au moment de sa création.
-        notifications_last_seen_at=datetime.utcnow(),
+        notifications_last_seen_at=utcnow(),
     )
     db.add(user)
     await db.commit()

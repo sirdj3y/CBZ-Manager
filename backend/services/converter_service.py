@@ -18,6 +18,7 @@ from ..database import AsyncSessionLocal
 from .archive_format import detect_archive_ext
 from .archive_safety import check_entry_count, read_entry_bounded, BoundedTotalReader
 from .file_locks import get_file_lock
+from ..clock import utcnow
 
 # In-memory progress store: {job_id: {tome_id: {progress, total, status}}}
 _progress: dict[int, dict] = {}
@@ -366,7 +367,7 @@ async def run_convert_job(job_id: int, user_id: int | None = None, ip: str | Non
                     tome.filename = dest.name
                     tome.file_format = "cbz"
                     tome.status = "no_metadata"
-                    tome.updated_at = datetime.utcnow()
+                    tome.updated_at = utcnow()
 
                 # Sidecar .meta.json : écrire les métadonnées dans le CBZ converti
                 sidecar = src.with_suffix(".meta.json")
@@ -432,7 +433,7 @@ async def run_convert_job(job_id: int, user_id: int | None = None, ip: str | Non
         await db.execute(
             update(ConvertJob)
             .where(ConvertJob.id == job_id)
-            .values(status=final_status, progress=final_progress, total=len(tome_statuses), finished_at=datetime.utcnow())
+            .values(status=final_status, progress=final_progress, total=len(tome_statuses), finished_at=utcnow())
         )
         await db.commit()
 

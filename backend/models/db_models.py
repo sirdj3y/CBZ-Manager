@@ -5,10 +5,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 from ..database import Base
+from ..clock import utcnow
 
 
 class UTCDateTime(TypeDecorator):
-    """Toute l'app écrit des datetimes naïfs mais toujours en UTC (datetime.utcnow()). Sans
+    """Toute l'app écrit des datetimes naïfs mais toujours en UTC (utcnow()). Sans
     ce type, ils ressortent de l'API sans indicateur de fuseau (ex: "2026-08-24T17:11:23"),
     que le JS du frontend interprète comme une heure LOCALE plutôt qu'UTC — d'où un décalage
     affiché égal au fuseau du navigateur (2h en France l'été). Ce type rend le datetime lu
@@ -36,8 +37,8 @@ class Series(Base):
     folder_path: Mapped[str] = mapped_column(String, nullable=False)
     cover_tome_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("tomes.id"), nullable=True)
     tome_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -107,8 +108,8 @@ class Tome(Base):
     cover_cached: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default="no_metadata")  # ok/no_metadata/error/cbr_unsupported
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -248,7 +249,7 @@ class ConvertJob(Base):
     # consultation du statut/annulation au créateur du job (ou à un admin) — un job d'un autre
     # utilisateur ne doit pas être consultable/annulable en devinant son id.
     user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     tomes: Mapped[list["ConvertJobTome"]] = relationship("ConvertJobTome", back_populates="job", cascade="all, delete-orphan")
@@ -261,7 +262,7 @@ class ActivityLog(Base):
     action: Mapped[str] = mapped_column(String, nullable=False)  # scan/convert/delete_series/delete_tome/rename
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, default="ok")  # ok/error
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     # Multi-utilisateur (câblage à l'étape 2) — username_snapshot, pas user_id, est le champ
     # affiché : l'historique doit rester lisible même après suppression du compte, et SQLite
@@ -282,7 +283,7 @@ class MissingAlbum(Base):
     cover_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     year: Mapped[str | None] = mapped_column(String, nullable=True)
     bedetheque_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    detected_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
+    detected_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     # Déjà parsés depuis la page série Bedetheque (voir scraper_bedetheque._parse_album_block)
     # mais jusqu'ici jetés — utiles pour pré-remplir les métadonnées lors de l'ajout d'un
@@ -317,7 +318,7 @@ class IgnoredMissingAlbum(Base):
     series_id: Mapped[int] = mapped_column(Integer, ForeignKey("series.id", ondelete="CASCADE"), nullable=False)
     number: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("series_id", "number", name="uq_ignored_missing_albums_series_number"),
@@ -350,7 +351,7 @@ class AuthConfig(Base):
     username: Mapped[str] = mapped_column(String, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     secret_key: Mapped[str] = mapped_column(String, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
 
 class Profile(Base):
@@ -363,7 +364,7 @@ class Profile(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     permissions: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array de clés
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class User(Base):
@@ -405,8 +406,8 @@ class User(Base):
     # que laissé à NULL, sinon un compte fraîchement créé se retrouverait avec des mois
     # d'historique de bibliothèque marqués "nouveau" à la première connexion.
     notifications_last_seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     profile: Mapped["Profile | None"] = relationship("Profile")
     tome_data: Mapped[list["UserTomeData"]] = relationship("UserTomeData", cascade="all, delete-orphan")
@@ -452,7 +453,7 @@ class UserTomeData(Base):
     # à False automatiquement : une relecture qui repasse par-dessus le seuil ne fait que
     # confirmer un état déjà vrai, et un décochage manuel n'est jamais écrasé par la suite.
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         UniqueConstraint("user_id", "tome_id", name="uq_user_tome_data"),
@@ -487,8 +488,8 @@ class SmartList(Base):
     # plus lue ni écrite, pour ne pas imposer de migration destructive (même principe que
     # AuthConfig.username/password_hash, voir services/auth.py).
     result_type: Mapped[str] = mapped_column(String, nullable=False, default="tome")
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         Index("idx_smart_lists_owner_id", "owner_id"),
@@ -507,7 +508,7 @@ class TomePagePanels(Base):
     tome_id: Mapped[int] = mapped_column(Integer, ForeignKey("tomes.id", ondelete="CASCADE"), nullable=False)
     page_index: Mapped[int] = mapped_column(Integer, nullable=False)
     panels_json: Mapped[str] = mapped_column(Text, nullable=False)  # JSON: [[x1,y1,x2,y2], ...]
-    computed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow)
+    computed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("tome_id", "page_index", name="uq_tome_page_panels"),
@@ -527,7 +528,7 @@ class ReadingActivity(Base):
     tome_id: Mapped[int] = mapped_column(Integer, ForeignKey("tomes.id", ondelete="CASCADE"), nullable=False)
     day: Mapped[str] = mapped_column(String, nullable=False)  # "YYYY-MM-DD", UTC
     seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         UniqueConstraint("user_id", "tome_id", "day", name="uq_reading_activity"),

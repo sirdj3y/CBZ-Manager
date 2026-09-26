@@ -14,6 +14,7 @@ from ..services.storage_check import check_media_identity
 from ..services.duplicates import scan_duplicates, get_duplicate_groups
 from ..services import orphaned_data
 from .auth import get_client_ip
+from ..clock import utcnow
 
 # La suppression d'un tome orphelin (DELETE /tome/{id}) exige explicitement library.delete
 # en plus, voir plus bas — sans quoi elle deviendrait accessible à n'importe qui ayant juste
@@ -45,7 +46,7 @@ async def cleanup_stale_scan_jobs(db: AsyncSession) -> None:
     await db.execute(
         update(DuplicateScanJob)
         .where(DuplicateScanJob.status.in_(("pending", "running")))
-        .values(status="error", error_msg="Analyse interrompue par un redémarrage du serveur", finished_at=datetime.utcnow())
+        .values(status="error", error_msg="Analyse interrompue par un redémarrage du serveur", finished_at=utcnow())
     )
     await db.commit()
 
@@ -92,7 +93,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
     if running:
         return DuplicateScanStartOut(job_id=running.id)
 
-    job = DuplicateScanJob(status="pending", started_at=datetime.utcnow())
+    job = DuplicateScanJob(status="pending", started_at=utcnow())
     db.add(job)
     await db.commit()
     await db.refresh(job)
@@ -116,7 +117,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
                 await scan_db.execute(
                     update(DuplicateScanJob)
                     .where(DuplicateScanJob.id == job.id)
-                    .values(status="done", processed=p.get("processed", 0), total=p.get("total", 0), finished_at=datetime.utcnow())
+                    .values(status="done", processed=p.get("processed", 0), total=p.get("total", 0), finished_at=utcnow())
                 )
                 await activity_log(scan_db, "scan", f"Analyse complète de la bibliothèque terminée — {p.get('processed', 0)} fichier(s) analysé(s)", user=scan_user, ip=scan_ip)
             except Exception as e:
@@ -125,7 +126,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
                 await scan_db.execute(
                     update(DuplicateScanJob)
                     .where(DuplicateScanJob.id == job.id)
-                    .values(status="error", error_msg=str(e), finished_at=datetime.utcnow())
+                    .values(status="error", error_msg=str(e), finished_at=utcnow())
                 )
                 await activity_log(scan_db, "scan", f"Analyse complète de la bibliothèque échouée : {e}", status="error", user=scan_user, ip=scan_ip)
             await scan_db.commit()

@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from .config import settings
+from .clock import utcnow
 
 
 class Base(DeclarativeBase):
@@ -112,7 +113,7 @@ async def init_db():
             ))
             await conn.execute(
                 __import__('sqlalchemy').text("INSERT INTO applied_migrations (name, applied_at) VALUES (:name, :now)"),
-                {"name": "is_read_backfill_2026", "now": __import__('datetime').datetime.utcnow().isoformat()},
+                {"name": "is_read_backfill_2026", "now": utcnow().isoformat()},
             )
 
 

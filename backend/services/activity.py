@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func
 from ..models.db_models import ActivityLog, User
+from ..clock import utcnow
 
 MAX_LOGS = 500
 
@@ -16,7 +17,7 @@ SUCCESS_AFTER_FAILURES_THRESHOLD = 3
 
 
 async def get_security_alerts(db: AsyncSession) -> list[dict]:
-    since = datetime.utcnow() - timedelta(hours=ALERT_LOOKBACK_HOURS)
+    since = utcnow() - timedelta(hours=ALERT_LOOKBACK_HOURS)
     window = timedelta(minutes=FAILED_LOGIN_WINDOW_MINUTES)
 
     login_rows = (await db.execute(

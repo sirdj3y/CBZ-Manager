@@ -23,6 +23,7 @@ from ..services.user_tome_data import get_user_tome_data, get_or_create_user_tom
 from ..services.hidden_series import assert_tomes_visible
 from ..services.hidden_series import get_user_hidden_series_ids, get_user_excluded_series_ids, get_user_age_restricted_series_ids, assert_tomes_visible
 from .auth import get_client_ip
+from ..clock import utcnow
 
 
 def apply_pattern(pattern: str, tome: Tome, meta: Metadata | None) -> str:
@@ -260,7 +261,7 @@ async def rename_bulk(body: RenameBulkIn, db: AsyncSession = Depends(get_db), cu
             Path(tome.filepath).rename(new_path)
             tome.filename = new_name
             tome.filepath = str(new_path)
-            tome.updated_at = datetime.utcnow()
+            tome.updated_at = utcnow()
             await db.commit()
             await db.refresh(tome)
             ok += 1
@@ -325,7 +326,7 @@ async def move_tomes(body: MoveTomesIn, request: Request, db: AsyncSession = Dep
         source_series_ids.add(tome.series_id)
         tome.series_id = target.id
         tome.filepath = str(new_path)
-        tome.updated_at = datetime.utcnow()
+        tome.updated_at = utcnow()
         moved_tomes.append(tome)
         ok += 1
 
@@ -515,7 +516,7 @@ async def update_metadata_bulk(body: MetadataBulkIn, request: Request, db: Async
         for key, val in fields.items():
             setattr(meta, key, val)
         tome.has_metadata = True
-        tome.updated_at = datetime.utcnow()
+        tome.updated_at = utcnow()
         ok += 1
 
     await activity_log(db, "edit_metadata", f"Métadonnées éditées en lot : {ok} album(s)", status="ok" if not errors else "error", user=current_user, ip=get_client_ip(request))
@@ -547,7 +548,7 @@ async def rename_tome(tome_id: int, body: RenameIn, db: AsyncSession = Depends(g
     Path(tome.filepath).rename(new_path)
     tome.filename = new_name
     tome.filepath = str(new_path)
-    tome.updated_at = datetime.utcnow()
+    tome.updated_at = utcnow()
     await db.commit()
     await db.refresh(tome)
     return _build_tome_out(tome, meta, user_data)
@@ -595,7 +596,7 @@ async def rename_bulk_to(body: RenameBulkToIn, request: Request, db: AsyncSessio
             parsed = parse_filename(item.new_filename.rsplit(".", 1)[0])
             tome.number = parsed.get("number")
             tome.title = parsed.get("title")
-            tome.updated_at = datetime.utcnow()
+            tome.updated_at = utcnow()
             await db.commit()
             await db.refresh(tome)
             ok += 1
@@ -646,7 +647,7 @@ async def rename_tome_to(tome_id: int, body: RenameToIn, db: AsyncSession = Depe
     parsed = parse_filename(body.new_filename.rsplit(".", 1)[0])
     tome.number = parsed.get("number")
     tome.title = parsed.get("title")
-    tome.updated_at = datetime.utcnow()
+    tome.updated_at = utcnow()
     await db.commit()
     await db.refresh(tome)
     return _build_tome_out(tome, meta, user_data)
@@ -771,7 +772,7 @@ async def update_metadata(tome_id: int, body: MetadataIn, request: Request, sile
             setattr(meta, key, val)
 
     tome.has_metadata = True
-    tome.updated_at = datetime.utcnow()
+    tome.updated_at = utcnow()
     await db.commit()
     await db.refresh(meta)
 
@@ -834,7 +835,7 @@ async def update_user_data(tome_id: int, body: UserDataIn, db: AsyncSession = De
     if "is_read" in body.model_fields_set and body.is_read is not None:
         user_data.is_read = body.is_read
 
-    user_data.updated_at = datetime.utcnow()
+    user_data.updated_at = utcnow()
     await db.commit()
     await db.refresh(user_data)
     return _build_tome_out(tome, meta, user_data)
@@ -864,7 +865,7 @@ async def save_progress(tome_id: int, body: ReadingProgressIn, db: AsyncSession 
         tome = (await db.execute(select(Tome).where(Tome.id == tome_id))).scalar_one_or_none()
         if tome and tome.page_count and body.last_page >= tome.page_count * 0.95:
             ud.is_read = True
-    ud.updated_at = datetime.utcnow()
+    ud.updated_at = utcnow()
     await db.commit()
     await db.refresh(ud)
     return ReadingProgressOut(tome_id=tome_id, last_page=ud.last_page, updated_at=ud.updated_at, is_read=ud.is_read)
@@ -908,7 +909,7 @@ async def toggle_tome_oneshot(tome_id: int, request: Request, db: AsyncSession =
     if tome.series_id in await get_user_excluded_series_ids(db, current_user):
         raise HTTPException(status_code=404, detail="Tome introuvable")
     tome.is_oneshot = not tome.is_oneshot
-    tome.updated_at = datetime.utcnow()
+    tome.updated_at = utcnow()
     await db.commit()
     await db.refresh(tome)
     from ..services.activity import log as activity_log

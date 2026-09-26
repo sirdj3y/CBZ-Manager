@@ -12,6 +12,7 @@ from ..models.db_models import Tome, TomePagePanels, ReadingActivity, User
 from ..models.schemas import HeartbeatIn
 from ..services import page_extractor, panel_detector
 from ..services.hidden_series import get_user_excluded_series_ids, assert_tomes_visible
+from ..clock import utcnow
 
 router = APIRouter(prefix="/api/reader", tags=["reader"], dependencies=[Depends(require_permission("library.read"))])
 
@@ -130,7 +131,7 @@ async def reader_heartbeat(
     if seconds == 0:
         return {"ok": True}
 
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = utcnow().strftime("%Y-%m-%d")
     row = (await db.execute(
         select(ReadingActivity).where(
             ReadingActivity.user_id == current_user.id,
@@ -142,6 +143,6 @@ async def reader_heartbeat(
         db.add(ReadingActivity(user_id=current_user.id, tome_id=tome_id, day=today, seconds=seconds))
     else:
         row.seconds += seconds
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
     await db.commit()
     return {"ok": True}

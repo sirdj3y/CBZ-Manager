@@ -33,6 +33,7 @@ from ..services.rate_limit import PerKeyRateLimiter
 from .auth import get_client_ip
 from .library import _split_multi
 from .tomes import _content_disposition
+from ..clock import utcnow
 
 router = APIRouter(prefix="/opds", tags=["opds"])
 
@@ -170,7 +171,7 @@ def _tome_entries(root, tomes: list[Tome]) -> None:
         entry = _sub(root, "entry")
         _sub(entry, "id", f"urn:cbzmanager:tome:{t.id}")
         _sub(entry, "title", t.title or t.filename)
-        _sub(entry, "updated", (t.updated_at or datetime.utcnow()).replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        _sub(entry, "updated", (t.updated_at or utcnow()).replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
         mime = EXT_TO_MIME.get(t.file_format, "application/octet-stream")
         _sub(entry, "link", rel="http://opds-spec.org/acquisition", href=f"/opds/tomes/{t.id}/download", type=mime)
         _sub(entry, "link", rel="http://opds-spec.org/image/thumbnail", href=f"/opds/tomes/{t.id}/cover", type="image/jpeg")

@@ -12,6 +12,7 @@ from ..models.db_models import Tome, Metadata, UserTomeData, User
 from ..services.user_tome_data import get_or_create_user_tome_data
 from ..services.metadata_writer import COMICINFO_FIELDS as METADATA_FIELDS
 from .auth import get_client_ip
+from ..clock import utcnow
 
 router = APIRouter(prefix="/api/export", tags=["export"], dependencies=[Depends(require_admin)])
 
@@ -74,7 +75,7 @@ async def _build_export(db: AsyncSession) -> dict:
 
     return {
         "version": 2,
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": utcnow().isoformat(),
         "tome_count": len(entries),
         "tomes": entries,
     }

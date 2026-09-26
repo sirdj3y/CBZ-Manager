@@ -13,6 +13,7 @@ from ..models.schemas import (
 )
 from ..services.missing_albums import scan_all, scan_series
 from ..services.scraper_bedetheque import is_bedetheque_url
+from ..clock import utcnow
 
 router = APIRouter(prefix="/api/missing-albums", tags=["missing-albums"], dependencies=[Depends(require_permission("library.missing_albums"))])
 
@@ -308,7 +309,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
     if running:
         return MissingAlbumsScanStartOut(job_id=running.id)
 
-    job = MissingAlbumsScanJob(status="pending", started_at=datetime.utcnow())
+    job = MissingAlbumsScanJob(status="pending", started_at=utcnow())
     db.add(job)
     await db.commit()
     await db.refresh(job)
@@ -332,7 +333,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
                 await scan_db.execute(
                     __import__("sqlalchemy").update(MissingAlbumsScanJob)
                     .where(MissingAlbumsScanJob.id == job.id)
-                    .values(status="done", processed=p.get("processed", 0), total=p.get("total", 0), finished_at=datetime.utcnow())
+                    .values(status="done", processed=p.get("processed", 0), total=p.get("total", 0), finished_at=utcnow())
                 )
                 await activity_log(scan_db, "scan", f"Recherche d'albums manquants terminée — {p.get('processed', 0)} série(s) analysée(s)", user=scan_user, ip=scan_ip)
             except Exception as e:
@@ -341,7 +342,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
                 await scan_db.execute(
                     __import__("sqlalchemy").update(MissingAlbumsScanJob)
                     .where(MissingAlbumsScanJob.id == job.id)
-                    .values(status="error", error_msg=str(e), finished_at=datetime.utcnow())
+                    .values(status="error", error_msg=str(e), finished_at=utcnow())
                 )
                 await activity_log(scan_db, "scan", f"Recherche d'albums manquants échouée : {e}", status="error", user=scan_user, ip=scan_ip)
             await scan_db.commit()

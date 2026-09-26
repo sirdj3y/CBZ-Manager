@@ -8,6 +8,7 @@ from ..dependencies import require_permission, get_current_user
 from ..models.db_models import Tome, Series, User
 from ..models.schemas import NotificationsOut, NewContentItemOut
 from ..services.hidden_series import get_user_excluded_series_ids
+from ..clock import utcnow
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"], dependencies=[Depends(require_permission("library.read"))])
 
@@ -84,6 +85,6 @@ async def get_notifications(db: AsyncSession = Depends(get_db), current_user: Us
 
 @router.post("/mark-seen")
 async def mark_seen(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    current_user.notifications_last_seen_at = datetime.utcnow()
+    current_user.notifications_last_seen_at = utcnow()
     await db.commit()
     return {"ok": True}

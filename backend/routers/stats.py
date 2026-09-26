@@ -7,6 +7,7 @@ from ..database import get_db
 from ..dependencies import require_permission, get_current_user
 from ..models.db_models import Series, Tome, Metadata, MissingAlbum, UserTomeData, ReadingActivity, User
 from ..services.hidden_series import get_user_excluded_series_ids
+from ..clock import utcnow
 
 router = APIRouter(prefix="/api/stats", tags=["stats"], dependencies=[Depends(require_permission("library.read"))])
 
@@ -18,7 +19,7 @@ def _compute_streaks(day_strings: list[str]) -> tuple[int, int]:
     if not days:
         return 0, 0
 
-    today = datetime.utcnow().date()
+    today = utcnow().date()
     # La série en cours part d'aujourd'hui s'il y a déjà eu de la lecture aujourd'hui, sinon
     # d'hier — la journée en cours n'est pas encore "manquée" tant qu'elle n'est pas terminée,
     # sans quoi le compteur retomberait artificiellement à 0 entre deux sessions du même jour.
@@ -294,14 +295,14 @@ async def get_my_stats(db: AsyncSession = Depends(get_db), current_user: User = 
 
     # ── Activité de lecture, 30 derniers jours (UTC) — jours à 0 explicites, pour un
     # graphique à axe temporel continu plutôt qu'une liste creuse. ──
-    since = (datetime.utcnow() - timedelta(days=29)).strftime("%Y-%m-%d")
+    since = (utcnow() - timedelta(days=29)).strftime("%Y-%m-%d")
     day_rows = (await db.execute(
         select(ReadingActivity.day, func.sum(ReadingActivity.seconds).label("s"))
         .where(ReadingActivity.user_id == current_user.id, ReadingActivity.day >= since)
         .group_by(ReadingActivity.day)
     )).all()
     seconds_by_day = {r.day: r.s or 0 for r in day_rows}
-    today = datetime.utcnow().date()
+    today = utcnow().date()
     activity_by_day = [
         {"day": (today - timedelta(days=i)).isoformat(), "seconds": seconds_by_day.get((today - timedelta(days=i)).isoformat(), 0)}
         for i in range(29, -1, -1)
