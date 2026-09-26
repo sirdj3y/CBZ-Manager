@@ -1,7 +1,7 @@
 // Repli sans image pour le bandeau "hero" (fiche série/album) : un dégradé purement CSS,
 // construit avec les couleurs de l'app, choisi par un hash simple du nom de la série — pour
 // que les fiches sans fond/logo fourni (l'immense majorité d'une bibliothèque réelle) ne se
-// ressemblent pas toutes à l'identique. Testé et validé dans design-tests/ avant intégration.
+// ressemblent pas toutes à l'identique. Testé et validé dans les maquettes design-tests/ (historique Git) avant intégration.
 const VARIANTS = ['a', 'b', 'c']
 
 export function heroVariantFor(name) {

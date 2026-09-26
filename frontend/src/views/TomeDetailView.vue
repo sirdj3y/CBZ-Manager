@@ -315,7 +315,7 @@ async function toggleRead() {
         </div>
       </nav>
 
-      <!-- Hero — restructuré selon design-tests/tome-detail-alt.html : cover à taille fixe
+      <!-- Hero — restructuré selon la maquette design-tests/tome-detail-alt.html (retirée du dépôt, historique Git) : cover à taille fixe
            avec progression affichée dessous (au lieu d'étirée sur toute la hauteur), eyebrow
            (logo série + "Tome X sur Y") au-dessus du titre, ligne méta texte (année • pages •
            genre • badge format/taille — genre en texte plutôt qu'en puces cliquables, même
@@ -654,7 +654,7 @@ async function toggleRead() {
 .breadcrumb-chevron:hover:not(:disabled) { background: var(--light); }
 .breadcrumb-chevron:disabled { opacity: 0.3; cursor: default; }
 
-/* Restructuré selon design-tests/tome-detail-alt.html : cover à taille fixe (plus étirée sur
+/* Restructuré selon la maquette design-tests/tome-detail-alt.html (retirée du dépôt, historique Git) : cover à taille fixe (plus étirée sur
    toute la hauteur) avec progression affichée dessous, eyebrow (logo série + "Tome X sur Y")
    au-dessus du titre, ligne méta texte, crédits en 3 colonnes compactes, notes sous les
    actions. Pas de fond (ni dégradé dérivé de la cover, ni couleur unie) sur la carte

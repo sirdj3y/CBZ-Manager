@@ -119,7 +119,7 @@ const resumeStripped = computed(() => stripTrailingReadMore(series.value?.bedeth
 const resumeDisplay = computed(() => truncateForReadMore(resumeStripped.value, 181))
 
 // "1972 – 2019" pour une série finie, "depuis 1972" pour une série en cours (même logique
-// que design-tests/series-detail-alt-no-art.html) — repliée sur une seule année si toutes
+// que la maquette design-tests/series-detail-alt-no-art.html (retirée du dépôt, historique Git)) — repliée sur une seule année si toutes
 // les Metadata.Year connues des tomes coïncident (voir year_start/year_end, get_series).
 const yearsLabel = computed(() => {
   const s = series.value
@@ -130,7 +130,7 @@ const yearsLabel = computed(() => {
 })
 
 // Bandeau "hero" — fond illustré si fourni (voir SeriesMetadataModal.vue), sinon dégradé
-// calculé à partir du nom (voir utils/heroGradient.js) : testé et validé dans design-tests/
+// calculé à partir du nom (voir utils/heroGradient.js) : testé et validé dans les maquettes design-tests/ (historique Git)
 // avant intégration ici.
 const heroVariant = computed(() => heroVariantFor(series.value?.name))
 // Le compteur de version indique qu'une image a été fournie un jour, pas qu'elle existe
@@ -415,7 +415,7 @@ async function deleteSingleTome() {
       </nav>
 
       <!-- Series header — bandeau "hero" : fond illustré fourni (SeriesMetadataModal.vue) ou
-           dégradé de repli (heroGradient.js), testé et validé dans design-tests/ avant
+           dégradé de repli (heroGradient.js), testé et validé dans les maquettes design-tests/ (historique Git) avant
            intégration. Le picker de couverture (cover_url) reste accessible depuis le menu
            "..." ("Modifier la miniature") plutôt que sous forme de vignette toujours visible
            ici — la vignette apparaît déjà partout ailleurs (grilles Séries/Accueil). -->
@@ -442,7 +442,7 @@ async function deleteSingleTome() {
           <h1 v-else class="series-title">{{ series.name }}</h1>
 
           <!-- Genre(s) • années • tomes • statut, en une ligne de texte plutôt qu'en badges
-               cliquables — voir design-tests/series-detail-alt-no-art.html. Perd le filtrage
+               cliquables — voir la maquette design-tests/series-detail-alt-no-art.html. (retirée du dépôt, historique Git) Perd le filtrage
                direct par genre que portaient les anciens chips (toujours possible depuis la
                page Albums elle-même). -->
           <p class="series-count">
@@ -939,7 +939,7 @@ async function deleteSingleTome() {
    variable CSS classique, d'où --light-rgb (canaux séparés, voir style.css) plutôt que
    rgba(242,237,226,…) figé en dur : ce dernier restait toujours clair même en thème sombre,
    rendant le texte du bandeau (clair lui aussi en sombre) illisible dessus. Testé et validé
-   dans design-tests/ avant intégration. */
+   dans les maquettes design-tests/ (historique Git) avant intégration. */
 .series-hero {
   position: relative;
   border-radius: 16px; box-shadow: var(--shadow-lg);
@@ -1008,7 +1008,7 @@ async function deleteSingleTome() {
   background-image: radial-gradient(color-mix(in srgb, var(--vermilion) 45%, transparent) 1.5px, transparent 1.6px);
   background-size: 8px 8px;
 }
-/* Repli sans image de fond (voir design-tests/series-detail-alt-no-art.html) : le dégradé CSS
+/* Repli sans image de fond (voir la maquette design-tests/series-detail-alt-no-art.html (retirée du dépôt, historique Git)) : le dégradé CSS
    est déjà bien plus discret qu'une photo, les mêmes fades que la version "avec fond fourni"
    le lessivaient quasi entièrement (jusqu'à .97 d'opacité). Variante allégée, appliquée
    uniquement quand hero_background_version vaut 0 (voir hasHeroBackground). */
@@ -1046,7 +1046,7 @@ async function deleteSingleTome() {
 }
 .series-hero-logo { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; filter: drop-shadow(0 4px 10px rgba(30,42,66,.25)); }
 /* Bebas Neue, capitales — poids 400 uniquement disponible dans cette police. Taille du repli
-   "no-art" (design-tests/series-detail-alt-no-art.html) : plus grande que quand un vrai logo
+   "no-art" (la maquette design-tests/series-detail-alt-no-art.html (retirée du dépôt, historique Git)) : plus grande que quand un vrai logo
    est fourni, pour occuper seul le rôle visuel que tenait la cover/le logo. Pas d'ombre
    portée : sans photo de fond, la lisibilité n'est jamais un problème ici. */
 .series-title {

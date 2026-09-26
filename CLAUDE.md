@@ -37,7 +37,7 @@ Images are built by GitHub Actions (`.github/workflows/docker.yml`, linux/amd64 
 - push to `main` → `ghcr.io/sirdj3y/cbz-manager:latest` + `:<VERSION>` → **production**, pulled automatically by Watchtower on the NAS within ~5 min
 - push to `develop` → `:preprod` → **preprod** container on the NAS (port 5174, own empty data, dedicated test library `/volume1/divers/BD-preprod`, read-write)
 - other branches / PRs → build only (checks the Dockerfile), nothing published
-- `*.md`, `design-tests/`, `docker-compose*.yml` changes don't trigger a build
+- `*.md`, `docker-compose*.yml` changes don't trigger a build
 
 NAS projects (Container Manager → Projet): `/volume1/docker/cbz-manager` (`docker-compose.synology.yml`, includes Watchtower) and `/volume1/docker/cbz-manager-preprod` (`docker-compose.preprod.synology.yml`). The NAS pulls GHCR with `sudo docker login ghcr.io` credentials (`/root/.docker/config.json`, classic token `read:packages`) — Container Manager's Registre tab can't talk to ghcr.io, that's expected.
 

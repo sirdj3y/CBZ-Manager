@@ -9,9 +9,9 @@ on:
     branches: ["**"]
     # Doc, maquettes et fichiers compose ne changent pas l'image : pas de rebuild,
     # donc pas de redémarrage inutile par Watchtower.
-    paths-ignore: ["**.md", "design-tests/**", "docker-compose*.yml", ".env.example"]
+    paths-ignore: ["**.md", "docker-compose*.yml", ".env.example"]
   pull_request:
-    paths-ignore: ["**.md", "design-tests/**", "docker-compose*.yml", ".env.example"]
+    paths-ignore: ["**.md", "docker-compose*.yml", ".env.example"]
   workflow_dispatch:
 
 # Machines fixées sur Ubuntu 24.04 (ubuntu-latest bascule sur 26 le 19/10/2026) : le build ne

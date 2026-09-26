@@ -438,7 +438,7 @@ async function openEnrich() {
           <div v-else-if="activeTab === 'images'" class="meta-col">
             <!-- Upload immédiat (pas rattaché au bouton "Appliquer"), même principe que la
                  photo de profil (AccountView.vue). Optionnelles : sans elles, la fiche
-                 retombe sur un dégradé + titre texte (voir design-tests/ et heroGradient.js). -->
+                 retombe sur un dégradé + titre texte (voir les maquettes design-tests/ (historique Git) et heroGradient.js). -->
             <div class="meta-field">
               <div class="hero-image-row" v-for="h in HERO_KINDS" :key="h.kind">
                 <div class="hero-image-info">

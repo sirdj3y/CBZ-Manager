@@ -14,6 +14,7 @@
 
 ### Technique
 
+- Dossier `design-tests/` retiré du dépôt : ses maquettes de fiches Série/Album sont intégrées à l'app depuis la v1.16.0 (toujours consultables dans l'historique Git).
 - `datetime.utcnow()` (dépréciée depuis Python 3.12) remplacée partout par `backend/clock.py::utcnow()`, qui produit exactement les mêmes valeurs (UTC sans fuseau, comme en base).
 - CI : actions GitHub à jour (fin des avertissements Node 20), machines de build fixées sur Ubuntu 24.04 avant la bascule d'ubuntu-latest vers Ubuntu 26 (19 octobre).
 
