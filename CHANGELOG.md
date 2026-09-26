@@ -2,35 +2,40 @@
 
 ---
 
-## Non publié (branche develop)
+## v1.25.0 — 2026-09-26 — Déploiement automatique, tests, refonte des composants d'interface
 
 ### Nouveau
 
-- **Déploiement automatique** : image construite par GitHub Actions et publiée sur GHCR, mise à jour du NAS par Watchtower (branche `main` → prod, `develop` → préprod sur le port 5174).
-- **Sauvegarde automatique de la base** au démarrage d'une nouvelle version, avant toute modification de schéma (`data/backups/`, 5 dernières conservées).
-- **Tests automatisés** : 50 tests backend (pytest : analyse des noms de fichiers, sécurité des archives, écriture ComicInfo, sauvegarde, parcours API connexion → scan → édition) et 35 tests frontend (vitest : règles Smart List, modèle de renommage, tri des tomes, recherche). Ils bloquent la publication de l'image en cas d'échec.
-
-- **Diagnostic : données orphelines** : détecte les données rattachées à un album, une série ou un compte qui n'existe plus (progression et notes, temps de lecture, listes intelligentes, séries masquées, albums manquants, métadonnées, cases détectées), une ligne par type, avec un bouton « Nettoyer ». Nettoie ce que les bugs de suppression ont pu laisser dans une base existante.
-
-- **Composants shadcn-vue** adoptés progressivement, habillés avec les couleurs de l'app (clair et sombre). Vitrine : `/labo/shadcn` (non liée dans le menu).
-- **Recherche globale (⌘K ou champ du haut) refaite en palette shadcn** : même recherche (sans accents, séries/albums/auteurs, suggestions récentes), avec navigation clavier, focus et accessibilité gérés par la bibliothèque.
-- **Menus « ⋯ » et panneaux en composants shadcn** : menus des cartes (accueil, Séries, Albums, fiche Série), menus Actions et Sélection de la fiche Série, menu de la fiche Album, menus du haut (Nouveautés, Scanner, Mon compte), menus des listes intelligentes, sélecteur de mode du lecteur ; panneaux Trier/Filtrer et liste des Smart lists en barre latérale réduite. Plus jamais coupés par une zone qui défile, navigables au clavier. Les menus des cartes Série et Album sont désormais partagés (un seul composant chacun).
-- **Infobulles** sur les boutons à icône seule (≈ 55 boutons) : apparaissent vite au survol et au clavier, et donnent un nom aux boutons pour les lecteurs d'écran. Comparateurs de qualité (conversion, import) en carte de survol, jamais coupée par le bord de l'écran.
-- **Toutes les modales et fenêtres de confirmation en Dialog shadcn** (≈ 30, dont le tiroir de métadonnées d'album) : focus gardé dans la fenêtre et rendu à la fermeture, Échap (couche par couche pour les fenêtres imbriquées), clic à côté pour fermer — sauf quand une saisie ou un traitement est en cours (édition groupée, conversion d'un album manquant, mot de passe temporaire à noter). Apparence inchangée.
-- **Mode sombre des contrôles natifs** : listes déroulantes, barres de défilement, champs date et cases à cocher suivent désormais le thème (ils restaient clairs en mode sombre).
-- **Tests de bout en bout** (navigateur réel) dans la CI : menus, panneaux, infobulles, palette, modales.
-- **Correctif** : les menus du haut et « ⋯ » ne s'affichaient plus (positionnés hors écran) depuis l'ajout des infobulles.
-- **Préprod : date du build** affichée discrètement sous la version ; environnement et date du build dans À propos.
+- **Déploiement automatique** : l'image est construite par GitHub Actions et publiée sur GHCR ; le NAS se met à jour seul via Watchtower (branche `main` → production, `develop` → préproduction sur le port 5174). Fin des images `.tar.gz` à importer à la main.
+- **Sauvegarde automatique de la base** au premier démarrage d'une nouvelle version, avant toute modification de schéma (`data/backups/`, 5 dernières conservées). Procédure de retour arrière dans le README.
+- **Diagnostic : données orphelines** : détecte les données rattachées à un album, une série ou un compte qui n'existe plus (progression et notes, temps de lecture, listes intelligentes, séries masquées, albums manquants, métadonnées, cases détectées), une ligne par type, avec un bouton « Nettoyer ».
+- **Composants d'interface shadcn-vue**, habillés avec les couleurs de l'app (clair et sombre) :
+  - **Recherche globale (⌘K ou champ du haut)** en palette : même recherche (sans accents, séries/albums/auteurs, suggestions récentes), navigation clavier et accessibilité.
+  - **Menus « ⋯ » et panneaux** (cartes, fiches Série et Album, barre du haut, listes intelligentes, lecteur, Trier/Filtrer) : plus jamais coupés par une zone qui défile, navigables au clavier.
+  - **Infobulles** sur les boutons à icône seule : rapides, au survol et au clavier, et un nom pour les lecteurs d'écran. Comparateurs de qualité en carte de survol.
+  - **Toutes les modales et confirmations** (≈ 30) : focus gardé dans la fenêtre et rendu à la fermeture, Échap couche par couche pour les fenêtres imbriquées, clic à côté pour fermer — sauf pendant une saisie ou un traitement (édition groupée, conversion d'un album manquant, mot de passe temporaire à noter). Apparence inchangée.
+- **Mode sombre des contrôles natifs** : listes déroulantes, barres de défilement, champs date et cases à cocher suivent le thème (ils restaient clairs).
+- **Préproduction** : date du build affichée discrètement sous la version ; environnement et date du build dans À propos.
 
 ### Corrections
 
 - **Numéros de tome décimaux ou à suffixe tronqués** (« 13.5 » → « 13 », « 7bis » → « 07 ») au renommage, à l'import et au remplissage du champ Numéro depuis un scraper : un tome 13.5 prenait le nom et le numéro du tome 13.
-
-- **Données orphelines à la suppression** : supprimer un album laissait son temps de lecture en base, et supprimer un compte laissait son temps de lecture et ses listes intelligentes. SQLite réutilisant les identifiants, ces données pouvaient réapparaître sur le prochain album ou compte créé (même famille de bug que la progression de lecture corrigée en août).
+- **Données orphelines à la suppression** : supprimer un album laissait son temps de lecture en base, supprimer un compte son temps de lecture et ses listes intelligentes ; SQLite réutilisant les identifiants, elles pouvaient réapparaître sur le prochain album ou compte créé.
+- **Échap** dans un menu, une modale ou la palette ne vide plus en même temps la sélection en cours, et ne quitte plus le lecteur.
 
 ### Technique
 
-- Build du frontend sous Node 22 (Node 20 n'est plus maintenu).
+- **Tests automatisés bloquants en CI** : 53 tests backend (pytest), 39 tests frontend (vitest) et 25 tests de bout en bout dans un vrai navigateur (Playwright : menus, panneaux, infobulles, palette, modales). Aucune image n'est publiée si un test échoue.
+- Build du frontend sous Node 22 ; Tailwind CSS 4 limité aux composants shadcn (sans remise à zéro globale, test anti-collision de classes).
+- Suivi du travail dans les issues GitHub (#1 à #12) ; règles de développement issues de bugs réels dans CLAUDE.md.
+
+### Contexte
+
+Session partie de l'étude d'une autre application (SongVerse) pour en tirer des enseignements : dépôt GitHub resynchronisé (il était resté en v1.5.0), déploiement automatique GitHub → GHCR → Watchtower avec une préproduction sur le NAS, sauvegarde de la base avant mise à jour, tests unitaires puis de bout en bout, backlog en issues. L'écriture des tests a révélé trois vrais bugs (numéros 13.5/7bis, données orphelines de temps de lecture et de listes). Puis adoption de shadcn-vue, validée sur une page de démonstration avant d'être étendue à toute l'app par étapes, chacune vérifiée en préproduction. Deux changements de cap assumés : le tiroir de métadonnées reste une modale centrée, et les listes déroulantes restent natives (meilleures sur iPhone).
+
+### Validation
+
+Chaque étape testée en préproduction par l'utilisateur. Une régression (menus positionnés hors écran après l'ajout des infobulles) est passée en préproduction avant d'être corrigée ; elle a motivé les tests de bout en bout, qui tournent désormais dans la CI avant chaque publication d'image (25 tests, verts).
 
 ---
 
