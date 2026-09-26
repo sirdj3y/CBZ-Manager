@@ -9,9 +9,10 @@
 // - le conteneur couvre l'écran en flex centré, SANS transform : la Dialog de shadcn se centre
 //   avec translate(-50%), ce qui ferait de lui le repère de tout élément `position: fixed`
 //   de la modale (confirmations internes, etc.) au lieu de l'écran ;
-// - il laisse passer les clics (pointer-events: none, sauf sur la boîte) : un clic à côté de
-//   la boîte atteint le fond et ferme la modale, comme avant. En !important : Reka pose
-//   pointer-events: auto en style inline sur le conteneur d'une Dialog modale.
+// - un clic à côté de la boîte tombe donc sur ce conteneur (pas sur le voile) : on le détecte
+//   nous-mêmes (onBackdropPointerDown/onBackdropClick). Il laissait auparavant passer les clics
+//   (pointer-events: none, sauf sur la boîte) ; sous Edge 153 (Windows), les modales ne
+//   répondaient plus à la souris, seulement au clavier. On ne dépend plus de cette astuce.
 import { Dialog, DialogContent, DialogTitle } from '@/components/shadcn/dialog'
 
 const props = defineProps({
@@ -33,6 +34,17 @@ function onInteractOutside(e) {
   const t = e.target
   if (t?.closest?.('.autocomplete-list, [data-slot$="-content"]')) { e.preventDefault(); return }
   if (!props.dismissible || !props.closeOnOutsideClick) e.preventDefault()
+}
+// Clic sur le fond (le conteneur lui-même, pas la boîte) : ferme, sauf si la sélection de
+// texte a commencé dans la boîte (appui dedans, relâché à côté).
+let downOnBackdrop = false
+function onBackdropPointerDown(e) {
+  downOnBackdrop = e.target === e.currentTarget
+}
+function onBackdropClick(e) {
+  if (!downOnBackdrop || e.target !== e.currentTarget) return
+  downOnBackdrop = false
+  if (props.dismissible && props.closeOnOutsideClick) emit('close')
 }
 function onEscape(e) {
   if (!props.dismissible) e.preventDefault()
@@ -66,11 +78,13 @@ function onCloseAutoFocus() {
     <DialogContent
       :show-close-button="false"
       :aria-describedby="undefined"
-      class="top-0 left-0 inset-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 rounded-none border-0 bg-transparent p-4 shadow-none !pointer-events-none sm:max-w-none [&>*]:pointer-events-auto"
+      class="top-0 left-0 inset-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 rounded-none border-0 bg-transparent p-4 shadow-none sm:max-w-none"
       @interact-outside="onInteractOutside"
       @escape-key-down="onEscape"
       @open-auto-focus="onOpenAutoFocus"
       @close-auto-focus="onCloseAutoFocus"
+      @pointerdown="onBackdropPointerDown"
+      @click="onBackdropClick"
     >
       <DialogTitle class="sr-only">{{ title }}</DialogTitle>
       <slot />
