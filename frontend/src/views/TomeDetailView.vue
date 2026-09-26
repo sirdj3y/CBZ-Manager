@@ -20,6 +20,7 @@ import { useAuthStore } from '../stores/auth'
 import { truncateForReadMore } from '../utils/text'
 import { sortTomesByNumber } from '../utils/tomeSort'
 import { heroVariantFor, HERO_GRADIENTS_WASH } from '../utils/heroGradient'
+import Hint from '../components/ui/Hint.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -304,8 +305,12 @@ async function toggleRead() {
         <span class="breadcrumb-sep">/</span>
         <span class="breadcrumb-current">{{ tome.title || tome.filename }}</span>
         <div class="breadcrumb-nav">
-          <button class="breadcrumb-chevron" :disabled="!prevTome" @click="router.push(`/tomes/${prevTome.id}`)" :title="prevTome?.title || prevTome?.filename">‹</button>
-          <button class="breadcrumb-chevron" :disabled="!nextTome" @click="router.push(`/tomes/${nextTome.id}`)" :title="nextTome?.title || nextTome?.filename">›</button>
+          <Hint :label="prevTome?.title || prevTome?.filename">
+            <button class="breadcrumb-chevron" :disabled="!prevTome" @click="router.push(`/tomes/${prevTome.id}`)">‹</button>
+          </Hint>
+          <Hint :label="nextTome?.title || nextTome?.filename">
+            <button class="breadcrumb-chevron" :disabled="!nextTome" @click="router.push(`/tomes/${nextTome.id}`)">›</button>
+          </Hint>
         </div>
       </nav>
 
@@ -406,30 +411,33 @@ async function toggleRead() {
                 <SvgIcon name="read" class="btn-icon-svg" />
                 {{ inProgress ? `Reprendre la lecture (${readProgressPct}%)` : 'Lire' }}
               </button>
-              <button
-                class="hero-btn hero-btn-outline hero-btn-icon"
-                :class="{ 'toolbar-more-btn-active': tome.user_is_read }"
-                :title="tome.user_is_read ? 'Marquer comme non lu' : 'Marquer comme lu'"
-                @click="toggleRead"
-              ><SvgIcon name="square-check" style="font-size:15px" /></button>
-              <button
-                v-if="tome.file_format === 'cbz' && authStore.hasPermission('library.metadata_edit')"
-                class="hero-btn hero-btn-outline hero-btn-icon"
-                title="Éditer"
-                @click="openScraperOnOpen = false; showEdit = true"
-              ><SvgIcon name="edit" style="font-size:15px" /></button>
-              <a
-                v-if="authStore.hasPermission('library.download')"
-                class="hero-btn hero-btn-outline hero-btn-icon"
-                title="Télécharger"
-                :href="tomesApi.downloadUrl(tome.id)"
-              ><SvgIcon name="download" style="font-size:15px" /></a>
+              <Hint :label="tome.user_is_read ? 'Marquer comme non lu' : 'Marquer comme lu'">
+                <button
+                  class="hero-btn hero-btn-outline hero-btn-icon"
+                  :class="{ 'toolbar-more-btn-active': tome.user_is_read }"
+                  @click="toggleRead"
+                ><SvgIcon name="square-check" style="font-size:15px" /></button>
+              </Hint>
+              <Hint v-if="tome.file_format === 'cbz' && authStore.hasPermission('library.metadata_edit')" label="Éditer">
+                <button
+                  class="hero-btn hero-btn-outline hero-btn-icon"
+                  @click="openScraperOnOpen = false; showEdit = true"
+                ><SvgIcon name="edit" style="font-size:15px" /></button>
+              </Hint>
+              <Hint v-if="authStore.hasPermission('library.download')" label="Télécharger">
+                <a
+                  class="hero-btn hero-btn-outline hero-btn-icon"
+                  :href="tomesApi.downloadUrl(tome.id)"
+                ><SvgIcon name="download" style="font-size:15px" /></a>
+              </Hint>
               <DropdownMenu v-if="canMoreMenu" v-model:open="showMoreMenu" :modal="false">
-                <DropdownMenuTrigger as-child>
-                  <button class="hero-btn hero-btn-outline hero-btn-icon" title="Plus d'options">
-                    <SvgIcon name="more-vertical" style="font-size:13px" />
-                  </button>
-                </DropdownMenuTrigger>
+                <Hint label="Plus d'options">
+                  <DropdownMenuTrigger as-child>
+                    <button class="hero-btn hero-btn-outline hero-btn-icon">
+                      <SvgIcon name="more-vertical" style="font-size:13px" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </Hint>
                 <DropdownMenuContent align="start" class="min-w-[200px]">
                   <DropdownMenuItem v-if="authStore.hasPermission('library.metadata_edit')" @select="openSearchMetadata">Rechercher les métadonnées</DropdownMenuItem>
                   <DropdownMenuItem v-if="authStore.hasPermission('library.rename')" @select="showRename = true">Renommer</DropdownMenuItem>

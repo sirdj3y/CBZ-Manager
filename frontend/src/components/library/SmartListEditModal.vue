@@ -5,6 +5,7 @@ import { useNotificationStore } from '../../stores/notifications'
 import { useLibraryStore } from '../../stores/library'
 import AutocompleteInput from '../ui/AutocompleteInput.vue'
 import { SOURCE_LABELS, OPERATOR_LABELS, groupsToFlat, flatToGroups } from '../../utils/smartListRules'
+import Hint from '../ui/Hint.vue'
 
 const props = defineProps({
   smartList: { type: Object, default: null }, // null = création, objet = édition
@@ -308,7 +309,9 @@ async function save() {
                         <input v-model="cond.value2" :type="inputType(cond)" class="form-control rule-value" :step="typeFor(cond) === 'numeric' ? 'any' : undefined" />
                       </template>
                     </template>
-                    <button type="button" class="rule-remove" title="Retirer cette condition" @click="removeCondition(idx)">✕</button>
+                    <Hint label="Retirer cette condition">
+                      <button type="button" class="rule-remove" @click="removeCondition(idx)">✕</button>
+                    </Hint>
                   </div>
                 </template>
                 <button type="button" class="btn btn-ghost btn-sm rule-add-cond" @click="addCondition">+ condition</button>

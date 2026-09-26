@@ -5,6 +5,7 @@ import UserAvatar from '../components/account/UserAvatar.vue'
 import { authApi } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
+import Hint from '../components/ui/Hint.vue'
 
 const auth = useAuthStore()
 const notif = useNotificationStore()
@@ -143,13 +144,14 @@ async function saveUsername() {
           </div>
 
           <div v-if="presets.length" class="preset-grid">
-            <button
-              v-for="n in presets" :key="n"
-              type="button" class="preset-btn" title="Utiliser cet avatar"
-              :disabled="applyingPreset !== null" @click="applyPreset(n)"
-            >
-              <img :src="`/api/auth/avatar-presets/${n}`" :alt="`Avatar préréglé ${n}`" loading="lazy" />
-            </button>
+            <Hint v-for="n in presets" :key="n" label="Utiliser cet avatar">
+              <button
+                type="button" class="preset-btn"
+                :disabled="applyingPreset !== null" @click="applyPreset(n)"
+              >
+                <img :src="`/api/auth/avatar-presets/${n}`" :alt="`Avatar préréglé ${n}`" loading="lazy" />
+              </button>
+            </Hint>
           </div>
         </div>
       </section>

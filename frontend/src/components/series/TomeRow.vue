@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SvgIcon from '../SvgIcon.vue'
+import Hint from '../ui/Hint.vue'
 
 const props = defineProps({
   tome: { type: Object, required: true },
@@ -50,22 +51,24 @@ const formatBadgeClass = {
 
     <!-- Actions -->
     <div class="tome-actions">
-      <button
-        @click="router.push(`/read/${tome.id}`)"
-        class="btn btn-ghost btn-icon btn-sm"
-        title="Lire"
-      ><SvgIcon name="read" style="font-size:15px" /></button>
-      <button
-        @click="$emit('edit-metadata', tome)"
-        class="btn btn-ghost btn-icon btn-sm"
-        title="Modifier les métadonnées"
-      ><SvgIcon name="edit" style="font-size:15px" /></button>
-      <button
-        v-if="tome.file_format !== 'cbz'"
-        @click="$emit('convert', tome)"
-        class="btn btn-ghost btn-icon btn-sm"
-        title="Convertir en CBZ"
-      ><SvgIcon name="convert" style="font-size:15px" /></button>
+      <Hint label="Lire">
+        <button
+          @click="router.push(`/read/${tome.id}`)"
+          class="btn btn-ghost btn-icon btn-sm"
+        ><SvgIcon name="read" style="font-size:15px" /></button>
+      </Hint>
+      <Hint label="Modifier les métadonnées">
+        <button
+          @click="$emit('edit-metadata', tome)"
+          class="btn btn-ghost btn-icon btn-sm"
+        ><SvgIcon name="edit" style="font-size:15px" /></button>
+      </Hint>
+      <Hint v-if="tome.file_format !== 'cbz'" label="Convertir en CBZ">
+        <button
+          @click="$emit('convert', tome)"
+          class="btn btn-ghost btn-icon btn-sm"
+        ><SvgIcon name="convert" style="font-size:15px" /></button>
+      </Hint>
     </div>
   </div>
 </template>

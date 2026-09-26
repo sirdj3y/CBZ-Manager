@@ -21,6 +21,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/shadcn/dropdown-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/shadcn/popover'
+import Hint from '../ui/Hint.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -358,7 +359,9 @@ function fmtRelative(iso) {
                 <SvgIcon name="sparkles" class="nav-icon" />
                 <span v-if="showLabels" class="nav-label">Smart list</span>
                 <SvgIcon v-if="showLabels" :name="smartListsOpen ? 'chevron-up' : 'chevron-down'" class="nav-chevron smart-lists-chevron" />
-                <button v-if="showLabels" class="nav-header-btn" title="Nouvelle liste" @click.stop="openCreateSmartList">+</button>
+                <Hint v-if="showLabels" label="Nouvelle liste">
+                  <button class="nav-header-btn" @click.stop="openCreateSmartList">+</button>
+                </Hint>
               </div>
             </PopoverAnchor>
             <PopoverContent
@@ -369,7 +372,9 @@ function fmtRelative(iso) {
               <div class="smart-lists-flyout">
                 <div class="smart-lists-flyout-header">
                   <span class="smart-lists-flyout-title">Smart list</span>
-                  <button class="nav-header-btn" title="Nouvelle liste" @click="openCreateSmartList">+</button>
+                  <Hint label="Nouvelle liste">
+                    <button class="nav-header-btn" @click="openCreateSmartList">+</button>
+                  </Hint>
                 </div>
                 <p v-if="smartListsStore.loaded && !smartListsStore.lists.length" class="nav-empty-hint">Aucune liste</p>
                 <div
@@ -392,11 +397,13 @@ function fmtRelative(iso) {
                   </router-link>
                   <div class="nav-inline-menu-wrap">
                     <DropdownMenu :open="smartListMenuId === sl.id" :modal="false" @update:open="setSmartListMenu(sl.id, $event)">
-                      <DropdownMenuTrigger as-child>
-                        <button class="nav-header-btn nav-header-btn-sub" title="Options">
-                          <SvgIcon name="more-vertical" style="font-size:13px" />
-                        </button>
-                      </DropdownMenuTrigger>
+                      <Hint label="Options">
+                        <DropdownMenuTrigger as-child>
+                          <button class="nav-header-btn nav-header-btn-sub">
+                            <SvgIcon name="more-vertical" style="font-size:13px" />
+                          </button>
+                        </DropdownMenuTrigger>
+                      </Hint>
                       <DropdownMenuContent align="end" class="min-w-[180px]">
                         <DropdownMenuItem v-if="sl.can_edit" @select="openEditSmartList(sl)">Modifier</DropdownMenuItem>
                         <DropdownMenuItem :disabled="duplicatingSmartList" @select="duplicateSmartList(sl)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</DropdownMenuItem>
@@ -434,11 +441,13 @@ function fmtRelative(iso) {
               </router-link>
               <div class="nav-inline-menu-wrap">
                 <DropdownMenu :open="smartListMenuId === sl.id" :modal="false" @update:open="setSmartListMenu(sl.id, $event)">
-                  <DropdownMenuTrigger as-child>
-                    <button class="nav-header-btn nav-header-btn-sub" title="Options">
-                      <SvgIcon name="more-vertical" style="font-size:13px" />
-                    </button>
-                  </DropdownMenuTrigger>
+                  <Hint label="Options">
+                    <DropdownMenuTrigger as-child>
+                      <button class="nav-header-btn nav-header-btn-sub">
+                        <SvgIcon name="more-vertical" style="font-size:13px" />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </Hint>
                   <DropdownMenuContent align="end" class="min-w-[180px]">
                     <DropdownMenuItem v-if="sl.can_edit" @select="openEditSmartList(sl)">Modifier</DropdownMenuItem>
                     <DropdownMenuItem :disabled="duplicatingSmartList" @select="duplicateSmartList(sl)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</DropdownMenuItem>
@@ -518,9 +527,11 @@ function fmtRelative(iso) {
     <div class="main-area">
       <!-- Top navbar -->
       <header class="topbar">
-        <button class="btn btn-ghost btn-icon topbar-toggle" @click="toggleMenu" title="Menu">
-          <SvgIcon name="panel-left" style="font-size:18px" />
-        </button>
+        <Hint label="Menu">
+          <button class="btn btn-ghost btn-icon topbar-toggle" @click="toggleMenu">
+            <SvgIcon name="panel-left" style="font-size:18px" />
+          </button>
+        </Hint>
         <div class="topbar-search">
           <SvgIcon name="search" class="search-icon" />
           <!-- Simple bouton (pas un champ de filtre) : clic OU première touche tapée ouvrent
@@ -546,22 +557,25 @@ function fmtRelative(iso) {
           </span>
 
           <!-- Mode sombre -->
-          <button class="btn btn-ghost btn-icon topbar-theme-toggle" @click="themeStore.toggle()" :title="themeStore.isDark ? 'Mode clair' : 'Mode sombre'">
-            <SvgIcon :name="themeStore.isDark ? 'dark-mode-off' : 'dark-mode-on'" style="font-size:18px" />
-          </button>
+          <Hint :label="themeStore.isDark ? 'Mode clair' : 'Mode sombre'">
+            <button class="btn btn-ghost btn-icon topbar-theme-toggle" @click="themeStore.toggle()">
+              <SvgIcon :name="themeStore.isDark ? 'dark-mode-off' : 'dark-mode-on'" style="font-size:18px" />
+            </button>
+          </Hint>
 
           <!-- Menu "Nouveautés" -->
           <DropdownMenu v-if="authStore.hasPermission('library.read')" v-model:open="showNotifMenu" :modal="false">
-            <DropdownMenuTrigger as-child>
-              <button
-                class="btn btn-ghost btn-icon topbar-notif-trigger"
-                :class="{ 'topbar-scan-btn-active': showNotifMenu }"
-                title="Nouveautés"
-              >
-                <SvgIcon name="bell" style="font-size:18px" />
-                <span v-if="newContentStore.count" class="topbar-notif-badge">{{ newContentStore.count > 99 ? '99+' : newContentStore.count }}</span>
-              </button>
-            </DropdownMenuTrigger>
+            <Hint label="Nouveautés">
+              <DropdownMenuTrigger as-child>
+                <button
+                  class="btn btn-ghost btn-icon topbar-notif-trigger"
+                  :class="{ 'topbar-scan-btn-active': showNotifMenu }"
+                >
+                  <SvgIcon name="bell" style="font-size:18px" />
+                  <span v-if="newContentStore.count" class="topbar-notif-badge">{{ newContentStore.count > 99 ? '99+' : newContentStore.count }}</span>
+                </button>
+              </DropdownMenuTrigger>
+            </Hint>
             <DropdownMenuContent align="end" class="max-h-[400px] w-[340px] max-w-[calc(100vw-16px)] overflow-y-auto">
               <div v-if="!newContentStore.items.length" class="notif-empty">Rien de nouveau pour l'instant.</div>
               <DropdownMenuItem v-for="item in newContentStore.items" :key="item.type + item.id" class="items-center gap-2.5 p-2" @select="openNotifItem(item)">
@@ -581,11 +595,13 @@ function fmtRelative(iso) {
 
           <!-- Menu "Scanner" -->
           <DropdownMenu v-if="authStore.hasPermission('library.scan') || authStore.hasPermission('library.missing_albums')" v-model:open="showScanMenu" :modal="false">
-            <DropdownMenuTrigger as-child>
-              <button class="btn btn-ghost topbar-scan-trigger" :class="{ 'topbar-scan-btn-active': showScanMenu }" title="Scanner">
-                <SvgIcon name="refresh" :class="{ spin: anyScanRunning }" style="font-size:18px" />
-              </button>
-            </DropdownMenuTrigger>
+            <Hint label="Scanner">
+              <DropdownMenuTrigger as-child>
+                <button class="btn btn-ghost topbar-scan-trigger" :class="{ 'topbar-scan-btn-active': showScanMenu }">
+                  <SvgIcon name="refresh" :class="{ spin: anyScanRunning }" style="font-size:18px" />
+                </button>
+              </DropdownMenuTrigger>
+            </Hint>
             <DropdownMenuContent align="end" class="min-w-[260px]">
               <DropdownMenuItem v-if="authStore.hasPermission('library.scan')" :disabled="fileScanRunning" @select="triggerFileScan">
                 Scanner les fichiers de la bibliothèque
@@ -600,11 +616,13 @@ function fmtRelative(iso) {
 
           <!-- Menu "Mon compte" -->
           <DropdownMenu v-model:open="showAccountMenu" :modal="false">
-            <DropdownMenuTrigger as-child>
-              <button class="btn btn-ghost topbar-account-trigger" :class="{ 'topbar-scan-btn-active': showAccountMenu }" title="Mon compte">
-                <UserAvatar :size="32" />
-              </button>
-            </DropdownMenuTrigger>
+            <Hint label="Mon compte">
+              <DropdownMenuTrigger as-child>
+                <button class="btn btn-ghost topbar-account-trigger" :class="{ 'topbar-scan-btn-active': showAccountMenu }">
+                  <UserAvatar :size="32" />
+                </button>
+              </DropdownMenuTrigger>
+            </Hint>
             <DropdownMenuContent align="end" class="min-w-[220px]">
               <DropdownMenuItem @select="openAccountPage">Mon compte</DropdownMenuItem>
               <DropdownMenuItem @select="openChangePassword">Changer le mot de passe</DropdownMenuItem>

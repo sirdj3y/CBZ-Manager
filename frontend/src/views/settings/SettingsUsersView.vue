@@ -7,6 +7,7 @@ import { usersApi } from '../../api/users'
 import { profilesApi } from '../../api/profiles'
 import { libraryApi } from '../../api/library'
 import { useNotificationStore } from '../../stores/notifications'
+import Hint from '../../components/ui/Hint.vue'
 
 const notif = useNotificationStore()
 const route = useRoute()
@@ -470,9 +471,11 @@ async function doDeleteProfile() {
                         v-model="newPassword" :type="showPassword ? 'text' : 'password'"
                         class="form-control" autocomplete="new-password"
                       />
-                      <button type="button" class="password-toggle" @click="showPassword = !showPassword" :title="showPassword ? 'Masquer' : 'Afficher'">
-                        <SvgIcon :name="showPassword ? 'hide' : 'eye'" />
-                      </button>
+                      <Hint :label="showPassword ? 'Masquer' : 'Afficher'">
+                        <button type="button" class="password-toggle" @click="showPassword = !showPassword">
+                          <SvgIcon :name="showPassword ? 'hide' : 'eye'" />
+                        </button>
+                      </Hint>
                     </div>
                     <p class="form-hint">{{ editingUserId ? 'Laissez vide pour conserver le mot de passe actuel.' : 'Laissez vide pour générer un mot de passe temporaire.' }}</p>
                   </div>

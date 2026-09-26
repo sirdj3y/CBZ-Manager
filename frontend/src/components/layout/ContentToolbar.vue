@@ -6,6 +6,7 @@ import { libraryApi } from '../../api/library'
 import SvgIcon from '../SvgIcon.vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/shadcn/popover'
 import AutocompleteInput from '../ui/AutocompleteInput.vue'
+import Hint from '../ui/Hint.vue'
 
 const props = defineProps({
   count: { type: Number, default: 0 },
@@ -174,15 +175,16 @@ const hasActiveFilters = computed(() =>
 
       <!-- Sort -->
       <Popover v-model:open="sortOpen">
-        <PopoverTrigger as-child>
-          <button
-            type="button"
-            :class="['btn btn-ghost btn-icon btn-sm sort-btn', { 'sort-btn-active': sortOpen }]"
-            title="Trier"
-          >
-            <SvgIcon name="arrow-up-down" style="font-size:14px" />
-          </button>
-        </PopoverTrigger>
+        <Hint label="Trier">
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              :class="['btn btn-ghost btn-icon btn-sm sort-btn', { 'sort-btn-active': sortOpen }]"
+            >
+              <SvgIcon name="arrow-up-down" style="font-size:14px" />
+            </button>
+          </PopoverTrigger>
+        </Hint>
         <!-- Popover transparent : le panneau visible est le <div> intérieur, écrit dans ce
              fichier pour que son CSS scoped s'y applique (pas à la racine du Popover, rendue
              dans <body> par Reka UI). -->
@@ -195,14 +197,15 @@ const hasActiveFilters = computed(() =>
               <select v-model="sortField" class="form-control">
                 <option v-for="o in sortCriteria" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
-              <button
-                type="button"
-                class="sort-dir-btn"
-                @click="toggleSortDir"
-                :title="library.sortDir === 'asc' ? 'Croissant' : 'Décroissant'"
-              >
-                <SvgIcon :name="library.sortDir === 'asc' ? 'arrow-down-a-z' : 'arrow-down-z-a'" style="font-size:16px" />
-              </button>
+              <Hint :label="library.sortDir === 'asc' ? 'Croissant' : 'Décroissant'">
+                <button
+                  type="button"
+                  class="sort-dir-btn"
+                  @click="toggleSortDir"
+                >
+                  <SvgIcon :name="library.sortDir === 'asc' ? 'arrow-down-a-z' : 'arrow-down-z-a'" style="font-size:16px" />
+                </button>
+              </Hint>
             </div>
           </div>
         </PopoverContent>
@@ -210,14 +213,15 @@ const hasActiveFilters = computed(() =>
 
       <!-- Filter button -->
       <Popover v-if="showFilter" v-model:open="filterOpen">
-        <PopoverTrigger as-child>
-          <button
-            :class="['btn btn-ghost btn-icon btn-sm filter-btn', { 'filter-btn-active': filterOpen || hasActiveFilters }]"
-            title="Filtrer"
-          >
-            <SvgIcon :name="hasActiveFilters ? 'filter-off' : 'filter'" style="font-size:14px" :key="hasActiveFilters ? 'off' : 'on'" />
-          </button>
-        </PopoverTrigger>
+        <Hint label="Filtrer">
+          <PopoverTrigger as-child>
+            <button
+              :class="['btn btn-ghost btn-icon btn-sm filter-btn', { 'filter-btn-active': filterOpen || hasActiveFilters }]"
+            >
+              <SvgIcon :name="hasActiveFilters ? 'filter-off' : 'filter'" style="font-size:14px" :key="hasActiveFilters ? 'off' : 'on'" />
+            </button>
+          </PopoverTrigger>
+        </Hint>
         <PopoverContent align="end" :side-offset="6" class="w-auto border-0 bg-transparent p-0 shadow-none" @interact-outside="keepOpenForAutocomplete">
           <div class="filter-dropdown">
             <div class="filter-header">
@@ -285,16 +289,15 @@ const hasActiveFilters = computed(() =>
             <div v-if="activeView === 'books'" class="filter-group">
               <label class="form-label">Note Bedetheque.com minimale</label>
               <div class="rating-btns" @mouseleave="ratingHover = 0">
-                <button
-                  v-for="n in [1,2,3,4,5]"
-                  :key="n"
-                  type="button"
-                  class="rating-star-btn"
-                  :class="{ filled: n <= (ratingHover || library.filters.rating || 0) }"
-                  :title="n + ' étoile' + (n > 1 ? 's' : '') + ' et plus'"
-                  @mouseenter="ratingHover = n"
-                  @click="library.filters.rating = library.filters.rating === n ? 0 : n"
-                >★</button>
+                <Hint v-for="n in [1,2,3,4,5]" :key="n" :label="n + ' étoile' + (n > 1 ? 's' : '') + ' et plus'">
+                  <button
+                    type="button"
+                    class="rating-star-btn"
+                    :class="{ filled: n <= (ratingHover || library.filters.rating || 0) }"
+                    @mouseenter="ratingHover = n"
+                    @click="library.filters.rating = library.filters.rating === n ? 0 : n"
+                  >★</button>
+                </Hint>
               </div>
             </div>
             <div class="filter-group filter-group-toggle">
@@ -343,12 +346,13 @@ const hasActiveFilters = computed(() =>
     @touchmove.prevent="onAlphaVTouchMove"
     @touchend="onAlphaVTouchEnd"
   >
-    <button
-      :class="['alpha-v-btn', { 'alpha-btn-active': activeLetter === '' }]"
-      data-alpha-key="TOUT"
-      title="Tout afficher"
-      @click="$emit('letter', '')"
-    >•</button>
+    <Hint label="Tout afficher">
+      <button
+        :class="['alpha-v-btn', { 'alpha-btn-active': activeLetter === '' }]"
+        data-alpha-key="TOUT"
+        @click="$emit('letter', '')"
+      >•</button>
+    </Hint>
     <button
       v-for="letter in ALPHABET"
       :key="letter"

@@ -20,6 +20,7 @@ import defaultHeroBg from '../assets/home-hero-default-bg.webp'
 import heroAccolade from '../assets/hero-accolade.png'
 import heroCoverFrame from '../assets/hero-book-frame.png'
 import heroCoverSheen from '../assets/hero-book-sheen.png'
+import Hint from '../components/ui/Hint.vue'
 
 const router = useRouter()
 const library = useLibraryStore()
@@ -502,9 +503,11 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                 <div v-if="hoveredDiscover === s.id || openMenuId === 'd_' + s.id" class="scroll-cover-dim"></div>
                 <span class="series-badge-card">{{ s.tome_count }}</span>
                 <div v-if="hoveredDiscover === s.id || openMenuId === 'd_' + s.id" class="scroll-overlay" @click.stop>
-                  <button v-if="authStore.hasPermission('library.metadata_edit')" class="overlay-btn" title="Modifier les métadonnées" @click="handleEdit(s)">
-                    <SvgIcon name="edit" style="font-size:20px" />
-                  </button>
+                  <Hint v-if="authStore.hasPermission('library.metadata_edit')" label="Modifier les métadonnées">
+                    <button class="overlay-btn" @click="handleEdit(s)">
+                      <SvgIcon name="edit" style="font-size:20px" />
+                    </button>
+                  </Hint>
                   <div class="overlay-spacer"></div>
                   <SeriesActionsMenu
                     v-if="canSeriesMenu" :series="s"
@@ -512,7 +515,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                     @edit="handleEdit" @enrich="handleEnrich" @rename="handleRename" @convert="handleConvert"
                     @download="handleDownload" @set-cover="handleSetCover" @toggle-hidden="handleToggleHidden" @delete="handleDelete"
                   >
-                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 'd_' + s.id }" title="Plus d'options">
+                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 'd_' + s.id }">
                       <SvgIcon name="more-vertical" style="font-size:20px" />
                     </button>
                   </SeriesActionsMenu>
@@ -548,9 +551,11 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                 <div v-if="hoveredSeries === s.id || openMenuId === 's_' + s.id" class="scroll-cover-dim"></div>
                 <span class="series-badge-card">{{ s.tome_count }}</span>
                 <div v-if="hoveredSeries === s.id || openMenuId === 's_' + s.id" class="scroll-overlay" @click.stop>
-                  <button v-if="authStore.hasPermission('library.metadata_edit')" class="overlay-btn" title="Modifier les métadonnées" @click="handleEdit(s)">
-                    <SvgIcon name="edit" style="font-size:20px" />
-                  </button>
+                  <Hint v-if="authStore.hasPermission('library.metadata_edit')" label="Modifier les métadonnées">
+                    <button class="overlay-btn" @click="handleEdit(s)">
+                      <SvgIcon name="edit" style="font-size:20px" />
+                    </button>
+                  </Hint>
                   <div class="overlay-spacer"></div>
                   <SeriesActionsMenu
                     v-if="canSeriesMenu" :series="s"
@@ -558,7 +563,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                     @edit="handleEdit" @enrich="handleEnrich" @rename="handleRename" @convert="handleConvert"
                     @download="handleDownload" @set-cover="handleSetCover" @toggle-hidden="handleToggleHidden" @delete="handleDelete"
                   >
-                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 's_' + s.id }" title="Plus d'options">
+                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 's_' + s.id }">
                       <SvgIcon name="more-vertical" style="font-size:20px" />
                     </button>
                   </SeriesActionsMenu>

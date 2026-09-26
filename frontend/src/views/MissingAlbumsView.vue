@@ -6,6 +6,7 @@ import MissingAlbumUploadModal from '../components/missingAlbums/MissingAlbumUpl
 import { missingAlbumsApi } from '../api/missingAlbums'
 import { normalizeSearch, sortTitle } from '../utils/text'
 import { useMissingAlbumsStore } from '../stores/missingAlbums'
+import Hint from '../components/ui/Hint.vue'
 
 const missingAlbumsStore = useMissingAlbumsStore()
 
@@ -284,18 +285,20 @@ onMounted(async () => {
                       <div class="ma-cover-dim"></div>
                       <SvgIcon name="square-arrow-out-up-right" class="ma-cover-open-icon" />
                       <span class="ma-badge">T{{ album.number }}</span>
-                      <button
-                        class="ma-ignore-btn"
-                        type="button"
-                        title="Ignorer cet album"
-                        @click.stop.prevent="ignoreAlbum(album)"
-                      >✕</button>
-                      <button
-                        class="overlay-btn ma-upload-btn"
-                        type="button"
-                        title="Ajouter ce fichier depuis mon appareil"
-                        @click.stop.prevent="openUpload(album)"
-                      ><SvgIcon name="square-plus" style="font-size:20px" /></button>
+                      <Hint label="Ignorer cet album">
+                        <button
+                          class="ma-ignore-btn"
+                          type="button"
+                          @click.stop.prevent="ignoreAlbum(album)"
+                        >✕</button>
+                      </Hint>
+                      <Hint label="Ajouter ce fichier depuis mon appareil">
+                        <button
+                          class="overlay-btn ma-upload-btn"
+                          type="button"
+                          @click.stop.prevent="openUpload(album)"
+                        ><SvgIcon name="square-plus" style="font-size:20px" /></button>
+                      </Hint>
                     </div>
                     <div class="ma-card-info">
                       <p v-if="displayTitle(album)" class="ma-card-title">{{ displayTitle(album) }}</p>

@@ -8,6 +8,7 @@ import client from '../api/client'
 import { sortTomesByNumber } from '../utils/tomeSort'
 import SvgIcon from '../components/SvgIcon.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/shadcn/dropdown-menu'
+import Hint from '../components/ui/Hint.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -846,27 +847,28 @@ function onTouchEnd(e) {
 
       <!-- Zoom sur les cases — sans objet en mode Défilement (pas de "case courante" au
            sens où l'entend son calcul de cadrage). -->
-      <button
-        v-if="reader.mode !== 'vertical'"
-        @click="reader.setPanelMode(!reader.panelMode)"
-        class="reader-icon-btn"
-        :class="{ 'reader-mode-active': reader.panelMode }"
-        title="Zoomer sur les cases"
-      >
-        <SvgIcon name="panel-zoom" style="font-size:18px" />
-      </button>
+      <Hint v-if="reader.mode !== 'vertical'" label="Zoomer sur les cases">
+        <button
+          @click="reader.setPanelMode(!reader.panelMode)"
+          class="reader-icon-btn"
+          :class="{ 'reader-mode-active': reader.panelMode }"
+        >
+          <SvgIcon name="panel-zoom" style="font-size:18px" />
+        </button>
+      </Hint>
 
       <!-- Réglages d'image — luminosité/contraste/saturation/netteté, en filtre sur les pages
            (voir imageFilterStyle) : aucun retraitement d'image, temps réel. -->
       <div class="reader-adjust-wrap" @click.stop>
-        <button
-          @click="showAdjustPanel = !showAdjustPanel"
-          class="reader-icon-btn"
-          :class="{ 'reader-mode-active': showAdjustPanel || reader.brightness !== 100 || reader.contrast !== 100 || reader.saturation !== 100 || reader.sharpness > 0 }"
-          title="Réglages d'image"
-        >
-          <SvgIcon name="wand-sparkles" style="font-size:18px" />
-        </button>
+        <Hint label="Réglages d'image">
+          <button
+            @click="showAdjustPanel = !showAdjustPanel"
+            class="reader-icon-btn"
+            :class="{ 'reader-mode-active': showAdjustPanel || reader.brightness !== 100 || reader.contrast !== 100 || reader.saturation !== 100 || reader.sharpness > 0 }"
+          >
+            <SvgIcon name="wand-sparkles" style="font-size:18px" />
+          </button>
+        </Hint>
         <div v-if="showAdjustPanel" class="reader-adjust-panel">
           <div class="reader-adjust-row">
             <label class="reader-adjust-label">Luminosité</label>
@@ -893,14 +895,14 @@ function onTouchEnd(e) {
         </div>
       </div>
 
-      <button
-        v-if="fullscreenSupported && !isSmartphone"
-        @click="toggleFullscreen"
-        class="reader-icon-btn"
-        :title="isFullscreen ? 'Quitter le plein écran' : 'Plein écran'"
-      >
-        <SvgIcon :name="isFullscreen ? 'fullscreen-exit' : 'fullscreen'" style="font-size:20px" />
-      </button>
+      <Hint v-if="fullscreenSupported && !isSmartphone" :label="isFullscreen ? 'Quitter le plein écran' : 'Plein écran'">
+        <button
+          @click="toggleFullscreen"
+          class="reader-icon-btn"
+        >
+          <SvgIcon :name="isFullscreen ? 'fullscreen-exit' : 'fullscreen'" style="font-size:20px" />
+        </button>
+      </Hint>
     </div>
 
     <!-- Pages area -->

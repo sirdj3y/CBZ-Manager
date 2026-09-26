@@ -5,6 +5,7 @@ import AppLayout from '../../components/layout/AppLayout.vue'
 import client from '../../api/client'
 import { tomesApi } from '../../api/tomes'
 import { useNotificationStore } from '../../stores/notifications'
+import Hint from '../../components/ui/Hint.vue'
 
 const notif = useNotificationStore()
 const router = useRouter()
@@ -230,7 +231,9 @@ const filteredIssues = computed(() => {
                     <option value="warning">Attention</option>
                     <option value="info">Info</option>
                   </select>
-                  <button v-if="hasActiveFilters" class="health-filter-reset" @click="resetFilters" title="Réinitialiser les filtres">✕</button>
+                  <Hint v-if="hasActiveFilters" label="Réinitialiser les filtres">
+                    <button class="health-filter-reset" @click="resetFilters">✕</button>
+                  </Hint>
                 </div>
               </th>
               <th>

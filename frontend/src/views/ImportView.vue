@@ -19,6 +19,8 @@ import { applyRenamePattern, formatTomeNumber } from '../utils/renamePattern'
 import { normalizeSearch, sortTitle } from '../utils/text'
 import { settingsApi } from '../api/settings'
 import { tomesApi } from '../api/tomes'
+import Hint from '../components/ui/Hint.vue'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/shadcn/hover-card'
 
 const router = useRouter()
 const route = useRoute()
@@ -615,26 +617,8 @@ const PRESETS = ['Light', 'Medium', 'HQ', 'Original']
 const PRESET_DESC = { 'Light': 'max 1200px', 'Medium': 'max 1600px', 'HQ': 'max 2048px', 'Original': 'Taille originale' }
 const PRESET_QUALITY = { 'Light': 60, 'Medium': 75, 'HQ': 85, 'Original': 95 }
 
-// Popover comparateur qualité
-const qualityInfoRef = ref(null)
-const showQualityCompare = ref(false)
-const popoverStyle = ref({})
-
-function onInfoEnter() {
-  if (qualityInfoRef.value) {
-    const rect = qualityInfoRef.value.getBoundingClientRect()
-    popoverStyle.value = {
-      position: 'fixed',
-      top: (rect.bottom + 8) + 'px',
-      left: Math.min(rect.left, window.innerWidth - 420) + 'px',
-    }
-  }
-  showQualityCompare.value = true
-}
-
-function onInfoLeave() {
-  showQualityCompare.value = false
-}
+// Comparateur de qualité : HoverCard de shadcn-vue (survol ou focus clavier sur l'icône),
+// rendu dans <body> et positionné par Reka UI — au-dessus de la modale, jamais hors écran.
 
 const convertPreset = ref(null) // null = aucune qualité sélectionnée par défaut
 // convertChecked[originalName] = true/false
@@ -1212,7 +1196,9 @@ watch(() => route.path, (path) => {
                         <input type="checkbox" v-model="oneshotRows[item.originalName]" @change="onOneshotToggle(item)" title="Album one-shot" />
                       </td>
                       <td class="td-meta-scrape">
-                        <button class="scrape-btn" type="button" title="Rechercher en ligne" @click="openScraper(item)"><SvgIcon name="search" /></button>
+                        <Hint label="Rechercher en ligne">
+                          <button class="scrape-btn" type="button" @click="openScraper(item)"><SvgIcon name="search" /></button>
+                        </Hint>
                       </td>
                     </tr>
                   </tbody>
@@ -1232,22 +1218,28 @@ watch(() => route.path, (path) => {
               <!-- Preset qualité -->
               <div class="convert-presets">
                 <span class="form-label">Qualité :</span>
-                <span class="quality-info-wrap" ref="qualityInfoRef" @mouseenter="onInfoEnter" @mouseleave="onInfoLeave">
-                  <SvgIcon name="info" class="quality-info-icon" />
-                  <div v-if="showQualityCompare" class="quality-popover" :style="popoverStyle">
-                    <p class="quality-popover-title">Comparaison de qualité</p>
-                    <div class="quality-popover-images">
-                      <div class="quality-popover-img-wrap">
-                        <img :src="imgLight" alt="Light" />
-                        <span>Light</span>
-                      </div>
-                      <div class="quality-popover-img-wrap">
-                        <img :src="imgOriginal" alt="Original" />
-                        <span>Original</span>
+                <HoverCard :open-delay="100" :close-delay="100">
+                  <HoverCardTrigger as-child>
+                    <span class="quality-info-wrap" tabindex="0" aria-label="Comparer les qualités">
+                      <SvgIcon name="info" class="quality-info-icon" />
+                    </span>
+                  </HoverCardTrigger>
+                  <HoverCardContent align="start" class="w-auto border-0 bg-transparent p-0 shadow-none">
+                    <div class="quality-popover">
+                      <p class="quality-popover-title">Comparaison de qualité</p>
+                      <div class="quality-popover-images">
+                        <div class="quality-popover-img-wrap">
+                          <img :src="imgLight" alt="Light" />
+                          <span>Light</span>
+                        </div>
+                        <div class="quality-popover-img-wrap">
+                          <img :src="imgOriginal" alt="Original" />
+                          <span>Original</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </span>
+                  </HoverCardContent>
+                </HoverCard>
                 <label
                   v-for="p in PRESETS"
                   :key="p"
@@ -1438,7 +1430,9 @@ watch(() => route.path, (path) => {
                     {{ c.album_count }} album(s)<template v-if="c.status"> · {{ c.status }}</template><template v-if="c.year_min"> · {{ c.year_min }}{{ c.year_max && c.year_max !== c.year_min ? '–' + c.year_max : '' }}</template>
                   </span>
                 </span>
-                <a :href="c.url" target="_blank" rel="noopener" class="bede-suggest-link" title="Voir sur Bedetheque.com" @click.stop>↗</a>
+                <Hint label="Voir sur Bedetheque.com">
+                  <a :href="c.url" target="_blank" rel="noopener" class="bede-suggest-link" @click.stop>↗</a>
+                </Hint>
               </div>
             </div>
             <button
@@ -1786,7 +1780,7 @@ watch(() => route.path, (path) => {
 }
 .quality-info-wrap:hover .quality-info-icon { color: var(--primary); }
 .quality-popover {
-  z-index: 9999;
+  max-width: calc(100vw - 16px);
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);

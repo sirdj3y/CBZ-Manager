@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import SvgIcon from '../SvgIcon.vue'
 import { useAuthStore } from '../../stores/auth'
 import SeriesActionsMenu from './SeriesActionsMenu.vue'
+import Hint from '../ui/Hint.vue'
 
 const props = defineProps({
   series: { type: Object, required: true },
@@ -69,13 +70,13 @@ watch(() => props.series.cover_url, (newUrl) => {
 
       <!-- Sélection multiple — visible UNIQUEMENT si le mode "Sélectionner" est actif (barre
            du haut) : pas de sélection possible autrement, même au survol. -->
-      <button
-        v-if="selectMode"
-        class="series-select"
-        :class="{ 'series-select-active': selected }"
-        :title="selected ? 'Désélectionner' : 'Sélectionner'"
-        @click.stop="$emit('toggle-select', series)"
-      ></button>
+      <Hint v-if="selectMode" :label="selected ? 'Désélectionner' : 'Sélectionner'">
+        <button
+          class="series-select"
+          :class="{ 'series-select-active': selected }"
+          @click.stop="$emit('toggle-select', series)"
+        ></button>
+      </Hint>
 
       <span v-if="!selectMode" class="series-badge">{{ series.tome_count }}</span>
 
@@ -83,9 +84,11 @@ watch(() => props.series.cover_url, (newUrl) => {
            une fois la série sélectionnée ou en mode sélection, pour se concentrer sur la
            case à cocher. -->
       <div v-if="(cardHovered || menuOpen) && !selected && !selectMode" class="series-overlay" @click.stop>
-        <button v-if="authStore.hasPermission('library.metadata_edit')" class="overlay-btn" title="Modifier les métadonnées" @click="$emit('edit', series)">
-          <SvgIcon name="edit" style="font-size:20px" />
-        </button>
+        <Hint v-if="authStore.hasPermission('library.metadata_edit')" label="Modifier les métadonnées">
+          <button class="overlay-btn" @click="$emit('edit', series)">
+            <SvgIcon name="edit" style="font-size:20px" />
+          </button>
+        </Hint>
         <div class="overlay-spacer"></div>
         <SeriesActionsMenu
           v-if="canMenu" v-model:open="menuOpen" :series="series"
@@ -93,7 +96,7 @@ watch(() => props.series.cover_url, (newUrl) => {
           @convert="$emit('convert', $event)" @download="$emit('download', $event)" @set-cover="$emit('set-cover', $event)"
           @toggle-hidden="$emit('toggle-hidden', $event)" @delete="$emit('delete', $event)"
         >
-          <button class="overlay-btn" :class="{ 'overlay-btn-active': menuOpen }" title="Plus d'options">
+          <button class="overlay-btn" :class="{ 'overlay-btn-active': menuOpen }">
             <SvgIcon name="more-vertical" style="font-size:20px" />
           </button>
         </SeriesActionsMenu>

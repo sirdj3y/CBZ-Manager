@@ -12,24 +12,8 @@ const emit = defineEmits(['close', 'done'])
 
 const notif = useNotificationStore()
 const preset = ref('Medium')
-const showQualityCompare = ref(false)
-const qualityInfoRef = ref(null)
-const popoverStyle = ref({})
-
-function onInfoEnter() {
-  if (qualityInfoRef.value) {
-    const rect = qualityInfoRef.value.getBoundingClientRect()
-    popoverStyle.value = {
-      position: 'fixed',
-      top: (rect.bottom + 8) + 'px',
-      right: (window.innerWidth - rect.right) + 'px',
-    }
-  }
-  showQualityCompare.value = true
-}
-function onInfoLeave() {
-  showQualityCompare.value = false
-}
+// Comparateur de qualité : HoverCard de shadcn-vue (survol ou focus clavier sur l'icône),
+// rendu dans <body> et positionné par Reka UI — au-dessus de la modale, jamais hors écran.
 const jobId = ref(null)
 const starting = ref(false)
 
@@ -83,6 +67,7 @@ const PRESET_DESC = {
 
 import imgLight    from '../../assets/images/quality-light.jpg'
 import imgOriginal from '../../assets/images/quality-originale.jpg'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/shadcn/hover-card'
 
 function formatSize(bytes) {
   if (!bytes) return '?'
@@ -187,9 +172,12 @@ async function start() {
         <div class="section">
           <div class="section-header">
             <span class="form-label" style="margin:0">Qualité</span>
-            <div class="quality-info-wrap" ref="qualityInfoRef" @mouseenter="onInfoEnter" @mouseleave="onInfoLeave">
-              <span class="quality-info-icon">i</span>
-              <div v-if="showQualityCompare" class="quality-popover" :style="popoverStyle">
+            <HoverCard :open-delay="100" :close-delay="100">
+              <HoverCardTrigger as-child>
+                <span class="quality-info-icon" tabindex="0" aria-label="Comparer les qualités">i</span>
+              </HoverCardTrigger>
+              <HoverCardContent align="end" class="w-auto border-0 bg-transparent p-0 shadow-none">
+                <div class="quality-popover">
                 <p class="compare-hint">Exemple : <strong>Light</strong> vs <strong>Original</strong></p>
                 <div class="compare-images">
                   <div class="compare-col">
@@ -202,8 +190,9 @@ async function start() {
                     <img :src="imgOriginal" class="compare-img" alt="Original" />
                   </div>
                 </div>
-              </div>
-            </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           </div>
           <div class="preset-list">
             <label
@@ -404,7 +393,7 @@ async function start() {
 .quality-popover {
   background: var(--surface-raised); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
-  padding: 14px; width: 480px; z-index: 9999;
+  padding: 14px; width: 480px; max-width: calc(100vw - 16px);
 }
 .compare-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; }
 .compare-images {

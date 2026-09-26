@@ -10,6 +10,7 @@ import { useNotificationStore } from '../../stores/notifications'
 import { useLibraryStore } from '../../stores/library'
 import { useRouter } from 'vue-router'
 import { formatTomeNumber } from '../../utils/renamePattern'
+import Hint from '../ui/Hint.vue'
 
 const props = defineProps({
   tome: { type: Object, required: true },
@@ -301,9 +302,11 @@ function applyScraperResult(result) {
           <!-- Menu "⋮" : regroupe les actions secondaires/destructives (Supprimer), plutôt
                qu'un bouton en texte visible en permanence dans le footer. -->
           <div class="header-menu-wrap" ref="headerMenuRef">
-            <button type="button" class="btn btn-ghost btn-icon btn-sm" title="Plus d'actions" @click="showHeaderMenu = !showHeaderMenu">
-              <SvgIcon name="more-vertical" />
-            </button>
+            <Hint label="Plus d'actions">
+              <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="showHeaderMenu = !showHeaderMenu">
+                <SvgIcon name="more-vertical" />
+              </button>
+            </Hint>
             <div v-if="showHeaderMenu" class="header-menu">
               <button type="button" class="header-menu-item header-menu-danger" @click="showHeaderMenu = false; confirmDelete = true">
                 <SvgIcon name="trash-2" class="header-menu-icon" /> Supprimer
@@ -485,7 +488,9 @@ function applyScraperResult(result) {
                       @input="metadata.Web = $event.target.value"
                       class="form-control url-search-input" :class="{ readonly: !canEdit }"
                     />
-                    <a v-if="metadata.Web" :href="metadata.Web" target="_blank" rel="noopener" class="url-icon-btn url-visit-link" title="Consulter la fiche"><SvgIcon name="square-arrow-out-up-right" /></a>
+                    <Hint v-if="metadata.Web" label="Consulter la fiche">
+                      <a :href="metadata.Web" target="_blank" rel="noopener" class="url-icon-btn url-visit-link"><SvgIcon name="square-arrow-out-up-right" /></a>
+                    </Hint>
                   </div>
                 </div>
                 <button type="button" class="btn-bedetheque" @click="showScraper = true">

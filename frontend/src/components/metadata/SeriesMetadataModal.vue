@@ -7,6 +7,7 @@ import { useNotificationStore } from '../../stores/notifications'
 import { useLibraryStore } from '../../stores/library'
 import TagInput from '../ui/TagInput.vue'
 import SvgIcon from '../SvgIcon.vue'
+import Hint from '../ui/Hint.vue'
 
 const props = defineProps({
   series: { type: Object, required: true },
@@ -327,9 +328,11 @@ async function openEnrich() {
                onglets — un clic supplémentaire pour y accéder, moins de risque de clic
                accidentel sur une action irréversible. -->
           <div class="header-menu-wrap" ref="headerMenuRef">
-            <button type="button" class="btn btn-ghost btn-icon btn-sm" title="Plus d'actions" @click="showHeaderMenu = !showHeaderMenu">
-              <SvgIcon name="more-vertical" />
-            </button>
+            <Hint label="Plus d'actions">
+              <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="showHeaderMenu = !showHeaderMenu">
+                <SvgIcon name="more-vertical" />
+              </button>
+            </Hint>
             <div v-if="showHeaderMenu" class="header-menu">
               <button type="button" class="header-menu-item header-menu-danger" @click="showHeaderMenu = false; confirmDelete = true">
                 <SvgIcon name="trash-2" class="header-menu-icon" /> Supprimer la série
@@ -437,7 +440,9 @@ async function openEnrich() {
                 <div class="meta-field meta-field-grow">
                   <div class="url-search-wrap">
                     <input v-model="bedethequeUrl" type="url" class="form-control url-search-input" placeholder="https://www.bedetheque.com/serie-…" />
-                    <a v-if="bedethequeUrl" :href="bedethequeUrl" target="_blank" rel="noopener" class="url-icon-btn url-visit-link" title="Consulter la fiche"><SvgIcon name="square-arrow-out-up-right" /></a>
+                    <Hint v-if="bedethequeUrl" label="Consulter la fiche">
+                      <a :href="bedethequeUrl" target="_blank" rel="noopener" class="url-icon-btn url-visit-link"><SvgIcon name="square-arrow-out-up-right" /></a>
+                    </Hint>
                   </div>
                 </div>
                 <button type="button" class="btn-bedetheque" @click="openEnrich">
@@ -472,12 +477,14 @@ async function openEnrich() {
                   <img v-if="heroImageUrl(h.kind)" :src="heroImageUrl(h.kind)" :alt="h.label" @error="heroImageErrors[h.kind] = true">
                   <SvgIcon v-else name="image" class="hero-image-placeholder-icon" />
                   <span v-if="heroUploading[h.kind]" class="hero-image-uploading">Envoi…</span>
-                  <button
-                    v-if="heroImageUrl(h.kind) && !heroUploading[h.kind]" type="button" class="hero-image-remove-btn"
-                    title="Supprimer" @click.stop="removeHeroImage(h.kind)"
-                  >
-                    <SvgIcon name="trash-2" />
-                  </button>
+                  <Hint v-if="heroImageUrl(h.kind) && !heroUploading[h.kind]" label="Supprimer">
+                    <button
+                      type="button" class="hero-image-remove-btn"
+                      @click.stop="removeHeroImage(h.kind)"
+                    >
+                      <SvgIcon name="trash-2" />
+                    </button>
+                  </Hint>
                 </div>
                 <input :ref="el => { if (el) heroFileInputs[h.kind] = el }" type="file" accept="image/*" class="visually-hidden" @change="onHeroImageSelected(h.kind, $event)">
               </div>

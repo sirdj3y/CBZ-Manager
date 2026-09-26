@@ -6,6 +6,7 @@ import SvgIcon from '../components/SvgIcon.vue'
 import { logsApi } from '../api/logs'
 import { useNotificationStore } from '../stores/notifications'
 import { useSecurityAlertsStore } from '../stores/securityAlerts'
+import Hint from '../components/ui/Hint.vue'
 
 const route = useRoute()
 const notif = useNotificationStore()
@@ -183,7 +184,9 @@ const filteredLogs = computed(() => logs.value.filter(l => {
               <th>
                 <div class="logs-filter-date-cell">
                   <input v-model="filterDate" type="date" class="logs-filter-input" />
-                  <button v-if="hasActiveFilters" class="logs-filter-reset" @click="resetFilters" title="Réinitialiser les filtres">✕</button>
+                  <Hint v-if="hasActiveFilters" label="Réinitialiser les filtres">
+                    <button class="logs-filter-reset" @click="resetFilters">✕</button>
+                  </Hint>
                 </div>
               </th>
               <th>

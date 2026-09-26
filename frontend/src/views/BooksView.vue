@@ -14,6 +14,7 @@ import { useTomesStore } from '../stores/tomes'
 import { useLibraryStore } from '../stores/library'
 import { useAuthStore } from '../stores/auth'
 import { sortTitle } from '../utils/text'
+import Hint from '../components/ui/Hint.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -325,13 +326,13 @@ function searchTomeMetadata(tome) {
 
             <!-- Sélection multiple — retirée du DOM hors mode "Sélectionner", pas seulement
                  masquée, pour qu'un tap sur la zone (même invisible) ne puisse rien sélectionner. -->
-            <button
-              v-if="selectMode"
-              class="book-select"
-              :class="{ 'book-select-active': selectedIds.has(tome.id) }"
-              :title="selectedIds.has(tome.id) ? 'Désélectionner' : 'Sélectionner'"
-              @click.stop="toggleSelect(tome.id)"
-            ></button>
+            <Hint v-if="selectMode" :label="selectedIds.has(tome.id) ? 'Désélectionner' : 'Sélectionner'">
+              <button
+                class="book-select"
+                :class="{ 'book-select-active': selectedIds.has(tome.id) }"
+                @click.stop="toggleSelect(tome.id)"
+              ></button>
+            </Hint>
 
             <!-- Number badge -->
             <span v-if="tome.is_oneshot" class="book-badge book-badge-oneshot">One-shot</span>
@@ -346,15 +347,17 @@ function searchTomeMetadata(tome) {
               @click.stop="router.push(`/read/${tome.id}`)"
             >
               <SvgIcon name="read" class="book-read-icon" />
-              <button v-if="authStore.hasPermission('library.metadata_edit')" class="overlay-btn book-edit-btn" title="Modifier" @click.stop="editTome(tome)">
-                <SvgIcon name="edit" style="font-size:20px" />
-              </button>
+              <Hint v-if="authStore.hasPermission('library.metadata_edit')" label="Modifier">
+                <button class="overlay-btn book-edit-btn" @click.stop="editTome(tome)">
+                  <SvgIcon name="edit" style="font-size:20px" />
+                </button>
+              </Hint>
               <div v-if="canTomeMenu" class="book-more-wrap" @click.stop>
                 <TomeActionsMenu
                   :tome="tome" :open="openMenuId === tome.id" @update:open="setMenuOpen(tome.id, $event)"
                   @edit="editTome" @search-metadata="searchTomeMetadata" @move="openMoveSingle" @delete="confirmDeleteTome = $event"
                 >
-                  <button class="overlay-btn book-more-btn" :class="{ 'overlay-btn-active': openMenuId === tome.id }" title="Plus d'options">
+                  <button class="overlay-btn book-more-btn" :class="{ 'overlay-btn-active': openMenuId === tome.id }">
                     <SvgIcon name="more-vertical" style="font-size:20px" />
                   </button>
                 </TomeActionsMenu>

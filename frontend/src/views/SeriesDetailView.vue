@@ -25,6 +25,7 @@ import { useAuthStore } from '../stores/auth'
 import { sortTomesByNumber } from '../utils/tomeSort'
 import { truncateForReadMore } from '../utils/text'
 import { heroVariantFor, HERO_GRADIENTS_WIDE } from '../utils/heroGradient'
+import Hint from '../components/ui/Hint.vue'
 
 const notif = useNotificationStore()
 const libraryStore = useLibraryStore()
@@ -403,8 +404,12 @@ async function deleteSingleTome() {
         <span class="breadcrumb-sep">/</span>
         <span class="breadcrumb-current">{{ series.name }}</span>
         <div class="breadcrumb-nav">
-          <button class="breadcrumb-chevron" :disabled="!prevSeries" @click="router.push(`/series/${prevSeries.id}`)" :title="prevSeries?.name">‹</button>
-          <button class="breadcrumb-chevron" :disabled="!nextSeries" @click="router.push(`/series/${nextSeries.id}`)" :title="nextSeries?.name">›</button>
+          <Hint :label="prevSeries?.name">
+            <button class="breadcrumb-chevron" :disabled="!prevSeries" @click="router.push(`/series/${prevSeries.id}`)">‹</button>
+          </Hint>
+          <Hint :label="nextSeries?.name">
+            <button class="breadcrumb-chevron" :disabled="!nextSeries" @click="router.push(`/series/${nextSeries.id}`)">›</button>
+          </Hint>
         </div>
       </nav>
 
@@ -492,18 +497,24 @@ async function deleteSingleTome() {
             <button v-if="authStore.hasPermission('library.metadata_edit')" class="hero-btn hero-btn-primary" @click="showSeriesMeta = true">
               <SvgIcon name="edit" class="btn-icon-svg" /> Éditer
             </button>
-            <button v-if="authStore.hasPermission('library.metadata_edit')" class="hero-btn hero-btn-outline hero-btn-icon" title="Métadonnées" @click="showEnrich = true">
-              <SvgIcon name="search" style="font-size:15px" />
-            </button>
-            <button v-if="authStore.hasPermission('library.download')" class="hero-btn hero-btn-outline hero-btn-icon" title="Télécharger" @click="confirmDownload = true">
-              <SvgIcon name="download" style="font-size:15px" />
-            </button>
+            <Hint v-if="authStore.hasPermission('library.metadata_edit')" label="Métadonnées">
+              <button class="hero-btn hero-btn-outline hero-btn-icon" @click="showEnrich = true">
+                <SvgIcon name="search" style="font-size:15px" />
+              </button>
+            </Hint>
+            <Hint v-if="authStore.hasPermission('library.download')" label="Télécharger">
+              <button class="hero-btn hero-btn-outline hero-btn-icon" @click="confirmDownload = true">
+                <SvgIcon name="download" style="font-size:15px" />
+              </button>
+            </Hint>
             <DropdownMenu v-if="canSeriesMoreMenu" v-model:open="showActionsMenu" :modal="false">
-              <DropdownMenuTrigger as-child>
-                <button class="hero-btn hero-btn-outline hero-btn-icon" :class="{ 'toolbar-more-btn-active': showActionsMenu }" title="Plus d'options">
-                  <SvgIcon name="more-vertical" style="font-size:13px" />
-                </button>
-              </DropdownMenuTrigger>
+              <Hint label="Plus d'options">
+                <DropdownMenuTrigger as-child>
+                  <button class="hero-btn hero-btn-outline hero-btn-icon" :class="{ 'toolbar-more-btn-active': showActionsMenu }">
+                    <SvgIcon name="more-vertical" style="font-size:13px" />
+                  </button>
+                </DropdownMenuTrigger>
+              </Hint>
               <DropdownMenuContent align="end" class="min-w-[190px]">
                 <DropdownMenuItem v-if="authStore.hasPermission('library.convert')" @select="showConverter = true">Convertir les fichiers</DropdownMenuItem>
                 <DropdownMenuItem v-if="authStore.hasPermission('library.rename')" @select="showRename = true">Renommer les fichiers</DropdownMenuItem>
@@ -559,11 +570,13 @@ async function deleteSingleTome() {
         <button v-if="authStore.hasPermission('library.metadata_edit')" class="btn btn-secondary btn-sm" @click="showBulkEdit = true">Éditer…</button>
         <a v-if="authStore.hasPermission('library.download')" class="btn btn-secondary btn-sm" :href="tomesApi.downloadBulkUrl([...selectedIds])">Télécharger</a>
         <DropdownMenu v-if="authStore.hasPermission('library.move') || authStore.hasPermission('library.delete')" v-model:open="showSelectionMenu" :modal="false">
-          <DropdownMenuTrigger as-child>
-            <button class="toolbar-more-btn" :class="{ 'toolbar-more-btn-active': showSelectionMenu }" title="Plus d'options">
-              <SvgIcon name="more-vertical" style="font-size:18px" />
-            </button>
-          </DropdownMenuTrigger>
+          <Hint label="Plus d'options">
+            <DropdownMenuTrigger as-child>
+              <button class="toolbar-more-btn" :class="{ 'toolbar-more-btn-active': showSelectionMenu }">
+                <SvgIcon name="more-vertical" style="font-size:18px" />
+              </button>
+            </DropdownMenuTrigger>
+          </Hint>
           <DropdownMenuContent align="start" class="min-w-[160px]">
             <DropdownMenuItem v-if="authStore.hasPermission('library.move')" @select="openMoveSelection()">Déplacer</DropdownMenuItem>
             <DropdownMenuSeparator v-if="authStore.hasPermission('library.move') && authStore.hasPermission('library.delete')" />
@@ -599,12 +612,13 @@ async function deleteSingleTome() {
             </div>
 
             <!-- Sélection multiple -->
-            <button
-              class="tome-select"
-              :class="{ 'tome-select-active': selectedIds.has(entry.id) }"
-              :title="selectedIds.has(entry.id) ? 'Désélectionner' : 'Sélectionner'"
-              @click.stop="toggleSelect(entry.id)"
-            ></button>
+            <Hint :label="selectedIds.has(entry.id) ? 'Désélectionner' : 'Sélectionner'">
+              <button
+                class="tome-select"
+                :class="{ 'tome-select-active': selectedIds.has(entry.id) }"
+                @click.stop="toggleSelect(entry.id)"
+              ></button>
+            </Hint>
 
             <!-- Number badge -->
             <span v-if="entry.is_oneshot" class="tome-badge tome-badge-oneshot">One-shot</span>
@@ -619,15 +633,17 @@ async function deleteSingleTome() {
               @click.stop="router.push(`/read/${entry.id}`)"
             >
               <SvgIcon name="read" class="tome-read-icon" />
-              <button v-if="authStore.hasPermission('library.metadata_edit')" class="overlay-btn tome-edit-btn" title="Modifier" @click.stop="onEditTome(entry)">
-                <SvgIcon name="edit" style="font-size:20px" />
-              </button>
+              <Hint v-if="authStore.hasPermission('library.metadata_edit')" label="Modifier">
+                <button class="overlay-btn tome-edit-btn" @click.stop="onEditTome(entry)">
+                  <SvgIcon name="edit" style="font-size:20px" />
+                </button>
+              </Hint>
               <div v-if="canTomeMoreMenu" class="tome-more-wrap" @click.stop>
                 <TomeActionsMenu
                   :tome="entry" :open="openMenuId === entry.id" @update:open="setMenuOpen(entry.id, $event)"
                   @edit="onEditTome" @search-metadata="onSearchTomeMetadata" @move="openMoveSingle" @delete="confirmDeleteTome = $event"
                 >
-                  <button class="overlay-btn tome-more-btn" :class="{ 'overlay-btn-active': openMenuId === entry.id }" title="Plus d'options">
+                  <button class="overlay-btn tome-more-btn" :class="{ 'overlay-btn-active': openMenuId === entry.id }">
                     <SvgIcon name="more-vertical" style="font-size:20px" />
                   </button>
                 </TomeActionsMenu>
@@ -672,12 +688,13 @@ async function deleteSingleTome() {
             </div>
             <span v-if="entry.number" class="tome-badge">T{{ fmtNumber(entry.number) }}</span>
             <span class="tome-missing-badge">Manquant</span>
-            <button
-              class="overlay-btn tome-missing-upload-btn"
-              type="button"
-              title="Ajouter ce fichier depuis mon appareil"
-              @click.stop.prevent="openMissingUpload(entry)"
-            ><SvgIcon name="square-plus" style="font-size:20px" /></button>
+            <Hint label="Ajouter ce fichier depuis mon appareil">
+              <button
+                class="overlay-btn tome-missing-upload-btn"
+                type="button"
+                @click.stop.prevent="openMissingUpload(entry)"
+              ><SvgIcon name="square-plus" style="font-size:20px" /></button>
+            </Hint>
           </div>
           <div class="tome-info">
             <p class="tome-title">{{ entry.title || ('Tome ' + entry.number) }}</p>
