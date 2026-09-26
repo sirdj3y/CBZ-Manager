@@ -540,7 +540,10 @@ function fmtRelative(iso) {
             @click="openGlobalSearchFromTopbar()"
             @keydown="onTopbarSearchKeydown"
           >
-            <span class="topbar-search-placeholder">Rechercher un album, une série, un auteur…</span>
+            <span class="topbar-search-placeholder">
+              <span class="ph-long">Rechercher un album, une série, un auteur…</span>
+              <span class="ph-short">Rechercher</span>
+            </span>
             <span class="topbar-search-kbd">{{ searchShortcutLabel }}</span>
           </button>
         </div>
@@ -833,8 +836,12 @@ function fmtRelative(iso) {
 .topbar-toggle { color: var(--muted); flex-shrink: 0; }
 .topbar-toggle:hover { color: var(--text); }
 
+/* min-width: 0 (ici et sur le bouton) : sans ça, un élément flexible ne rétrécit jamais sous
+   la largeur de son texte — sur iPhone, le texte de recherche repoussait les icônes (mode
+   sombre, Nouveautés, Scanner, Mon compte) hors de l'écran. */
 .topbar-search {
   flex: 1;
+  min-width: 0;
   max-width: 480px;
   position: relative;
   display: flex;
@@ -864,6 +871,7 @@ function fmtRelative(iso) {
    champ (.topbar-search-input ci-dessus, réutilisé tel quel), juste la disposition interne en
    flex pour aligner le texte de substitution et le badge de raccourci côte à côte. */
 .topbar-search-btn {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -871,6 +879,7 @@ function fmtRelative(iso) {
   cursor: pointer;
 }
 .topbar-search-btn:hover { border-color: var(--primary-focus-border); }
+.ph-short { display: none; }
 .topbar-search-placeholder {
   flex: 1;
   min-width: 0;
@@ -1090,6 +1099,8 @@ function fmtRelative(iso) {
   .topbar-search-kbd {
     display: none;
   }
+  .ph-long { display: none; }
+  .ph-short { display: inline; }
   .topbar-divider {
     width: 0;
   }

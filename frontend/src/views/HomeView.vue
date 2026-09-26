@@ -776,17 +776,19 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
 }
 
 @media (max-width: 620px) {
-  .home-hero { padding: 0; gap: 0; }
-  .home-hero-inner { padding: 26px 22px; max-width: none; }
-  /* Recadrage pensé pour desktop — rendrait mal en colonne étroite, même choix que
-     series-hero-bg-clip sur mobile. */
-  .home-hero-bg-clip { display: none; }
+  .home-hero { padding: 0; gap: 0; align-items: flex-end; }
+  /* Bas plus généreux : les points du carrousel (en bas du bandeau) ne touchent pas les boutons. */
+  .home-hero-inner { padding: 26px 22px 44px; max-width: none; }
   .hero-arrow { display: none; }
-  /* .home-hero-bg-clip masqué juste au-dessus ⇒ plus de fond ni de voile sombre dessous, texte
-     posé directement sur le fond clair de .home-hero (var(--light)) : les couleurs claires
-     pensées pour un fond assombri (voir plus haut) redeviennent illisibles ici. */
-  .home-hero-title { color: var(--text); }
-  .home-hero-album-title, .home-hero-subtitle { color: var(--muted); }
+  /* Fond conservé sur mobile. Les fonds sont composés pour une bannière large, sujet principal
+     à droite (partie laissée découverte sur desktop) : cadrage décalé vers la droite plutôt
+     que centré. Le voile « de gauche à droite » du desktop ne convient plus (le texte occupe
+     toute la largeur) : voile vertical, plus sombre en bas sous le texte et les boutons. */
+  .home-hero-bg { background-position: 75% center; }
+  .home-hero-bg-img { object-position: 75% center; }
+  .home-hero-bg-fade {
+    background: linear-gradient(to bottom, rgba(26,20,14,.45) 0%, rgba(26,20,14,.78) 45%, rgba(26,20,14,.94) 100%);
+  }
 }
 
 /* Stats globales — 4 cards en rangée sous le hero (Albums/Séries/Auteurs/Éditeurs). */

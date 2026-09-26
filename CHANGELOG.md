@@ -2,6 +2,15 @@
 
 ---
 
+## Non publié (branche develop)
+
+### Corrections
+
+- **Smartphone : barre du haut** : le champ de recherche repoussait les icônes (mode sombre, Nouveautés, Scanner, Mon compte) hors de l'écran. Il rétrécit désormais et affiche simplement « Rechercher ».
+- **Smartphone : bandeau d'accueil** : l'image de fond est de nouveau affichée, cadrée sur le sujet (à droite de l'image), avec un voile vertical qui garde le texte lisible.
+
+---
+
 ## v1.27.0 — 2026-09-26 — Connexion par passkey, IP réelle derrière le reverse proxy
 
 ### Nouveau
