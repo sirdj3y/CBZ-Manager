@@ -304,7 +304,7 @@ async function openEnrich() {
         <div class="modal-header">
           <div class="modal-header-info">
             <p class="modal-title">{{ series.name }}</p>
-            <p class="modal-subtitle">Métadonnées de la série — appliqué à tous les tomes CBZ</p>
+            <p class="modal-subtitle">Métadonnées de la série, appliquées à tous les tomes CBZ</p>
           </div>
           <!-- Menu "⋮" : regroupe les actions secondaires/destructives (Supprimer la série),
                plutôt qu'un bouton en texte visible en permanence dans le footer sur les 3

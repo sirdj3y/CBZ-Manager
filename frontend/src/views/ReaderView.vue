@@ -829,7 +829,7 @@ function onTouchEnd(e) {
           v-if="reader.mode !== 'vertical'"
           class="reader-fit-label"
           @click="reader.setFit(reader.fit === 'width' ? 'height' : 'width')"
-          :title="reader.fit === 'width' ? 'Ajusté à la largeur — cliquer pour ajuster à la hauteur' : 'Ajusté à la hauteur — cliquer pour ajuster à la largeur'"
+          :title="reader.fit === 'width' ? 'Ajusté à la largeur. Cliquer pour ajuster à la hauteur' : 'Ajusté à la hauteur. Cliquer pour ajuster à la largeur'"
         >{{ reader.fit === 'width' ? 'Largeur' : 'Hauteur' }}</button>
         <input
           type="range"

@@ -46,7 +46,7 @@ async def get_security_alerts(db: AsyncSession) -> list[dict]:
         alerts.append({
             "severity": "warning",
             "label": "Rafale d'échecs de connexion",
-            "detail": f"{count} échecs entre {start:%d/%m %H:%M} et {end:%d/%m %H:%M}" + (f" — IP {ip}" if ip else ""),
+            "detail": f"{count} échecs entre {start:%d/%m %H:%M} et {end:%d/%m %H:%M}" + (f" · IP {ip}" if ip else ""),
             "created_at": end,
         })
 
@@ -64,7 +64,7 @@ async def get_security_alerts(db: AsyncSession) -> list[dict]:
                 "severity": "error",
                 "label": "Connexion réussie après plusieurs échecs",
                 "detail": f"« {r.username_snapshot or '?'} », {len(preceding_failures)} échec(s) juste avant"
-                          + (f" — IP {r.ip_address}" if r.ip_address else ""),
+                          + (f" · IP {r.ip_address}" if r.ip_address else ""),
                 "created_at": r.created_at,
             })
 
@@ -76,7 +76,7 @@ async def get_security_alerts(db: AsyncSession) -> list[dict]:
         alerts.append({
             "severity": "info",
             "label": "Historique effacé",
-            "detail": f"Par « {r.username_snapshot or '?'} »" + (f" — IP {r.ip_address}" if r.ip_address else ""),
+            "detail": f"Par « {r.username_snapshot or '?'} »" + (f" · IP {r.ip_address}" if r.ip_address else ""),
             "created_at": r.created_at,
         })
 

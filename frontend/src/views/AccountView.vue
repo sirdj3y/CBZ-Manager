@@ -84,7 +84,7 @@ async function copyOpdsUrl() {
     await navigator.clipboard.writeText(opdsUrl)
     notif.success('URL copiée dans le presse-papier')
   } catch {
-    notif.error('Impossible de copier — sélectionnez et copiez manuellement')
+    notif.error('Impossible de copier. Sélectionnez le texte et copiez-le manuellement.')
   }
 }
 
@@ -124,7 +124,7 @@ async function saveUsername() {
       <h1 class="settings-heading">Mon compte</h1>
 
       <div v-if="auth.mustChangePassword" class="force-password-banner">
-        Vous utilisez encore un mot de passe temporaire ou par défaut — changez-le pour accéder au reste de l'application.
+        Vous utilisez encore un mot de passe temporaire ou par défaut. Changez-le pour accéder au reste de l'application.
       </div>
 
       <section class="card settings-section">

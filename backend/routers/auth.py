@@ -148,14 +148,14 @@ async def login(body: LoginIn, request: Request, response: Response, db: AsyncSe
     user = await auth_service.get_user_by_username(db, username)
     valid = user is not None and await asyncio.to_thread(auth_service.verify_password, body.password, user.password_hash)
     if not valid:
-        await activity_log(db, "login", f"Échec de connexion — identifiant « {username} »", status="error", ip=ip)
+        await activity_log(db, "login", f"Échec de connexion : identifiant « {username} »", status="error", ip=ip)
         await db.commit()
         raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
 
     secret_key = await auth_service.get_secret_key(db)
     token = auth_service.create_session_token(user.id, user.token_version, secret_key)
     response.set_cookie(auth_service.SESSION_COOKIE_NAME, token, **_cookie_kwargs(request))
-    await activity_log(db, "login", f"Connexion réussie — utilisateur « {user.username} »", status="ok", user=user, ip=ip)
+    await activity_log(db, "login", f"Connexion réussie : utilisateur « {user.username} »", status="ok", user=user, ip=ip)
     await db.commit()
     return await _status(db, user)
 

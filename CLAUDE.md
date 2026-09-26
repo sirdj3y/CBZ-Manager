@@ -142,6 +142,8 @@ The scanner (`services/scanner.py`) parses filenames via `services/filename_pars
 
 ## Rules — check before touching these areas
 
+- **User-visible text (French): no em dash « — »** (the user reads it as an AI tell), no mention of a specific platform (Synology, NAS…), proofread. Use a period, colon, comma or « · ». A lone « — » as an empty value (`{{ x || '—' }}`) is fine; code comments aren't concerned. Enforced by `frontend/tests/uiText.test.js` and `tests/test_ui_text.py`.
+
 These come from real bugs; each one has bitten before.
 
 - **New metadata field shown/editable in the UI → also add it to the Smart List catalog**, in `backend/services/smart_lists.py`: an entry in `FIELDS` *and* the name in `_METADATA_TEXT_COLUMNS` (a field in `FIELDS` but missing from that whitelist silently never filters). The frontend fetches the catalog from `GET /api/smart-lists/fields`, nothing to touch there.

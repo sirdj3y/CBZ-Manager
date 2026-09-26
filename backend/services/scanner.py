@@ -145,7 +145,7 @@ async def scan_library(
         # ça comme "l'utilisateur a vidé sa bibliothèque" et effacerait tout le catalogue.
         if not lib.exists() or not lib.is_dir():
             raise RuntimeError(
-                f"Dossier de bibliothèque introuvable : {library_path} — scan interrompu, rien n'a été supprimé."
+                f"Dossier de bibliothèque introuvable : {library_path}. Scan interrompu, rien n'a été supprimé."
             )
 
         # Collect all comic files (hors dossiers exclus — voir is_excluded)
@@ -166,7 +166,7 @@ async def scan_library(
         if total == 0 and existing_tome_count > 0:
             raise RuntimeError(
                 f"Aucun fichier trouvé dans {library_path} alors que {existing_tome_count} "
-                "album(s) sont déjà connus — scan interrompu par sécurité (montage absent ou "
+                "album(s) sont déjà connus. Scan interrompu par sécurité (dossier absent ou "
                 "vide ?), rien n'a été supprimé."
             )
 

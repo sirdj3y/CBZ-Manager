@@ -184,7 +184,7 @@ async function finalize() {
   <AppDialog title="Ajouter un album manquant" :dismissible="phase !== 'converting'" @close="$emit('close')">
     <div class="mau-modal">
       <div class="mau-header">
-        <h2 class="mau-title">Ajouter — {{ albumLabel }}<span v-if="realTitle"> · {{ realTitle }}</span></h2>
+        <h2 class="mau-title">Ajouter : {{ albumLabel }}<span v-if="realTitle"> · {{ realTitle }}</span></h2>
         <button class="btn btn-ghost btn-icon btn-sm" @click="$emit('close')">✕</button>
       </div>
 
@@ -204,7 +204,7 @@ async function finalize() {
           </template>
           <template v-else>
             <p class="mau-drop-label">{{ file.name }}</p>
-            <p class="mau-drop-hint">{{ formatSize(file.size) }} — cliquer pour changer</p>
+            <p class="mau-drop-hint">{{ formatSize(file.size) }} · cliquer pour changer</p>
           </template>
         </div>
 

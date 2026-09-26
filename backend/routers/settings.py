@@ -190,7 +190,7 @@ async def reset_database(request: Request, db: AsyncSession = Depends(get_db), c
         for t in job.values()
     )
     if scan_running or convert_running:
-        raise HTTPException(status_code=409, detail="Un scan ou une conversion est en cours — réessayez une fois terminé(e)")
+        raise HTTPException(status_code=409, detail="Un scan ou une conversion est en cours. Réessayez une fois terminé.")
 
     await activity_log(db, "delete_series", "Base de données réinitialisée (toutes les données supprimées)", status="ok", user=current_user, ip=get_client_ip(request))
     await db.commit()

@@ -62,10 +62,10 @@ const bdIndexLabel = computed(() => {
   if (bdProgress.value.status === 'running') {
     return `Reconstruction en cours… ${bdProgress.value.processed}/${bdProgress.value.total} lettres`
   }
-  if (!bdIndex.value.built) return "Index non construit — la recherche Bedetheque ne fonctionnera pas"
+  if (!bdIndex.value.built) return "Index non construit : la recherche Bedetheque ne fonctionnera pas"
   const d = bdIndex.value.built_at ? new Date(bdIndex.value.built_at * 1000) : null
   const dateStr = d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
-  return `${bdIndex.value.count.toLocaleString('fr-FR')} séries indexées — ${dateStr}`
+  return `${bdIndex.value.count.toLocaleString('fr-FR')} séries indexées · ${dateStr}`
 })
 
 const scanStatus = computed(() => {
@@ -75,7 +75,7 @@ const scanStatus = computed(() => {
   if (lastScan.value.status === 'error') return { label: 'Dernier scan : erreur', type: 'error' }
   const d = lastScan.value.finished_at ? new Date(lastScan.value.finished_at) : null
   const dateStr = d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
-  return { label: `Dernier scan : ${lastScan.value.processed} fichiers — ${dateStr}`, type: 'done' }
+  return { label: `Dernier scan : ${lastScan.value.processed} fichiers · ${dateStr}`, type: 'done' }
 })
 
 watch(() => library.scanProgress.status, async (status) => {
@@ -114,7 +114,7 @@ async function refreshBedethequeIndex() {
     notif.error(e.response?.data?.detail || 'Erreur')
     return
   }
-  notif.info('Reconstruction de l\'index Bedetheque lancée — plusieurs minutes')
+  notif.info('Reconstruction de l\'index Bedetheque lancée. Elle prend plusieurs minutes.')
   bdPollTimer = setInterval(async () => {
     const { data } = await settingsApi.bedethequeIndexProgress()
     bdProgress.value = data
@@ -354,7 +354,7 @@ async function resetDatabase() {
           <div class="settings-section-title">Index Bedetheque</div>
           <p class="form-hint" style="margin-top:-6px; margin-bottom: 12px;">
             Utilisé pour retrouver rapidement une série sans dépendre du moteur de recherche du site.
-            Ne se met pas à jour automatiquement — à rafraîchir manuellement de temps en temps.
+            Ne se met pas à jour automatiquement : pensez à le rafraîchir de temps en temps.
           </p>
           <div class="scan-row">
             <button @click="refreshBedethequeIndex" class="btn btn-secondary btn-sm" :disabled="bdProgress.status === 'running'">

@@ -339,7 +339,7 @@ async function bulkDelete() {
   bulkDeleting.value = true
   try {
     const { data } = await tomesApi.deleteBulk([...selectedIds])
-    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) — ${data.errors[0]}`)
+    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) : ${data.errors[0]}`)
     else notif.success(`${data.ok} album(s) supprimé(s)`)
     clearSelection()
     await libraryStore.fetchSeries()
@@ -667,7 +667,7 @@ async function deleteSingleTome() {
           :href="entry.bedetheque_url || null"
           :target="entry.bedetheque_url ? '_blank' : null"
           :rel="entry.bedetheque_url ? 'noopener' : null"
-          :title="(entry.title || ('Tome ' + entry.number)) + ' — manquant'"
+          :title="(entry.title || ('Tome ' + entry.number)) + ' (manquant)'"
         >
           <div class="tome-cover">
             <div class="tome-cover-clip">

@@ -7,6 +7,7 @@
 ### Nouveau
 
 - **Exclure des dossiers du scan** (Paramètres › Bibliothèque) : leurs séries disparaissent de la bibliothèque au scan suivant, sans toucher aux fichiers. Les dossiers cachés et les dossiers système (corbeille, miniatures, instantanés) sont désormais toujours ignorés : la corbeille d'un partage pouvait faire réapparaître des BD supprimées.
+- **Textes de l'interface relus** : une cinquantaine de libellés, notifications et messages d'erreur réécrits sans tiret long, avec une ponctuation adaptée à chaque phrase. Un test empêche désormais d'en réintroduire.
 - **Sélecteur de dossier** : champ de recherche par nom dans toute la bibliothèque (sans tenir compte des accents ni des majuscules), et fenêtre shadcn comme les autres (focus, Échap, clic à côté).
 - **Import : glisser-déposer un dossier complet** (sous-dossiers compris) dans la zone de l'étape 1 ; un dossier unique pré-remplit la série à son nom, comme « choisir un dossier ».
 - **Services tiers plus robustes** (Bedetheque.com, ComicVine, Google Books) : requêtes espacées par service quelle que soit leur origine (recherche, import, scan des albums manquants), nouvelles tentatives automatiques en cas d'erreur passagère, et messages clairs (« Bedetheque.com ne répond pas pour le moment », « limite de requêtes atteinte », « clé API refusée ») au lieu d'une liste vide.

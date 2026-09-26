@@ -263,7 +263,7 @@ async function save() {
 
           <!-- Étape 2 : Filtres -->
           <template v-if="step === 2">
-            <p class="step-hint">ET est évalué avant OU (de gauche à droite) — comme la plupart des lecteurs à listes intelligentes.</p>
+            <p class="step-hint">ET est évalué avant OU (de gauche à droite), comme dans la plupart des lecteurs à listes intelligentes.</p>
             <div class="rules">
               <template v-for="(cond, idx) in conditions" :key="idx">
                 <div v-if="idx > 0" class="connector-toggle">

@@ -82,7 +82,7 @@ async function bulkDelete() {
   bulkDeleting.value = true
   try {
     const { data } = await libraryApi.deleteSeriesBulk([...selectedIds])
-    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) — ${data.errors[0]}`)
+    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) : ${data.errors[0]}`)
     else notif.success(`${data.ok} série(s) supprimée(s)`)
     clearSelection()
     await library.fetchSeries()

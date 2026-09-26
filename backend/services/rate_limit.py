@@ -25,7 +25,7 @@ class RateLimiter:
         if len(self._calls) >= self.max_calls:
             raise HTTPException(
                 status_code=429,
-                detail="Trop de requêtes de scraping — réessayez dans quelques instants",
+                detail="Trop de recherches en ligne. Réessayez dans quelques instants.",
             )
         self._calls.append(now)
 
@@ -58,7 +58,7 @@ class PerKeyRateLimiter:
         if len(bucket) >= self.max_calls:
             raise HTTPException(
                 status_code=429,
-                detail="Trop de tentatives — réessayez dans quelques instants",
+                detail="Trop de tentatives. Réessayez dans quelques instants.",
             )
         bucket.append(now)
 

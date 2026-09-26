@@ -98,7 +98,7 @@ async function mergeGroup(kind, group) {
       target
     )
     if (data.errors) notif.error(`${data.errors} erreur(s) pendant la fusion`)
-    else notif.success(`Fusionné — ${data.merged} album(s) mis à jour`)
+    else notif.success(`Fusion effectuée : ${data.merged} album(s) mis à jour`)
     library.fetchAuthors()
     loadDuplicates()
   } catch (e) {
@@ -241,7 +241,7 @@ function goToLibrary(name) {
             </div>
           </div>
           <p v-if="ignoredCountForTab" class="dup-ignored-hint">
-            {{ ignoredCountForTab }} groupe(s) ignoré(s) —
+            {{ ignoredCountForTab }} groupe(s) ignoré(s) ·
             <button class="dup-restore-btn" @click="restoreIgnoredForTab">réafficher</button>
           </p>
         </div>

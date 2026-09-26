@@ -63,7 +63,7 @@ async def get_config(db: AsyncSession) -> AuthConfig:
         await db.commit()
         await db.refresh(config)
         print(
-            f"[startup] Aucun compte configuré — identifiants par défaut créés : "
+            f"[startup] Aucun compte configuré : identifiants par défaut créés : "
             f"{DEFAULT_USERNAME} / {DEFAULT_PASSWORD}. À changer depuis "
             f"Configuration > Sécurité dès la première connexion.",
             flush=True,

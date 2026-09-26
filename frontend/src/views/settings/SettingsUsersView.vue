@@ -301,7 +301,7 @@ async function copyPassword() {
     await navigator.clipboard.writeText(tempPasswordInfo.value.password)
     notif.success('Copié dans le presse-papier')
   } catch {
-    notif.error('Impossible de copier — sélectionnez et copiez manuellement')
+    notif.error('Impossible de copier. Sélectionnez le texte et copiez-le manuellement.')
   }
 }
 
@@ -668,7 +668,7 @@ async function doDeleteProfile() {
       </div>
       <div class="modal-body">
         <p class="form-hint">
-          Ce mot de passe ne sera plus jamais affiché — notez-le ou copiez-le maintenant, puis transmettez-le à l'utilisateur.
+          Ce mot de passe ne sera plus jamais affiché. Notez-le ou copiez-le maintenant, puis transmettez-le à l'utilisateur.
         </p>
         <div class="temp-password-box">
           <code>{{ tempPasswordInfo.password }}</code>

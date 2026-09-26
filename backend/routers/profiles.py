@@ -108,7 +108,7 @@ async def delete_profile(profile_id: int, request: Request, db: AsyncSession = D
 
     from ..services.activity import log as activity_log
     n = len(assigned)
-    detail = f" — {n} compte(s) désassigné(s)" if n else ""
+    detail = f" ({n} compte(s) désassigné(s))" if n else ""
     await activity_log(db, "profile_delete", f"Profil supprimé : « {name} »{detail}", user=current_user, ip=get_client_ip(request))
     await db.commit()
 

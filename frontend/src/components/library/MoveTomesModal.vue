@@ -39,7 +39,7 @@ async function move() {
   moving.value = true
   try {
     const { data } = await tomesApi.moveTomes(props.tomeIds, target.value.id)
-    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) — ${data.errors[0]}`)
+    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) : ${data.errors[0]}`)
     else notif.success(`${data.ok} album(s) déplacé(s)`)
     emit('moved', data)
     emit('close')
@@ -80,7 +80,7 @@ function onKey(e) {
             <label class="form-label">Série de destination</label>
             <AutocompleteInput v-model="seriesName" :suggestions="suggestions" show-all-on-focus placeholder="Rechercher une série…" />
           </div>
-          <p v-if="target" class="dest-status">✓ « {{ target.name }} » — {{ target.tome_count }} album{{ target.tome_count > 1 ? 's' : '' }}</p>
+          <p v-if="target" class="dest-status">✓ « {{ target.name }} » · {{ target.tome_count }} album{{ target.tome_count > 1 ? 's' : '' }}</p>
         </template>
       </div>
 

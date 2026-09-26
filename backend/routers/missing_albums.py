@@ -335,7 +335,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
                     .where(MissingAlbumsScanJob.id == job.id)
                     .values(status="done", processed=p.get("processed", 0), total=p.get("total", 0), finished_at=utcnow())
                 )
-                await activity_log(scan_db, "scan", f"Recherche d'albums manquants terminée — {p.get('processed', 0)} série(s) analysée(s)", user=scan_user, ip=scan_ip)
+                await activity_log(scan_db, "scan", f"Recherche d'albums manquants terminée : {p.get('processed', 0)} série(s) analysée(s)", user=scan_user, ip=scan_ip)
             except Exception as e:
                 _scan_progress[job.id]["status"] = "error"
                 _scan_progress[job.id]["error_msg"] = str(e)

@@ -440,7 +440,7 @@ async def run_convert_job(job_id: int, user_id: int | None = None, ip: str | Non
         from .activity import log as activity_log
         done_count = sum(1 for v in _progress.get(job_id, {}).values() if v.get("status") == "done")
         err_count  = sum(1 for v in _progress.get(job_id, {}).values() if v.get("status") == "error")
-        msg = f"Conversion terminée — {done_count} fichier(s) convertis"
+        msg = f"Conversion terminée : {done_count} fichier(s) converti(s)"
         if err_count: msg += f", {err_count} erreur(s)"
         convert_user = await db.get(User, user_id) if user_id is not None else None
         await activity_log(db, "convert", msg, status="ok" if final_status == "done" else "error", user=convert_user, ip=ip)

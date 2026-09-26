@@ -367,7 +367,7 @@ onMounted(async () => {
                 <p class="ma-section-hint">Réapparaissent au prochain scan si tu les réaffiches.</p>
                 <div class="ma-excluded-list">
                   <div v-for="item in ignoredAlbums" :key="item.id" class="ma-excluded-row">
-                    <span>{{ item.series_name }} — T{{ item.number }}<template v-if="displayTitle(item)"> · {{ displayTitle(item) }}</template></span>
+                    <span>{{ item.series_name }} · T{{ item.number }}<template v-if="displayTitle(item)"> · {{ displayTitle(item) }}</template></span>
                     <button
                       class="btn btn-secondary btn-sm"
                       :disabled="unignoring.has(item.id)"

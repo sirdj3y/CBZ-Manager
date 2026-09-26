@@ -64,7 +64,7 @@ async function bulkDelete() {
   bulkDeleting.value = true
   try {
     const { data } = await tomesApi.deleteBulk([...selectedIds])
-    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) — ${data.errors[0]}`)
+    if (data.errors?.length) notif.error(`${data.errors.length} erreur(s) : ${data.errors[0]}`)
     else notif.success(`${data.ok} album(s) supprimé(s)`)
     clearSelection()
     await tomesStore.fetchAllTomes()

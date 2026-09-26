@@ -815,7 +815,7 @@ async function startImport() {
           new_series_name: isNewSeries ? destSeriesName.value.trim() : null,
         })
         if (data?.deleted_count) {
-          notif.info(`Import annulé — ${data.deleted_count} fichier(s) supprimé(s)`)
+          notif.info(`Import annulé : ${data.deleted_count} fichier(s) supprimé(s)`)
         }
       } catch { /* ignoré */ }
       await libraryStore.fetchSeries()
@@ -857,7 +857,7 @@ async function startImport() {
 
   allDoneFlag.value = true
   const okCount = fileStatuses.value.filter(f => f.uploadStatus === 'ok').length
-  notif.success(`Import terminé — ${okCount} fichier(s) importé(s)`)
+  notif.success(`Import terminé : ${okCount} fichier(s) importé(s)`)
 }
 
 async function convertOne(idx, destPath, uploadedTomeId = null) {
@@ -1058,7 +1058,7 @@ watch(() => route.path, (path) => {
             <SvgIcon :name="dragging ? 'upload' : 'folder-up'" class="drop-icon" />
             <p class="drop-label">{{ dragging ? 'Déposer ici' : 'Cliquer ou glisser-déposer des fichiers ou un dossier' }}</p>
             <p class="drop-hint">
-              Formats acceptés : CBZ, CBR, PDF — ou
+              Formats acceptés : CBZ, CBR, PDF. Ou
               <button type="button" class="link-btn" @click.stop="folderInput.click()">choisir un dossier</button>
             </p>
           </div>
@@ -1081,7 +1081,7 @@ watch(() => route.path, (path) => {
                     :title="[
                       rawFileWarnings[f.name].conflict ? 'Conflit : un autre fichier sélectionné aurait le même nom une fois renommé' : '',
                       rawFileWarnings[f.name].duplicate ? 'Un fichier de ce nom existe déjà dans la destination' : '',
-                    ].filter(Boolean).join(' — ')"
+                    ].filter(Boolean).join('. ')"
                   >⚠</span>
                 </label>
                 <span class="files-size">{{ formatSize(f.size) }}</span>
@@ -1157,7 +1157,7 @@ watch(() => route.path, (path) => {
                   <input type="checkbox" v-model="batchOnlyEmpty" />
                   Seulement si vide
                 </label>
-                <label class="batch-only-empty" title="Sans rapport avec les autres tomes du dossier — voir Tome.is_oneshot">
+                <label class="batch-only-empty" title="Album sans rapport avec les autres tomes du dossier">
                   <input type="checkbox" :checked="allOneshot" @change="toggleAllOneshot" />
                   Tout marquer one-shot
                 </label>
@@ -1293,7 +1293,7 @@ watch(() => route.path, (path) => {
                             {{ formatSize(estimateSize(item.size, convertPreset)) }}
                           </span>
                         </template>
-                        <span v-else class="td-no-convert">—&nbsp;non modifié</span>
+                        <span v-else class="td-no-convert">non modifié</span>
                       </td>
                     </tr>
                   </tbody>
@@ -1383,7 +1383,7 @@ watch(() => route.path, (path) => {
             <template v-if="allDone">
               <p class="progress-count">
                 {{ fileStatuses.filter(f => f.uploadStatus === 'ok').length }} fichier(s) importé(s)
-                <template v-if="uploadErrors.length"> — {{ uploadErrors.length }} erreur(s)</template>
+                <template v-if="uploadErrors.length"> · {{ uploadErrors.length }} erreur(s)</template>
               </p>
               <div class="step-actions-buttons">
                 <button @click="resetImport" class="btn btn-ghost btn-sm">Importer d'autres albums</button>
@@ -1403,7 +1403,7 @@ watch(() => route.path, (path) => {
           Êtes-vous sûr de vouloir créer la série « {{ pendingNewSeriesName }} » ?
         </p>
         <div v-if="similarSeriesForNew.length" class="similar-series-warning">
-          <p class="similar-series-warning-title">⚠️ Nom proche d'une série déjà existante — vérifiez qu'il ne s'agit pas de la même série avant de continuer :</p>
+          <p class="similar-series-warning-title">⚠️ Nom proche d'une série déjà existante. Vérifiez qu'il ne s'agit pas de la même série avant de continuer :</p>
           <button
             v-for="s in similarSeriesForNew"
             :key="s.id"
@@ -1464,7 +1464,7 @@ watch(() => route.path, (path) => {
       <div class="modal-box">
         <p class="modal-title">⚠️ Métadonnées non enregistrées</p>
         <p class="modal-body">
-          Au moins un fichier n'est pas au format CBZ — les métadonnées saisies ne seront pas enregistrées.
+          Au moins un fichier n'est pas au format CBZ : les métadonnées saisies ne seront pas enregistrées.
           Voulez-vous activer la conversion en CBZ, ou continuer sans métadonnées ?
         </p>
         <div class="modal-actions">

@@ -538,7 +538,7 @@ async function toggleRead() {
               :href="t.bedetheque_url || null"
               :target="t.bedetheque_url ? '_blank' : null"
               :rel="t.bedetheque_url ? 'noopener' : null"
-              :title="(t.title || ('Tome ' + t.number)) + ' — manquant'"
+              :title="(t.title || ('Tome ' + t.number)) + ' (manquant)'"
             >
               <div class="sibling-cover">
                 <div class="sibling-cover-clip">

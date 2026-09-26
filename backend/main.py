@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
         print(
             f"[startup] ATTENTION : le dossier média appartient à "
             f"UID={mismatch['media_uid']}/GID={mismatch['media_gid']}, mais l'application "
-            f"tourne en UID={mismatch['app_uid']}/GID={mismatch['app_gid']} — des fichiers "
+            f"tourne en UID={mismatch['app_uid']}/GID={mismatch['app_gid']} : des fichiers "
             f"peuvent être illisibles. Si besoin, réglez PUID={mismatch['media_uid']} et "
             f"PGID={mismatch['media_gid']} dans votre .env, puis redémarrez.",
             flush=True,

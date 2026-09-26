@@ -478,7 +478,7 @@ async def set_series_cover(series_id: int, body: SetCoverIn, request: Request, d
     await db.commit()
     from ..services.activity import log as activity_log
     cover_msg = f"Cover personnalisée : tome #{body.tome_id}" if body.tome_id else "Cover réinitialisée (auto)"
-    await activity_log(db, "edit_metadata", f"Série « {series.name} » — {cover_msg}", user=current_user, ip=get_client_ip(request))
+    await activity_log(db, "edit_metadata", f"Série « {series.name} » : {cover_msg}", user=current_user, ip=get_client_ip(request))
     await db.commit()
 
     # Return the new cover url
@@ -752,7 +752,7 @@ async def _fetch_series_html(bedetheque_url: str) -> str:
         resp = await BEDETHEQUE.get(bd._series_all_url(bedetheque_url))
     except ServiceError as e:
         if e.kind == "not_found":
-            raise HTTPException(status_code=502, detail="Page Bedetheque introuvable — vérifiez l'URL de la série")
+            raise HTTPException(status_code=502, detail="Page Bedetheque introuvable. Vérifiez l'URL de la série.")
         raise
     return resp.text
 
@@ -763,7 +763,7 @@ async def _compute_enrich_items(series: Series, db: AsyncSession) -> list[dict]:
     if series.bedetheque_match_status != "found":
         raise HTTPException(
             status_code=400,
-            detail="Cette URL Bedetheque n'a pas pu être chargée avec succès — vérifie/corrige-la sur la fiche série avant de compléter.",
+            detail="Cette URL Bedetheque n'a pas pu être chargée. Vérifiez-la ou corrigez-la sur la fiche de la série avant de compléter.",
         )
 
     # Statut/genre/résumé/note communautaire — même fonction partagée que le scan "Albums
@@ -1138,7 +1138,7 @@ async def start_scan(background_tasks: BackgroundTasks, request: Request, db: As
                 await scan_library(settings.LIBRARY_PATH, scan_db, job.id, progress_cb)
                 _scan_progress[job.id]["status"] = "done"
                 p = _scan_progress[job.id]
-                await activity_log(scan_db, "scan", f"Scan terminé — {p.get('processed', 0)} fichiers traités", user=scan_user, ip=scan_ip)
+                await activity_log(scan_db, "scan", f"Scan terminé : {p.get('processed', 0)} fichiers traités", user=scan_user, ip=scan_ip)
             except Exception as e:
                 _scan_progress[job.id]["status"] = "error"
                 await activity_log(scan_db, "scan", f"Scan échoué : {e}", status="error", user=scan_user, ip=scan_ip)

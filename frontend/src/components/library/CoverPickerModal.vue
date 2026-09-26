@@ -41,10 +41,10 @@ async function resetCover() {
 </script>
 
 <template>
-  <AppDialog :title="`Choisir la miniature — ${series.name}`" @close="$emit('close')">
+  <AppDialog :title="`Choisir la miniature : ${series.name}`" @close="$emit('close')">
     <div class="cover-picker-modal">
       <div class="cover-picker-header">
-        <span>Choisir la miniature — {{ series.name }}</span>
+        <span>Choisir la miniature : {{ series.name }}</span>
         <button class="btn btn-ghost btn-sm" @click="$emit('close')">✕</button>
       </div>
       <div class="cover-picker-grid">

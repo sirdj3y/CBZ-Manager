@@ -741,7 +741,7 @@ const myGenreBars = computed(() => hbarPct(
           </div>
           <div class="card chart-card chart-card-empty" v-else>
             <div class="chart-body">
-              <p class="empty-hint">Pas encore de temps de lecture enregistré — lisez un album pour voir apparaître votre activité ici.</p>
+              <p class="empty-hint">Pas encore de temps de lecture enregistré. Lisez un album pour voir apparaître votre activité ici.</p>
             </div>
           </div>
 

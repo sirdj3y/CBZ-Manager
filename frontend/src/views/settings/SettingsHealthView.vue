@@ -184,7 +184,7 @@ const filteredIssues = computed(() => {
         <div class="health-progress-fill" :style="{ width: scanProgress.total ? (scanProgress.processed / scanProgress.total * 100) + '%' : '2%' }" />
       </div>
       <p v-if="isScanning() && scanProgress.total" class="page-hint" style="margin-bottom:16px;">
-        {{ scanProgress.processed }} / {{ scanProgress.total }} fichier(s) — comparaison du contenu pour les doublons
+        {{ scanProgress.processed }} / {{ scanProgress.total }} fichier(s) · comparaison du contenu pour les doublons
       </p>
 
       <!-- Loading state -->

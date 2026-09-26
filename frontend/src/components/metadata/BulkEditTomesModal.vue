@@ -78,7 +78,7 @@ function onKey(e) {
 
       <div class="modal-body">
         <p class="modal-hint">
-          Seuls les champs renseignés ci-dessous seront appliqués, à tous les albums sélectionnés — et remplaceront leur valeur actuelle. Laisser vide un champ ne le modifie pas.
+          Seuls les champs renseignés ci-dessous seront appliqués à tous les albums sélectionnés, en remplaçant leur valeur actuelle. Laisser vide un champ ne le modifie pas.
         </p>
         <div class="field">
           <label class="form-label">Scénariste</label>
