@@ -6,6 +6,9 @@ import { authApi } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
+import { passkeysApi } from '../api/passkeys'
+import { defaultPasskeyName, isCancelled, passkeyStatus, registerPasskey } from '../utils/passkeys'
 
 const auth = useAuthStore()
 const notif = useNotificationStore()
@@ -15,11 +18,60 @@ const notif = useNotificationStore()
 // que de le laisser deviner pourquoi il est redirigé ici.
 onMounted(async () => {
   if (auth.mustChangePassword) auth.changePasswordOpen = true
+  loadPasskeys()
   try {
     const { data } = await authApi.avatarPresets()
     presets.value = data.presets
   } catch { /* pas bloquant */ }
 })
+
+// ── Passkeys ── (voir utils/passkeys.js)
+const pkStatus = ref({ enabled: false, usable: false, origin: null })
+const passkeys = ref([])
+const pkNameOpen = ref(false)
+const pkName = ref('')
+const pkBusy = ref(false)
+const pkToDelete = ref(null)
+
+async function loadPasskeys() {
+  pkStatus.value = await passkeyStatus()
+  if (!pkStatus.value.enabled) return
+  try {
+    passkeys.value = (await passkeysApi.list()).data
+  } catch { /* pas bloquant */ }
+}
+function startAddPasskey() {
+  pkName.value = defaultPasskeyName()
+  pkNameOpen.value = true
+}
+async function confirmAddPasskey() {
+  pkBusy.value = true
+  try {
+    const created = await registerPasskey(pkName.value.trim() || defaultPasskeyName())
+    passkeys.value.push(created)
+    pkNameOpen.value = false
+    notif.success('Passkey ajoutée')
+  } catch (e) {
+    if (!isCancelled(e)) notif.error(e.response?.data?.detail || "Impossible d'ajouter la passkey")
+  } finally {
+    pkBusy.value = false
+  }
+}
+async function deletePasskey() {
+  const p = pkToDelete.value
+  try {
+    await passkeysApi.remove(p.id)
+    passkeys.value = passkeys.value.filter(x => x.id !== p.id)
+    notif.success('Passkey supprimée')
+  } catch (e) {
+    notif.error(e.response?.data?.detail || 'Erreur lors de la suppression')
+  } finally {
+    pkToDelete.value = null
+  }
+}
+function fmtDate(iso) {
+  return iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+}
 
 // ── Photo de profil ──
 const fileInput = ref(null)
@@ -202,11 +254,77 @@ async function saveUsername() {
           </div>
         </div>
       </section>
+
+      <section v-if="pkStatus.enabled" class="card settings-section">
+        <div class="card-body">
+          <div class="settings-section-title">Passkeys</div>
+          <p class="form-hint" style="margin-top:-6px; margin-bottom: 14px;">
+            Connectez-vous avec Face ID, Touch ID, Windows Hello ou votre gestionnaire de mots de passe, sans saisir de mot de passe.
+            Votre mot de passe reste utilisable.
+          </p>
+          <ul v-if="passkeys.length" class="pk-list">
+            <li v-for="p in passkeys" :key="p.id" class="pk-item">
+              <div class="pk-info">
+                <span class="pk-name">{{ p.name }}</span>
+                <span class="pk-meta">
+                  Ajoutée le {{ fmtDate(p.created_at) }} ·
+                  {{ p.last_used_at ? `utilisée le ${fmtDate(p.last_used_at)}` : 'jamais utilisée' }}
+                </span>
+              </div>
+              <Hint label="Supprimer cette passkey">
+                <button class="btn btn-ghost btn-icon btn-sm" @click="pkToDelete = p">✕</button>
+              </Hint>
+            </li>
+          </ul>
+          <div v-if="pkStatus.usable" class="settings-actions">
+            <button class="btn btn-secondary btn-sm" @click="startAddPasskey">Ajouter une passkey</button>
+          </div>
+          <p v-else class="form-hint">
+            Pour ajouter une passkey, ouvrez l'application depuis <a :href="pkStatus.origin + '/account'">{{ pkStatus.origin }}</a>.
+          </p>
+        </div>
+      </section>
+
+      <AppDialog v-if="pkNameOpen" title="Ajouter une passkey" :dismissible="!pkBusy" @close="pkNameOpen = false">
+        <form class="pk-dialog" @submit.prevent="confirmAddPasskey">
+          <p class="pk-dialog-title">Ajouter une passkey</p>
+          <label class="form-label" for="pk-name">Nom de l'appareil</label>
+          <input id="pk-name" v-model="pkName" class="form-control" maxlength="60" autofocus />
+          <p class="form-hint">Pour la reconnaître dans la liste, par exemple « iPhone » ou « Mac du salon ».</p>
+          <div class="pk-dialog-btns">
+            <button type="button" class="btn btn-ghost btn-sm" :disabled="pkBusy" @click="pkNameOpen = false">Annuler</button>
+            <button type="submit" class="btn btn-primary btn-sm" :disabled="pkBusy">{{ pkBusy ? 'En attente de l’appareil…' : 'Continuer' }}</button>
+          </div>
+        </form>
+      </AppDialog>
+
+      <AppDialog v-if="pkToDelete" title="Supprimer la passkey ?" @close="pkToDelete = null">
+        <div class="pk-dialog">
+          <p class="pk-dialog-title">Supprimer la passkey ?</p>
+          <p class="form-hint">« {{ pkToDelete.name }} » ne permettra plus de se connecter. Pensez aussi à la retirer du gestionnaire de mots de passe de l'appareil.</p>
+          <div class="pk-dialog-btns">
+            <button class="btn btn-ghost btn-sm" @click="pkToDelete = null">Annuler</button>
+            <button class="btn btn-danger btn-sm" @click="deletePasskey">Supprimer</button>
+          </div>
+        </div>
+      </AppDialog>
     </main>
   </AppLayout>
 </template>
 
 <style scoped>
+.pk-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.pk-item { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; background: var(--light); border-radius: var(--radius-sm); }
+.pk-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pk-name { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+.pk-meta { font-size: 0.78rem; color: var(--muted); }
+.pk-dialog {
+  width: 100%; max-width: 400px; padding: 22px;
+  background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.pk-dialog-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.pk-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .settings-main {
   flex: 1; padding: 24px 20px;
   max-width: 1100px; margin: 0 auto; width: 100%;

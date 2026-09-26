@@ -30,6 +30,21 @@ const settings = ref({ library_subdir: '', media_root_name: '', google_books_con
 const form = ref({ library_subdir: '', google_books_api_key: '', comicvine_api_key: '', rename_pattern: '' })
 const saving = ref(false)
 const savingKeys = ref(false)
+// Adresse publique (admin) : passkeys liées à ce domaine — voir backend/services/passkeys.py.
+const publicUrl = ref('')
+const savingPublicUrl = ref(false)
+async function savePublicUrl() {
+  savingPublicUrl.value = true
+  try {
+    const { data } = await settingsApi.update({ app_public_url: publicUrl.value })
+    publicUrl.value = data.app_public_url
+    notif.success('Adresse publique enregistrée')
+  } catch (e) {
+    notif.error(e.response?.data?.detail || 'Erreur')
+  } finally {
+    savingPublicUrl.value = false
+  }
+}
 const savingRename = ref(false)
 const showFolderBrowser = ref(false)
 
@@ -91,6 +106,7 @@ onMounted(async () => {
   form.value.library_subdir = data.library_subdir
   form.value.rename_pattern = data.rename_pattern
   excludedFolders.value = data.scan_excluded_folders || []
+  publicUrl.value = data.app_public_url || ''
   const { data: scanData } = await libraryApi.getLastScan()
   lastScan.value = scanData
   await refreshBdStatus()
@@ -320,6 +336,23 @@ async function resetDatabase() {
             <button @click="saveRenamePattern" :disabled="savingRename" class="btn btn-primary btn-sm">Sauvegarder le modèle</button>
             <button @click="resetRenamePattern" :disabled="savingRename" class="btn btn-secondary btn-sm">Réinitialiser</button>
           </div>
+
+          <template v-if="authStore.isAdmin">
+            <div class="section-divider" />
+
+            <div class="settings-section-title">Adresse publique</div>
+            <div class="form-group">
+              <label class="form-label" for="public-url">Adresse de l'application depuis l'extérieur</label>
+              <div class="path-input-group">
+                <input id="public-url" v-model="publicUrl" type="url" class="form-control path-input" placeholder="https://cbz.example.com" />
+                <button class="btn btn-primary btn-sm path-browse-btn" type="button" :disabled="savingPublicUrl" @click="savePublicUrl">Enregistrer</button>
+              </div>
+              <div class="form-hint">
+                Nécessaire aux passkeys, qui ne fonctionnent qu'en HTTPS depuis cette adresse. Laissez vide pour les désactiver.
+                Changer d'adresse rend inutilisables les passkeys déjà créées.
+              </div>
+            </div>
+          </template>
 
           <div class="section-divider" />
 

@@ -2,6 +2,18 @@
 
 ---
 
+## Non publié (branche develop)
+
+### Nouveau
+
+- **Connexion par passkey** (Face ID, Touch ID, Windows Hello, gestionnaire de mots de passe) : ajout depuis Mon compte (plusieurs par compte, nommées, supprimables), bouton « Se connecter avec une passkey » sur la page de connexion. Le mot de passe reste utilisable. Nécessite l'adresse publique de l'app en HTTPS (nouveau réglage administrateur dans Paramètres › Bibliothèque) ; depuis l'IP locale, un lien invite à passer par cette adresse.
+
+### Corrections
+
+- **Derrière le reverse proxy**, toutes les connexions extérieures apparaissaient avec l'adresse interne de Docker : Historique inexploitable, limitation des tentatives de connexion partagée par tous les visiteurs, cookie de session sans l'option « HTTPS uniquement ». L'IP réelle est désormais lue, sans pouvoir être inventée par le visiteur (réglage `TRUSTED_PROXY_IPS` ajouté aux compose Synology).
+
+---
+
 ## v1.26.0 — 2026-09-26 — Services en ligne fiabilisés, import de dossiers, exclusions de scan
 
 ### Nouveau

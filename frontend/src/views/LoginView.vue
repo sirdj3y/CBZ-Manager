@@ -1,7 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { isCancelled, loginWithPasskey, passkeyStatus } from '../utils/passkeys'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -10,6 +11,28 @@ const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+
+// Passkey : proposée seulement depuis l'adresse publique (voir utils/passkeys.js) ; ailleurs
+// (IP locale du NAS), un lien vers cette adresse si les passkeys sont activées.
+const pk = ref({ enabled: false, usable: false, origin: null })
+onMounted(async () => { pk.value = await passkeyStatus() })
+
+function goAfterLogin() {
+  window.location.href = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+}
+
+async function submitPasskey() {
+  loading.value = true
+  error.value = ''
+  try {
+    await loginWithPasskey()
+    goAfterLogin()
+  } catch (e) {
+    if (!isCancelled(e)) error.value = e.response?.data?.detail || 'Connexion par passkey impossible'
+  } finally {
+    loading.value = false
+  }
+}
 
 async function submit() {
   if (!username.value.trim() || !password.value) return
@@ -22,7 +45,7 @@ async function submit() {
     // dans le même onglet — sans ce rechargement, un changement de compte laissait apparaître
     // les données mises en cache de la session précédente (ex. smart lists privées d'un
     // autre utilisateur) jusqu'à ce que chaque store se rafraîchisse séparément.
-    window.location.href = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    goAfterLogin()
   } catch (e) {
     error.value = e.response?.data?.detail || 'Erreur de connexion'
   } finally {
@@ -53,11 +76,24 @@ async function submit() {
       <button type="submit" class="btn btn-primary login-submit" :disabled="loading">
         {{ loading ? 'Connexion…' : 'Se connecter' }}
       </button>
+
+      <template v-if="pk.usable">
+        <div class="login-or"><span>ou</span></div>
+        <button type="button" class="btn btn-secondary login-submit" :disabled="loading" @click="submitPasskey">
+          Se connecter avec une passkey
+        </button>
+      </template>
+      <p v-else-if="pk.enabled && pk.origin" class="login-pk-hint">
+        Connexion par passkey disponible sur <a :href="pk.origin + '/login'">{{ pk.origin.replace(/^https?:\/\//, '') }}</a>
+      </p>
     </form>
   </div>
 </template>
 
 <style scoped>
+.login-or { display: flex; align-items: center; gap: 10px; margin: 14px 0; color: var(--muted); font-size: 0.8rem; }
+.login-or::before, .login-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.login-pk-hint { margin-top: 14px; text-align: center; font-size: 0.78rem; color: var(--muted); }
 .login-page {
   min-height: 100vh;
   display: flex; align-items: center; justify-content: center;

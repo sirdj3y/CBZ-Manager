@@ -22,6 +22,7 @@ CHECKS: list[tuple[str, str, str, str, str]] = [
     ("reading_activity_tome", "Temps de lecture", "reading_activity", "tome_id", "tomes"),
     ("reading_activity_user", "Temps de lecture", "reading_activity", "user_id", "users"),
     ("smart_lists_user", "Listes intelligentes", "smart_lists", "owner_id", "users"),
+    ("passkeys_user", "Passkeys", "passkeys", "user_id", "users"),
     ("user_hidden_series_series", "Séries masquées", "user_hidden_series", "series_id", "series"),
     ("user_hidden_series_user", "Séries masquées", "user_hidden_series", "user_id", "users"),
     ("ignored_missing_albums", "Albums manquants ignorés", "ignored_missing_albums", "series_id", "series"),

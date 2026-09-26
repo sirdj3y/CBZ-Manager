@@ -63,9 +63,11 @@ def server():
     # Lancé depuis le dossier temporaire (PYTHONPATH pour trouver `backend`) : un réglage
     # enregistré depuis l'interface s'écrit dans ./.env hors Docker — jamais dans celui du dépôt.
     env = {**os.environ, "MEDIA_ROOT": str(media), "LIBRARY_SUBDIR": "", "DB_PATH": str(data / "db.sqlite"),
-           "COVER_CACHE_DIR": str(data / "covers"), "DEV_MODE": "false", "PYTHONPATH": str(ROOT)}
+           "COVER_CACHE_DIR": str(data / "covers"), "DEV_MODE": "false", "PYTHONPATH": str(ROOT),
+           # Passkeys : liées à un nom de domaine (pas une IP) → le navigateur passe par localhost.
+           "APP_PUBLIC_URL": f"http://localhost:{port}"}
     log = open(tmp / "server.log", "w")
-    proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.main:app", "--port", str(port)],
+    proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", str(port)],
                             cwd=tmp, env=env, stdout=log, stderr=subprocess.STDOUT)
     base = f"http://127.0.0.1:{port}"
     try:
@@ -86,7 +88,9 @@ def server():
                 if c.get(f"/api/scan/{job}").json()["status"] in ("done", "error"):
                     break
                 time.sleep(0.2)
-        yield base
+        # Le navigateur passe par localhost (passkeys) ; les appels de préparation ci-dessus
+        # restent sur 127.0.0.1 (localhost peut d'abord résoudre en ::1, où rien n'écoute).
+        yield f"http://localhost:{port}"
     finally:
         proc.terminate()
         proc.wait(timeout=10)

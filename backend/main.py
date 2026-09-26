@@ -12,7 +12,7 @@ from .services.storage_check import check_media_identity
 from .services import auth as auth_service
 from .services import smart_lists as smart_lists_service
 from .services.http_client import ServiceError
-from .routers import health, auth, users, profiles, library, tomes, covers, reader, scraper, converter, settings as settings_router, stats, export, logs, import_router, health_check, missing_albums, opds, opds2, notifications, smart_lists, series_hero
+from .routers import health, auth, users, profiles, library, tomes, covers, reader, scraper, converter, settings as settings_router, stats, export, logs, import_router, health_check, missing_albums, opds, opds2, notifications, smart_lists, series_hero, passkeys
 from .routers.health_check import cleanup_stale_scan_jobs
 
 
@@ -95,6 +95,7 @@ app.include_router(opds2.router)
 app.include_router(notifications.router)
 app.include_router(smart_lists.router)
 app.include_router(series_hero.router)
+app.include_router(passkeys.router)
 
 
 # SPA fallback — serve index.html for unknown non-API paths

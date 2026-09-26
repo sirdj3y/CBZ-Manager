@@ -248,11 +248,12 @@ async def get_current_settings():
         comicvine_configured=bool(settings.COMICVINE_API_KEY),
         rename_pattern=settings.RENAME_PATTERN,
         scan_excluded_folders=settings.scan_excluded_folders,
+        app_public_url=settings.APP_PUBLIC_URL,
     )
 
 
 @router.put("", response_model=SettingsOut)
-async def update_settings(body: SettingsIn, db: AsyncSession = Depends(get_db)):
+async def update_settings(body: SettingsIn, request: Request, db: AsyncSession = Depends(get_db)):
     if body.library_subdir is not None:
         subdir = body.library_subdir.strip().strip("/")
         if subdir:
@@ -291,6 +292,22 @@ async def update_settings(body: SettingsIn, db: AsyncSession = Depends(get_db)):
         _rewrite_env("RENAME_PATTERN", body.rename_pattern)
         settings.RENAME_PATTERN = body.rename_pattern
 
+    if body.app_public_url is not None:
+        # Adresse publique (liens, passkeys) : réservée aux admins — elle fixe le domaine auquel
+        # les passkeys de tous les comptes sont liées. Schéma + nom d'hôte (+ port) seulement.
+        user = getattr(request.state, "user", None)
+        if not (user and user.is_admin):
+            raise HTTPException(status_code=403, detail="Réservé aux administrateurs")
+        from urllib.parse import urlparse
+        url = body.app_public_url.strip().rstrip("/")
+        if url:
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.path or parsed.query:
+                raise HTTPException(status_code=400, detail="Adresse invalide. Exemple : https://cbz.example.com")
+            url = f"{parsed.scheme}://{parsed.netloc}"
+        _rewrite_env("APP_PUBLIC_URL", url)
+        settings.APP_PUBLIC_URL = url
+
     if body.scan_excluded_folders is not None:
         # Chemins relatifs à MEDIA_ROOT (ceux du sélecteur de dossier) — même confinement que
         # LIBRARY_SUBDIR. Un dossier disparu depuis reste accepté (l'exclusion ne gêne rien).
@@ -314,4 +331,5 @@ async def update_settings(body: SettingsIn, db: AsyncSession = Depends(get_db)):
         comicvine_configured=bool(settings.COMICVINE_API_KEY),
         rename_pattern=settings.RENAME_PATTERN,
         scan_excluded_folders=settings.scan_excluded_folders,
+        app_public_url=settings.APP_PUBLIC_URL,
     )

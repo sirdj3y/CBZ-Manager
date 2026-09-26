@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Paramètres › Bibliothèque) — en plus des dossiers système toujours ignorés (voir
     # services/scanner.py::ALWAYS_EXCLUDED).
     SCAN_EXCLUDED_FOLDERS: str = "[]"
+    # Adresse publique de l'app (ex. https://cbz.example.com), réglable dans Paramètres :
+    # les passkeys sont liées à ce nom de domaine (voir services/passkeys.py). Vide = passkeys
+    # désactivées.
+    APP_PUBLIC_URL: str = ""
 
     @property
     def scan_excluded_folders(self) -> list[str]:
@@ -52,7 +56,7 @@ class Settings(BaseSettings):
         Path(self.DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 
-_PERSISTED_KEYS = ("LIBRARY_SUBDIR", "GOOGLE_BOOKS_API_KEY", "COMICVINE_API_KEY", "RENAME_PATTERN", "SCAN_EXCLUDED_FOLDERS")
+_PERSISTED_KEYS = ("LIBRARY_SUBDIR", "GOOGLE_BOOKS_API_KEY", "COMICVINE_API_KEY", "RENAME_PATTERN", "SCAN_EXCLUDED_FOLDERS", "APP_PUBLIC_URL")
 
 
 @lru_cache

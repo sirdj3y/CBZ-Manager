@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Integer, String, Boolean, DateTime, Float, ForeignKey, Text, Index, UniqueConstraint
+    Integer, String, Boolean, DateTime, Float, ForeignKey, Text, Index, UniqueConstraint, LargeBinary
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -418,6 +418,24 @@ class User(Base):
     # même id. Test : tests/test_deletion_cleanup.py.
     reading_activity: Mapped[list["ReadingActivity"]] = relationship("ReadingActivity", cascade="all, delete-orphan")
     smart_lists: Mapped[list["SmartList"]] = relationship("SmartList", cascade="all, delete-orphan")
+    passkeys: Mapped[list["Passkey"]] = relationship("Passkey", cascade="all, delete-orphan")
+
+
+class Passkey(Base):
+    """Passkey (identifiant WebAuthn) d'un compte — voir services/passkeys.py. Seule la clé
+    PUBLIQUE est stockée : la clé privée ne quitte jamais l'appareil (ou le gestionnaire de
+    mots de passe) de l'utilisateur."""
+    __tablename__ = "passkeys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    credential_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)  # base64url
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sign_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    transports: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
 class UserHiddenSeries(Base):

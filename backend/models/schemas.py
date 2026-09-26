@@ -329,6 +329,7 @@ class SettingsOut(BaseModel):
     comicvine_configured: bool
     rename_pattern: str = ""
     scan_excluded_folders: list[str] = []
+    app_public_url: str = ""
 
 class SettingsIn(BaseModel):
     library_subdir: Optional[str] = None
@@ -336,6 +337,7 @@ class SettingsIn(BaseModel):
     comicvine_api_key: Optional[str] = None
     rename_pattern: Optional[str] = None
     scan_excluded_folders: Optional[list[str]] = None
+    app_public_url: Optional[str] = None
 
 
 # ── Rename ────────────────────────────────────────────────────────────────────
