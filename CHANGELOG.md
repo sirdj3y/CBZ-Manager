@@ -2,7 +2,7 @@
 
 ---
 
-## Non publié (branche develop)
+## v1.27.0 — 2026-09-26 — Connexion par passkey, IP réelle derrière le reverse proxy
 
 ### Nouveau
 
@@ -11,6 +11,19 @@
 ### Corrections
 
 - **Derrière le reverse proxy**, toutes les connexions extérieures apparaissaient avec l'adresse interne de Docker : Historique inexploitable, limitation des tentatives de connexion partagée par tous les visiteurs, cookie de session sans l'option « HTTPS uniquement ». L'IP réelle est désormais lue, sans pouvoir être inventée par le visiteur (réglage `TRUSTED_PROXY_IPS` ajouté aux compose Synology).
+
+### Technique
+
+- Dépendances : `webauthn` (serveur), `@simplewebauthn/browser` (interface).
+- Tests : 84 backend (dont un authentificateur logiciel produisant de vraies signatures WebAuthn), 44 frontend, 29 de bout en bout (dont l'authentificateur virtuel de Chromium ; le navigateur de test passe désormais par `localhost`).
+
+### Contexte
+
+Réflexion sur l'intégration de BetterAuth et Resend : BetterAuth écarté (bibliothèque Node.js, inadaptée au backend Python, et migration de la partie la plus sensible de l'app pour un gain modeste) ; e-mail (mot de passe oublié, invitations) reporté, et envisagé en SMTP générique plutôt que via l'API Resend. Les passkeys, qui ne dépendent d'aucun service extérieur, ont été retenues. Leur préparation a révélé que l'app ne voyait que l'adresse interne de Docker derrière le reverse proxy de DSM (constaté par l'utilisateur dans l'Historique : 172.22.0.1 partout).
+
+### Validation
+
+Passkeys testées de bout en bout dans Chromium (ajout, connexion sans saisie, suppression, bouton absent hors de l'adresse publique) et côté serveur (défi rejoué, origine étrangère, passkey supprimée, compte supprimé). Lecture de l'IP derrière le proxy testée sur les cas d'en-tête inventé par le client et de proxys multiples. Pas de test sur un vrai appareil avant la mise en production (préproduction sans accès HTTPS) : à vérifier par l'utilisateur en production.
 
 ---
 
