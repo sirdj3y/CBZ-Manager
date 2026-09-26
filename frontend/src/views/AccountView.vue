@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import AppLayout from '../components/layout/AppLayout.vue'
 import UserAvatar from '../components/account/UserAvatar.vue'
 import { authApi } from '../api/auth'
@@ -31,6 +31,7 @@ const passkeys = ref([])
 const pkNameOpen = ref(false)
 const pkName = ref('')
 const pkBusy = ref(false)
+const pkError = ref('')
 const pkToDelete = ref(null)
 
 async function loadPasskeys() {
@@ -40,15 +41,18 @@ async function loadPasskeys() {
     passkeys.value = (await passkeysApi.list()).data
   } catch { /* pas bloquant */ }
 }
-function startAddPasskey() {
+const pkNameInput = ref(null)
+async function startAddPasskey() {
   pkName.value = defaultPasskeyName()
+  pkError.value = ''
   pkNameOpen.value = true
+  await nextTick()
+  pkNameInput.value?.select()
 }
-// La fenêtre du nom est FERMÉE avant de lancer la création : les gestionnaires de mots de
-// passe en extension (Bitwarden, 1Password…) affichent leur propre fenêtre DANS la page, et
-// une Dialog modale ouverte bloque les clics sur tout le reste, la leur comprise (seul le
-// clavier passait). L'attente, le succès ou l'erreur s'affichent dans la section.
-const pkError = ref('')
+// Pas de Dialog pour le nom : formulaire dans la section. Les gestionnaires de mots de passe
+// en extension (Bitwarden, 1Password…) affichent leur propre fenêtre DANS la page, et une
+// Dialog modale bloque les clics sur tout le reste, la leur comprise (seul le clavier
+// passait). L'attente, le succès ou l'erreur s'affichent aussi dans la section.
 async function confirmAddPasskey() {
   const name = pkName.value.trim() || defaultPasskeyName()
   pkNameOpen.value = false
@@ -283,30 +287,29 @@ async function saveUsername() {
               </Hint>
             </li>
           </ul>
-          <div v-if="pkStatus.usable" class="settings-actions">
-            <button class="btn btn-secondary btn-sm" :disabled="pkBusy" @click="startAddPasskey">
-              {{ pkBusy ? 'En attente de l’appareil…' : 'Ajouter une passkey' }}
-            </button>
-          </div>
-          <p v-if="pkError" class="pk-error" role="alert">{{ pkError }}</p>
+          <template v-if="pkStatus.usable">
+            <form v-if="pkNameOpen" class="pk-form" @submit.prevent="confirmAddPasskey">
+              <label class="form-label" for="pk-name">Nom de l'appareil</label>
+              <input id="pk-name" ref="pkNameInput" v-model="pkName" class="form-control" maxlength="60"
+                     @keydown.esc="pkNameOpen = false" />
+              <p class="form-hint">Pour la reconnaître dans la liste, par exemple « iPhone » ou « Mac du salon ».</p>
+              <div class="pk-dialog-btns">
+                <button type="button" class="btn btn-ghost btn-sm" @click="pkNameOpen = false">Annuler</button>
+                <button type="submit" class="btn btn-primary btn-sm">Continuer</button>
+              </div>
+            </form>
+            <div v-else class="settings-actions">
+              <button class="btn btn-secondary btn-sm" :disabled="pkBusy" @click="startAddPasskey">
+                {{ pkBusy ? 'En attente de l’appareil…' : 'Ajouter une passkey' }}
+              </button>
+            </div>
+            <p v-if="pkError" class="pk-error" role="alert">{{ pkError }}</p>
+          </template>
           <p v-else class="form-hint">
             Pour ajouter une passkey, ouvrez l'application depuis <a :href="pkStatus.origin + '/account'">{{ pkStatus.origin }}</a>.
           </p>
         </div>
       </section>
-
-      <AppDialog v-if="pkNameOpen" title="Ajouter une passkey" @close="pkNameOpen = false">
-        <form class="pk-dialog" @submit.prevent="confirmAddPasskey">
-          <p class="pk-dialog-title">Ajouter une passkey</p>
-          <label class="form-label" for="pk-name">Nom de l'appareil</label>
-          <input id="pk-name" v-model="pkName" class="form-control" maxlength="60" autofocus />
-          <p class="form-hint">Pour la reconnaître dans la liste, par exemple « iPhone » ou « Mac du salon ».</p>
-          <div class="pk-dialog-btns">
-            <button type="button" class="btn btn-ghost btn-sm" @click="pkNameOpen = false">Annuler</button>
-            <button type="submit" class="btn btn-primary btn-sm">Continuer</button>
-          </div>
-        </form>
-      </AppDialog>
 
       <AppDialog v-if="pkToDelete" title="Supprimer la passkey ?" @close="pkToDelete = null">
         <div class="pk-dialog">
@@ -334,6 +337,7 @@ async function saveUsername() {
   display: flex; flex-direction: column; gap: 8px;
 }
 .pk-dialog-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.pk-form { display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
 .pk-error { margin-top: 10px; font-size: 0.82rem; color: var(--danger); }
 .pk-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .settings-main {

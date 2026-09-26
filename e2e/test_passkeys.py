@@ -1,6 +1,6 @@
 """Passkeys dans l'interface, avec l'authentificateur virtuel de Chromium (équivalent de
 Touch ID / Face ID, piloté par le protocole de débogage du navigateur)."""
-from helpers import dialog, gone, goto
+from helpers import dialog, goto
 
 
 def _virtual_authenticator(page):
@@ -16,14 +16,17 @@ def _virtual_authenticator(page):
 def test_ajouter_une_passkey_puis_se_connecter_avec(page, server):
     _virtual_authenticator(page)
     goto(page, "/account")
+    # Depuis l'adresse publique, pas de renvoi vers elle.
+    assert page.get_by_text("ouvrez l'application depuis").count() == 0
     page.get_by_role("button", name="Ajouter une passkey").click()
-    box = dialog(page)
-    box.first.wait_for()
-    box.locator("input").fill("Test e2e")
-    box.get_by_role("button", name="Continuer").click()
-    # La fenêtre du nom se ferme AVANT la cérémonie (rien de modal par-dessus l'éventuelle
-    # fenêtre d'un gestionnaire de mots de passe en extension).
-    assert gone(box, timeout=2)
+    # Nom saisi dans la section, sans Dialog : rien de modal par-dessus l'éventuelle fenêtre
+    # d'un gestionnaire de mots de passe en extension.
+    form = page.locator(".pk-form")
+    form.locator("input").fill("Test e2e")
+    assert dialog(page).count() == 0
+    assert page.locator("[data-slot=dialog-overlay]").count() == 0
+    form.get_by_role("button", name="Continuer").click()
+    form.wait_for(state="detached")
     item = page.locator(".pk-item", has_text="Test e2e")
     item.wait_for()
     assert "jamais utilisée" in item.inner_text()
@@ -65,18 +68,14 @@ def test_deuxieme_passkey_sur_le_meme_appareil_message_clair(page, server):
 
     def add(name):
         page.get_by_role("button", name="Ajouter une passkey").click()
-        box = dialog(page)
-        box.first.wait_for()
-        box.locator("input").fill(name)
-        box.get_by_role("button", name="Continuer").click()
-        return box
+        form = page.locator(".pk-form")
+        form.locator("input").fill(name)
+        form.get_by_role("button", name="Continuer").click()
 
-    assert gone(add("Premier"), timeout=10)
+    add("Premier")
     page.locator(".pk-item", has_text="Premier").wait_for()
     add("Second")
-    # Message dans la section (pas dans une fenêtre modale, déjà refermée).
     page.locator(".pk-error", has_text="Cet appareil a déjà une passkey pour ce compte").wait_for(timeout=10000)
-    assert dialog(page).count() == 0
     assert page.locator(".pk-item").count() == 1
 
     # Nettoyage
