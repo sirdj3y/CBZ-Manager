@@ -3,6 +3,7 @@ import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import SvgIcon from '../components/SvgIcon.vue'
+import TomeActionsMenu from '../components/library/TomeActionsMenu.vue'
 import ContentToolbar from '../components/layout/ContentToolbar.vue'
 import MetadataDrawer from '../components/metadata/MetadataDrawer.vue'
 import MoveTomesModal from '../components/library/MoveTomesModal.vue'
@@ -48,6 +49,9 @@ watch(selectMode, (v) => { if (!v) selectedIds.clear() })
 // déjà son propre Échap pour se refermer en premier, ex. MetadataDrawer/MoveTomesModal).
 function onSelectionEscape(e) {
   if (e.key !== 'Escape' || !selectedIds.size) return
+  // Échap dans un menu, un popover ou une palette shadcn (rendus dans <body>) : il les ferme
+  // eux seuls, sans vider la sélection en plus.
+  if (e.target?.closest?.('[data-slot$="-content"]')) return
   if (showMetadata.value || showMove.value || showBulkEdit.value || confirmBulkDelete.value || confirmDeleteTome.value || openMenuId.value !== null) return
   clearSelection()
 }
@@ -92,21 +96,12 @@ async function onMoved() {
 // Menu « plus d'options » (3 points) par album — déplacer/éditer/supprimer un seul album
 // sans passer par la sélection multiple.
 const openMenuId = ref(null)
-const menuLeft = ref(false)
+function setMenuOpen(id, open) {
+  if (open) openMenuId.value = id
+  else if (openMenuId.value === id) openMenuId.value = null
+}
 const confirmDeleteTome = ref(null)
 const deletingSingle = ref(false)
-
-function toggleTomeMenu(e, tomeId) {
-  menuLeft.value = e.clientX > window.innerWidth * 0.66
-  openMenuId.value = openMenuId.value === tomeId ? null : tomeId
-}
-function onClickOutsideMenu(e) {
-  if (openMenuId.value !== null && !e.target.closest('.book-more-wrap')) {
-    openMenuId.value = null
-  }
-}
-onMounted(() => document.addEventListener('mousedown', onClickOutsideMenu))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutsideMenu))
 
 async function deleteSingleTome() {
   if (!confirmDeleteTome.value) return
@@ -355,24 +350,14 @@ function searchTomeMetadata(tome) {
                 <SvgIcon name="edit" style="font-size:20px" />
               </button>
               <div v-if="canTomeMenu" class="book-more-wrap" @click.stop>
-                <button
-                  class="overlay-btn book-more-btn"
-                  :class="{ 'overlay-btn-active': openMenuId === tome.id }"
-                  title="Plus d'options"
-                  @click="toggleTomeMenu($event, tome.id)"
+                <TomeActionsMenu
+                  :tome="tome" :open="openMenuId === tome.id" @update:open="setMenuOpen(tome.id, $event)"
+                  @edit="editTome" @search-metadata="searchTomeMetadata" @move="openMoveSingle" @delete="confirmDeleteTome = $event"
                 >
-                  <SvgIcon name="more-vertical" style="font-size:20px" />
-                </button>
-                <div v-if="openMenuId === tome.id" class="more-menu" :class="{ 'more-menu-left': menuLeft }">
-                  <template v-if="authStore.hasPermission('library.metadata_edit')">
-                    <button class="more-item" @click="editTome(tome); openMenuId = null">Éditer les métadonnées</button>
-                    <button class="more-item" @click="searchTomeMetadata(tome); openMenuId = null">Rechercher les métadonnées</button>
-                  </template>
-                  <button v-if="authStore.hasPermission('library.move')" class="more-item" @click="openMoveSingle(tome); openMenuId = null">Déplacer vers une série</button>
-                  <a v-if="authStore.hasPermission('library.download')" class="more-item" :href="tomesApi.downloadUrl(tome.id)" @click="openMenuId = null">Télécharger</a>
-                  <div v-if="authStore.hasPermission('library.delete')" class="more-divider"></div>
-                  <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="confirmDeleteTome = tome; openMenuId = null">Supprimer l'album</button>
-                </div>
+                  <button class="overlay-btn book-more-btn" :class="{ 'overlay-btn-active': openMenuId === tome.id }" title="Plus d'options">
+                    <SvgIcon name="more-vertical" style="font-size:20px" />
+                  </button>
+                </TomeActionsMenu>
               </div>
             </div>
 
@@ -578,31 +563,6 @@ function searchTomeMetadata(tome) {
 
 /* Menu "plus d'options" — en bas à droite de la cover, s'ouvre vers le bas */
 .book-more-wrap { position: absolute; bottom: 8px; right: 8px; }
-.more-menu {
-  position: absolute;
-  top: calc(100% + 4px); left: 0;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 190px;
-  padding: 4px 0;
-  z-index: 300;
-}
-.more-menu.more-menu-left { left: auto; right: 0; }
-.more-item {
-  display: block;
-  width: 100%; padding: 8px 14px;
-  background: none; border: none; cursor: pointer;
-  font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-  text-align: left;
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-.more-item:hover { background: var(--light); }
-.more-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.more-item-danger { color: var(--danger); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
 
 .book-info {
   padding: 7px 9px;

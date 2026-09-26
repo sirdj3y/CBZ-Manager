@@ -3,6 +3,9 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import SvgIcon from '../components/SvgIcon.vue'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/shadcn/dropdown-menu'
 import MetadataDrawer from '../components/metadata/MetadataDrawer.vue'
 import ConverterModal from '../components/converter/ConverterModal.vue'
 import RenameModal from '../components/rename/RenameModal.vue'
@@ -52,17 +55,8 @@ const showRename = ref(false)
 const showMove = ref(false)
 const openScraperOnOpen = ref(false)
 
-// Menu "..." sous la cover — pas besoin du Teleport+position:fixed utilisé ailleurs (menus
-// dans une zone qui défile horizontalement) : cette colonne n'est jamais clippée.
+// Menu "⋯" sous la cover (DropdownMenu, voir template).
 const showMoreMenu = ref(false)
-const moreMenuRef = ref(null)
-function onClickOutsideMoreMenu(e) {
-  if (showMoreMenu.value && moreMenuRef.value && !moreMenuRef.value.contains(e.target)) {
-    showMoreMenu.value = false
-  }
-}
-onMounted(() => document.addEventListener('mousedown', onClickOutsideMoreMenu))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutsideMoreMenu))
 
 // Même seuil que le media query mobile (.tome-hero passe en colonne sous 620px) — pilote la
 // troncature du résumé (voir resumeDisplay), qui ne s'applique qu'en desktop.
@@ -430,19 +424,23 @@ async function toggleRead() {
                 title="Télécharger"
                 :href="tomesApi.downloadUrl(tome.id)"
               ><SvgIcon name="download" style="font-size:15px" /></a>
-              <div v-if="canMoreMenu" class="cover-more-wrap" ref="moreMenuRef">
-                <button class="hero-btn hero-btn-outline hero-btn-icon" title="Plus d'options" @click="showMoreMenu = !showMoreMenu">
-                  <SvgIcon name="more-vertical" style="font-size:13px" />
-                </button>
-                <div v-if="showMoreMenu" class="more-menu cover-more-menu">
-                  <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="openSearchMetadata">Rechercher les métadonnées</button>
-                  <button v-if="authStore.hasPermission('library.rename')" class="more-item" @click="showRename = true; showMoreMenu = false">Renommer</button>
-                  <button v-if="authStore.hasPermission('library.move')" class="more-item" @click="showMove = true; showMoreMenu = false">Déplacer vers une série</button>
-                  <button v-if="tome.file_format !== 'cbz' && authStore.hasPermission('library.convert')" class="more-item" @click="showConverter = true; showMoreMenu = false">Convertir</button>
-                  <div v-if="authStore.hasPermission('library.delete')" class="more-divider"></div>
-                  <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="confirmDelete = true; showMoreMenu = false">Supprimer l'album</button>
-                </div>
-              </div>
+              <DropdownMenu v-if="canMoreMenu" v-model:open="showMoreMenu" :modal="false">
+                <DropdownMenuTrigger as-child>
+                  <button class="hero-btn hero-btn-outline hero-btn-icon" title="Plus d'options">
+                    <SvgIcon name="more-vertical" style="font-size:13px" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" class="min-w-[200px]">
+                  <DropdownMenuItem v-if="authStore.hasPermission('library.metadata_edit')" @select="openSearchMetadata">Rechercher les métadonnées</DropdownMenuItem>
+                  <DropdownMenuItem v-if="authStore.hasPermission('library.rename')" @select="showRename = true">Renommer</DropdownMenuItem>
+                  <DropdownMenuItem v-if="authStore.hasPermission('library.move')" @select="showMove = true">Déplacer vers une série</DropdownMenuItem>
+                  <DropdownMenuItem v-if="tome.file_format !== 'cbz' && authStore.hasPermission('library.convert')" @select="showConverter = true">Convertir</DropdownMenuItem>
+                  <template v-if="authStore.hasPermission('library.delete')">
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" @select="confirmDelete = true">Supprimer l'album</DropdownMenuItem>
+                  </template>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div class="tome-ratings" v-if="tome.user_rating || metadata?.CommunityRating">
@@ -809,32 +807,6 @@ async function toggleRead() {
    (SeriesDetailView.vue) pour rester visuellement cohérent entre les deux fiches. */
 .toolbar-more-btn-active { border-color: var(--vermilion); color: var(--vermilion); background: var(--vermilion-light); }
 
-.cover-more-wrap { position: relative; flex-shrink: 0; }
-.more-menu {
-  position: absolute;
-  top: calc(100% + 4px); left: 0;
-  min-width: 200px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  padding: 4px 0;
-  z-index: 20;
-}
-.more-item {
-  display: block;
-  width: 100%; padding: 8px 14px;
-  background: none; border: none; cursor: pointer;
-  font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-  text-align: left;
-  text-decoration: none;
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-.more-item:hover { background: var(--light); }
-.more-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.more-item-danger { color: var(--danger); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
 
 /* Confirmation de suppression */
 .confirm-backdrop {

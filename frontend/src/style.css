@@ -202,11 +202,11 @@ body {
 h1,h2,h3,h4,h5,h6 { font-weight: 600; line-height: 1.25; color: var(--text); }
 a { color: var(--vermilion); text-decoration: none; }
 a:hover { text-decoration: underline; }
-/* .btn/.more-item/.hero-btn appliqués à un <a> (ex. liens de téléchargement) : ce sont des
+/* .btn/.hero-btn appliqués à un <a> (ex. liens de téléchargement) : ce sont des
    boutons, pas des liens de texte — la règle a:hover ci-dessus ne doit pas s'y appliquer,
    sinon ils se soulignent au survol contrairement à tous les autres boutons du même menu/de
    la même barre d'actions. */
-a.btn:hover, a.more-item:hover, a.hero-btn:hover { text-decoration: none; }
+a.btn:hover, a.hero-btn:hover { text-decoration: none; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--light); }

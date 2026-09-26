@@ -166,7 +166,9 @@ function onKeydown(e) {
   box-shadow: var(--shadow-lg);
   list-style: none;
   margin: 0; padding: 4px 0;
-  z-index: 400;
+  /* Au-dessus des popovers/menus shadcn (z 1000) : ce champ est utilisé dans le panneau de
+     filtres (Popover) et dans des modales. */
+  z-index: 1100;
   max-height: 220px;
   overflow-y: auto;
 }

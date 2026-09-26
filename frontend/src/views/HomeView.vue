@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/layout/AppLayout.vue'
 import SeriesCard from '../components/library/SeriesCard.vue'
+import SeriesActionsMenu from '../components/library/SeriesActionsMenu.vue'
 import SeriesMetadataModal from '../components/metadata/SeriesMetadataModal.vue'
 import SeriesEnrichModal from '../components/metadata/SeriesEnrichModal.vue'
 import RenameModal from '../components/rename/RenameModal.vue'
@@ -33,66 +34,13 @@ const recentAlbums = ref([])
 const hoveredTome = ref(null)
 const hoveredSeries = ref(null)
 const hoveredDiscover = ref(null)
+// Menu "⋯" ouvert (clé "d_<id>" ou "s_<id>" selon la rangée) — garde la carte en état survolé
+// tant que le menu est ouvert. Voir SeriesActionsMenu.
 const openMenuId = ref(null)
-const menuSeries = ref(null)
-const menuPos = ref({ top: '0px', left: '0px', right: 'auto' })
-const moreMenuPortalRef = ref(null)
-const moreRefs = ref({})
-
-function toggleMenu(key, series, e) {
-  if (openMenuId.value === key) {
-    openMenuId.value = null
-    menuSeries.value = null
-    return
-  }
-  openMenuId.value = key
-  menuSeries.value = series
-  const rect = e.currentTarget.getBoundingClientRect()
-  const MENU_H = 256  // hauteur approx : 6 items + 1 séparateur
-  const MENU_W = 190
-  const MARGIN = 8
-
-  // Vertical : ouvrir vers le bas si assez de place, sinon vers le haut
-  let top
-  if (rect.bottom + 4 + MENU_H < window.innerHeight - MARGIN) {
-    top = rect.bottom + 4
-  } else {
-    top = Math.max(MARGIN, rect.top - 4 - MENU_H)
-  }
-
-  // Horizontal : aligner à gauche du bouton si ça tient, sinon à droite
-  let left, right
-  if (rect.left + MENU_W < window.innerWidth - MARGIN) {
-    left = rect.left + 'px'
-    right = 'auto'
-  } else {
-    left = 'auto'
-    right = (window.innerWidth - rect.right) + 'px'
-  }
-
-  menuPos.value = { top: top + 'px', left, right }
+function setMenuOpen(key, open) {
+  if (open) openMenuId.value = key
+  else if (openMenuId.value === key) openMenuId.value = null
 }
-
-function closeMenu() {
-  openMenuId.value = null
-  menuSeries.value = null
-}
-
-function onClickOutside(e) {
-  if (!openMenuId.value) return
-  if (moreMenuPortalRef.value?.contains(e.target)) return
-  const refs = Object.values(moreRefs.value)
-  if (refs.some(el => el?.contains?.(e.target))) return
-  closeMenu()
-}
-onMounted(() => {
-  document.addEventListener('mousedown', onClickOutside)
-  document.addEventListener('scroll', closeMenu, true)
-})
-onUnmounted(() => {
-  document.removeEventListener('mousedown', onClickOutside)
-  document.removeEventListener('scroll', closeMenu, true)
-})
 
 const selectedSeries = ref(null)
 const showSeriesMeta = ref(false)
@@ -558,11 +506,16 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                     <SvgIcon name="edit" style="font-size:20px" />
                   </button>
                   <div class="overlay-spacer"></div>
-                  <div v-if="canSeriesMenu" class="more-wrap" :ref="el => { if (el) moreRefs['d_' + s.id] = el }">
-                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 'd_' + s.id }" title="Plus d'options" @click.stop="toggleMenu('d_' + s.id, s, $event)">
+                  <SeriesActionsMenu
+                    v-if="canSeriesMenu" :series="s"
+                    :open="openMenuId === 'd_' + s.id" @update:open="setMenuOpen('d_' + s.id, $event)"
+                    @edit="handleEdit" @enrich="handleEnrich" @rename="handleRename" @convert="handleConvert"
+                    @download="handleDownload" @set-cover="handleSetCover" @toggle-hidden="handleToggleHidden" @delete="handleDelete"
+                  >
+                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 'd_' + s.id }" title="Plus d'options">
                       <SvgIcon name="more-vertical" style="font-size:20px" />
                     </button>
-                  </div>
+                  </SeriesActionsMenu>
                 </div>
               </div>
               <div class="scroll-series-info">
@@ -599,11 +552,16 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                     <SvgIcon name="edit" style="font-size:20px" />
                   </button>
                   <div class="overlay-spacer"></div>
-                  <div v-if="canSeriesMenu" class="more-wrap" :ref="el => { if (el) moreRefs['s_' + s.id] = el }">
-                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 's_' + s.id }" title="Plus d'options" @click.stop="toggleMenu('s_' + s.id, s, $event)">
+                  <SeriesActionsMenu
+                    v-if="canSeriesMenu" :series="s"
+                    :open="openMenuId === 's_' + s.id" @update:open="setMenuOpen('s_' + s.id, $event)"
+                    @edit="handleEdit" @enrich="handleEnrich" @rename="handleRename" @convert="handleConvert"
+                    @download="handleDownload" @set-cover="handleSetCover" @toggle-hidden="handleToggleHidden" @delete="handleDelete"
+                  >
+                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 's_' + s.id }" title="Plus d'options">
                       <SvgIcon name="more-vertical" style="font-size:20px" />
                     </button>
-                  </div>
+                  </SeriesActionsMenu>
                 </div>
               </div>
               <div class="scroll-series-info">
@@ -635,21 +593,6 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
       </template>
     </main>
 
-    <Teleport to="body">
-      <div v-if="openMenuId && menuSeries" ref="moreMenuPortalRef" class="more-menu-portal" :style="menuPos">
-        <template v-if="authStore.hasPermission('library.metadata_edit')">
-          <button class="more-item" @click="handleEdit(menuSeries); closeMenu()">Éditer les métadonnées</button>
-          <button class="more-item" @click="handleEnrich(menuSeries); closeMenu()">Compléter les métadonnées</button>
-        </template>
-        <button v-if="authStore.hasPermission('library.rename')" class="more-item" @click="handleRename(menuSeries); closeMenu()">Renommer les fichiers</button>
-        <button v-if="authStore.hasPermission('library.convert')" class="more-item" @click="handleConvert(menuSeries); closeMenu()">Convertir les fichiers</button>
-        <button v-if="authStore.hasPermission('library.download')" class="more-item" @click="handleDownload(menuSeries); closeMenu()">Télécharger la série</button>
-        <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="handleSetCover(menuSeries); closeMenu()">Modifier la miniature</button>
-        <div v-if="authStore.hasPermission('library.metadata_edit') || authStore.hasPermission('library.delete')" class="more-divider"></div>
-        <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="handleToggleHidden(menuSeries); closeMenu()">{{ menuSeries.hidden ? 'Afficher la série' : 'Masquer la série' }}</button>
-        <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="handleDelete(menuSeries); closeMenu()">Supprimer la série</button>
-      </div>
-    </Teleport>
 
     <SeriesMetadataModal v-if="showSeriesMeta && selectedSeries" :series="selectedSeries" @close="showSeriesMeta = false" @saved="library.fetchSeries()" @deleted="(id) => { library.series = library.series.filter(s => s.id !== id); showSeriesMeta = false }" @enrich="showSeriesMeta = false; showEnrich = true" />
     <SeriesEnrichModal v-if="showEnrich && selectedSeries" :series="selectedSeries" @close="showEnrich = false" @saved="library.fetchSeries()" />
@@ -1113,30 +1056,6 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
   padding: 0 6px;
 }
 .overlay-spacer { flex: 1; }
-.more-wrap { position: relative; }
-/* Menu rendu en position: fixed pour échapper au overflow-x: auto du scroll-row */
-.more-menu-portal {
-  position: fixed;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 190px;
-  padding: 4px 0;
-  z-index: 1000;
-}
-.more-item {
-  display: block; width: 100%; padding: 8px 14px;
-  background: none; border: none; cursor: pointer;
-  font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-  text-align: left; transition: background 0.1s; white-space: nowrap;
-}
-.more-item:hover { background: var(--light); }
-.more-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.more-item-danger { color: var(--danger); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
-
 /* Icône lecture sur continue-card */
 .continue-read-overlay {
   position: absolute; inset: 0; z-index: 3;

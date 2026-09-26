@@ -16,6 +16,10 @@ import UserAvatar from '../account/UserAvatar.vue'
 import ChangePasswordModal from '../account/ChangePasswordModal.vue'
 import SmartListEditModal from '../library/SmartListEditModal.vue'
 import GlobalSearchModal from './GlobalSearchModal.vue'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/shadcn/dropdown-menu'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/shadcn/popover'
 
 const router = useRouter()
 const route = useRoute()
@@ -143,24 +147,16 @@ const metaScanRunning = computed(() => missingAlbumsStore.scanProgress.status ==
 const anyScanRunning = computed(() => fileScanRunning.value || metaScanRunning.value)
 
 const showScanMenu = ref(false)
-const scanMenuRef = ref(null)
-function toggleScanMenu() { showScanMenu.value = !showScanMenu.value }
 
-// Menu "Mon compte" du topbar — même pattern (déclencheur + popup positionnée, fermeture au
-// clic extérieur) que le menu Scanner ci-dessus.
+// Menus du topbar (Nouveautés, Scanner, Mon compte) et "⋮" des listes intelligentes :
+// DropdownMenu de shadcn-vue (position, clic extérieur, clavier gérés par Reka UI).
 const showAccountMenu = ref(false)
-const accountMenuRef = ref(null)
-function toggleAccountMenu() { showAccountMenu.value = !showAccountMenu.value }
 
 // Menu "Nouveautés" — même pattern, entre mode sombre et scanner. Ouvrir le menu marque
 // tout comme vu (comportement standard d'une cloche de notifications) : le badge repasse à
 // zéro immédiatement, pas besoin d'une action "tout marquer comme lu" séparée.
 const showNotifMenu = ref(false)
-const notifMenuRef = ref(null)
-function toggleNotifMenu() {
-  showNotifMenu.value = !showNotifMenu.value
-  if (showNotifMenu.value && newContentStore.count) newContentStore.markSeen()
-}
+watch(showNotifMenu, open => { if (open && newContentStore.count) newContentStore.markSeen() })
 function openNotifItem(item) {
   showNotifMenu.value = false
   router.push(item.type === 'series' ? `/series/${item.id}` : `/tomes/${item.id}`)
@@ -173,55 +169,40 @@ function openNotifItem(item) {
 // des smart lists elles-mêmes — une fiche par liste existe via /collections/:id) : + pour
 // créer, ⋮ par liste pour modifier/supprimer, glisser-déposer pour réordonner.
 //
-// Les menus/popovers sont téléportés dans <body> en position:fixed plutôt qu'un simple
-// position:absolute dans .sidebar : .sidebar a overflow-x:hidden + overflow-y:auto (pour
-// son propre scroll), qui les rognerait sinon — même bug/même remède que .subbar dans
-// ContentToolbar.vue (voir CLAUDE.md).
+// Le flyout est téléporté dans <body> en position:fixed plutôt qu'un simple position:absolute
+// dans .sidebar : .sidebar a overflow-x:hidden + overflow-y:auto (pour son propre scroll), qui
+// le rognerait sinon. Les menus "⋮" sont des DropdownMenu (rendus hors de la sidebar par Reka UI).
 const smartListsOpen = ref(false)
 const confirmDeleteSmartList = ref(null)
 const deletingSmartList = ref(false)
 const duplicatingSmartList = ref(false)
 
-const menuOpen = ref(false)
-const menuTargetList = ref(null)
-const menuPos = ref({ top: '0px', left: '0px' })
-const smartListsItemTriggerRef = ref(null)
-const smartListsMenuContentRef = ref(null)
+// Id de la liste dont le menu "⋮" est ouvert (un seul à la fois).
+const smartListMenuId = ref(null)
+function setSmartListMenu(id, open) {
+  if (open) smartListMenuId.value = id
+  else if (smartListMenuId.value === id) smartListMenuId.value = null
+}
 
 const flyoutOpen = ref(false)
-const flyoutPos = ref({ top: '0px', left: '0px' })
 const smartListsIconTriggerRef = ref(null)
-const smartListsFlyoutContentRef = ref(null)
 
-function onSmartListsToggleClick(e) {
+function onSmartListsToggleClick() {
   if (showLabels.value) {
     smartListsOpen.value = !smartListsOpen.value
     return
   }
   // Sidebar réduite (icônes seules) : pas de place pour déplier la liste en ligne, on
-  // ouvre un popover flottant à côté de l'icône à la place.
-  const rect = e.currentTarget.getBoundingClientRect()
-  flyoutPos.value = { top: rect.top + 'px', left: (rect.right + 8) + 'px' }
+  // ouvre un popover flottant à côté de l'icône à la place (Popover, positionné par Reka UI).
   flyoutOpen.value = !flyoutOpen.value
 }
 
-function openSmartListsMenu(e, target) {
-  const rect = e.currentTarget.getBoundingClientRect()
-  const MARGIN = 8
-  const WIDTH = 180
-  let left = rect.right - WIDTH
-  if (left < MARGIN) left = MARGIN
-  menuPos.value = { top: (rect.bottom + 4) + 'px', left: left + 'px' }
-  menuTargetList.value = target
-  menuOpen.value = !menuOpen.value
-}
 function openCreateSmartList() {
   smartListsStore.openCreate()
   flyoutOpen.value = false
 }
 function openEditSmartList(sl) {
   smartListsStore.openEdit(sl)
-  menuOpen.value = false
   flyoutOpen.value = false
 }
 async function onSmartListSaved(payload) {
@@ -239,7 +220,6 @@ async function duplicateSmartList(sl) {
   try {
     const { data } = await smartListsApi.duplicate(sl.id)
     notif.success('Liste dupliquée')
-    menuOpen.value = false
     await smartListsStore.refresh()
     router.push(`/collections/${data.id}`)
   } catch (e) {
@@ -285,48 +265,27 @@ async function onDrop() {
 }
 function onDragEnd() { draggedListId.value = null }
 
-function onClickOutsideMenus(e) {
-  if (showScanMenu.value && scanMenuRef.value && !scanMenuRef.value.contains(e.target)) {
-    showScanMenu.value = false
-  }
-  if (showAccountMenu.value && accountMenuRef.value && !accountMenuRef.value.contains(e.target)) {
-    showAccountMenu.value = false
-  }
-  if (showNotifMenu.value && notifMenuRef.value && !notifMenuRef.value.contains(e.target)) {
-    showNotifMenu.value = false
-  }
-  if (menuOpen.value) {
-    const insideTrigger = smartListsItemTriggerRef.value && smartListsItemTriggerRef.value.contains(e.target)
-    const insideContent = smartListsMenuContentRef.value && smartListsMenuContentRef.value.contains(e.target)
-    if (!insideTrigger && !insideContent) menuOpen.value = false
-  }
-  if (flyoutOpen.value) {
-    const insideTrigger = smartListsIconTriggerRef.value && smartListsIconTriggerRef.value.contains(e.target)
-    const insideContent = smartListsFlyoutContentRef.value && smartListsFlyoutContentRef.value.contains(e.target)
-    if (!insideTrigger && !insideContent) flyoutOpen.value = false
-  }
+// Clic hors du flyout : il se ferme, sauf sur l'icône qui l'ouvre (son propre clic le
+// referme, sinon il se rouvrirait aussitôt) et dans un menu "⋮" ouvert depuis lui (rendu
+// dans <body>, donc "hors" du flyout pour Reka UI).
+function keepFlyoutOpen(e) {
+  const t = e.target
+  if (smartListsIconTriggerRef.value?.contains(t) || t?.closest?.('[data-slot="dropdown-menu-content"]')) e.preventDefault()
 }
-onMounted(() => document.addEventListener('mousedown', onClickOutsideMenus))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutsideMenus))
 
 function triggerFileScan() {
-  showScanMenu.value = false
   if (!fileScanRunning.value) library.triggerScan()
 }
 function triggerMetadataScan() {
-  showScanMenu.value = false
   if (!metaScanRunning.value) missingAlbumsStore.triggerScan()
 }
 function openAccountPage() {
-  showAccountMenu.value = false
   router.push('/account')
 }
 function openChangePassword() {
-  showAccountMenu.value = false
   authStore.changePasswordOpen = true
 }
 function logoutFromMenu() {
-  showAccountMenu.value = false
   doLogout()
 }
 
@@ -380,16 +339,71 @@ function fmtRelative(iso) {
           <span v-if="showLabels && authorsCount" class="nav-count">{{ authorsCount }}</span>
         </router-link>
         <template v-if="authStore.hasPermission('library.read')">
-          <div
-            class="nav-item smart-lists-toggle"
-            ref="smartListsIconTriggerRef"
-            @click="onSmartListsToggleClick"
-          >
-            <SvgIcon name="sparkles" class="nav-icon" />
-            <span v-if="showLabels" class="nav-label">Smart list</span>
-            <SvgIcon v-if="showLabels" :name="smartListsOpen ? 'chevron-up' : 'chevron-down'" class="nav-chevron smart-lists-chevron" />
-            <button v-if="showLabels" class="nav-header-btn" title="Nouvelle liste" @click.stop="openCreateSmartList">+</button>
-          </div>
+          <!-- Sidebar réduite : l'icône sert d'ancre au flyout (Popover) ; sidebar dépliée : elle
+               déplie la liste en ligne ci-dessous (voir onSmartListsToggleClick). -->
+          <Popover v-model:open="flyoutOpen">
+            <PopoverAnchor as-child>
+              <div
+                class="nav-item smart-lists-toggle"
+                ref="smartListsIconTriggerRef"
+                @click="onSmartListsToggleClick"
+              >
+                <SvgIcon name="sparkles" class="nav-icon" />
+                <span v-if="showLabels" class="nav-label">Smart list</span>
+                <SvgIcon v-if="showLabels" :name="smartListsOpen ? 'chevron-up' : 'chevron-down'" class="nav-chevron smart-lists-chevron" />
+                <button v-if="showLabels" class="nav-header-btn" title="Nouvelle liste" @click.stop="openCreateSmartList">+</button>
+              </div>
+            </PopoverAnchor>
+            <PopoverContent
+              side="right" align="start" :side-offset="8"
+              class="w-auto border-0 bg-transparent p-0 shadow-none"
+              @interact-outside="keepFlyoutOpen"
+            >
+              <div class="smart-lists-flyout">
+                <div class="smart-lists-flyout-header">
+                  <span class="smart-lists-flyout-title">Smart list</span>
+                  <button class="nav-header-btn" title="Nouvelle liste" @click="openCreateSmartList">+</button>
+                </div>
+                <p v-if="smartListsStore.loaded && !smartListsStore.lists.length" class="nav-empty-hint">Aucune liste</p>
+                <div
+                  v-for="sl in smartListsStore.lists" :key="sl.id"
+                  class="smart-list-row"
+                  :class="{ 'smart-list-row-dragging': draggedListId === sl.id }"
+                  draggable="true"
+                  @dragstart="onDragStart(sl)"
+                  @dragover.prevent="onDragOver(sl)"
+                  @drop="onDrop"
+                  @dragend="onDragEnd"
+                >
+                  <router-link
+                    :to="`/collections/${sl.id}`"
+                    :title="sl.name"
+                    :class="['nav-item', 'nav-sub-item', 'smart-list-link', { 'nav-item-active': route.path === `/collections/${sl.id}` }]"
+                    @click="flyoutOpen = false"
+                  >
+                    <span class="nav-label">{{ sl.name }}</span>
+                  </router-link>
+                  <div class="nav-inline-menu-wrap">
+                    <DropdownMenu :open="smartListMenuId === sl.id" :modal="false" @update:open="setSmartListMenu(sl.id, $event)">
+                      <DropdownMenuTrigger as-child>
+                        <button class="nav-header-btn nav-header-btn-sub" title="Options">
+                          <SvgIcon name="more-vertical" style="font-size:13px" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" class="min-w-[180px]">
+                        <DropdownMenuItem v-if="sl.can_edit" @select="openEditSmartList(sl)">Modifier</DropdownMenuItem>
+                        <DropdownMenuItem :disabled="duplicatingSmartList" @select="duplicateSmartList(sl)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</DropdownMenuItem>
+                        <template v-if="sl.can_edit">
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" @select="confirmDeleteSmartList = sl">Supprimer</DropdownMenuItem>
+                        </template>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           <!-- Sidebar dépliée : liste en ligne, dépliable/repliable. En mode réduit (icônes
                seules), pas de rendu ici — voir le flyout téléporté plus bas. -->
           <template v-if="smartListsOpen && showLabels">
@@ -411,13 +425,22 @@ function fmtRelative(iso) {
               >
                 <span class="nav-label">{{ sl.name }}</span>
               </router-link>
-              <div
-                class="nav-inline-menu-wrap"
-                :ref="el => { if (menuTargetList?.id === sl.id) smartListsItemTriggerRef = el }"
-              >
-                <button class="nav-header-btn nav-header-btn-sub" title="Options" @click="openSmartListsMenu($event, sl)">
-                  <SvgIcon name="more-vertical" style="font-size:13px" />
-                </button>
+              <div class="nav-inline-menu-wrap">
+                <DropdownMenu :open="smartListMenuId === sl.id" :modal="false" @update:open="setSmartListMenu(sl.id, $event)">
+                  <DropdownMenuTrigger as-child>
+                    <button class="nav-header-btn nav-header-btn-sub" title="Options">
+                      <SvgIcon name="more-vertical" style="font-size:13px" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" class="min-w-[180px]">
+                    <DropdownMenuItem v-if="sl.can_edit" @select="openEditSmartList(sl)">Modifier</DropdownMenuItem>
+                    <DropdownMenuItem :disabled="duplicatingSmartList" @select="duplicateSmartList(sl)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</DropdownMenuItem>
+                    <template v-if="sl.can_edit">
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" @select="confirmDeleteSmartList = sl">Supprimer</DropdownMenuItem>
+                    </template>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </template>
@@ -521,19 +544,20 @@ function fmtRelative(iso) {
           </button>
 
           <!-- Menu "Nouveautés" -->
-          <div v-if="authStore.hasPermission('library.read')" class="toolbar-more-wrap" ref="notifMenuRef">
-            <button
-              class="btn btn-ghost btn-icon topbar-notif-trigger"
-              :class="{ 'topbar-scan-btn-active': showNotifMenu }"
-              title="Nouveautés"
-              @click="toggleNotifMenu"
-            >
-              <SvgIcon name="bell" style="font-size:18px" />
-              <span v-if="newContentStore.count" class="topbar-notif-badge">{{ newContentStore.count > 99 ? '99+' : newContentStore.count }}</span>
-            </button>
-            <div v-if="showNotifMenu" class="more-menu topbar-notif-menu">
+          <DropdownMenu v-if="authStore.hasPermission('library.read')" v-model:open="showNotifMenu" :modal="false">
+            <DropdownMenuTrigger as-child>
+              <button
+                class="btn btn-ghost btn-icon topbar-notif-trigger"
+                :class="{ 'topbar-scan-btn-active': showNotifMenu }"
+                title="Nouveautés"
+              >
+                <SvgIcon name="bell" style="font-size:18px" />
+                <span v-if="newContentStore.count" class="topbar-notif-badge">{{ newContentStore.count > 99 ? '99+' : newContentStore.count }}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="max-h-[400px] w-[340px] max-w-[calc(100vw-16px)] overflow-y-auto">
               <div v-if="!newContentStore.items.length" class="notif-empty">Rien de nouveau pour l'instant.</div>
-              <button v-for="item in newContentStore.items" :key="item.type + item.id" class="notif-item" @click="openNotifItem(item)">
+              <DropdownMenuItem v-for="item in newContentStore.items" :key="item.type + item.id" class="items-center gap-2.5 p-2" @select="openNotifItem(item)">
                 <img v-if="item.cover_url" :src="item.cover_url" class="notif-cover" alt="" />
                 <div v-else class="notif-cover notif-cover-placeholder">📖</div>
                 <div class="notif-info">
@@ -544,48 +568,43 @@ function fmtRelative(iso) {
                   </div>
                   <div class="notif-time">{{ fmtRelative(item.created_at) }}</div>
                 </div>
-              </button>
-            </div>
-          </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <!-- Menu "Scanner" -->
-          <div v-if="authStore.hasPermission('library.scan') || authStore.hasPermission('library.missing_albums')" class="toolbar-more-wrap" ref="scanMenuRef">
-            <button
-              class="btn btn-ghost topbar-scan-trigger"
-              :class="{ 'topbar-scan-btn-active': showScanMenu }"
-              title="Scanner"
-              @click="toggleScanMenu"
-            >
-              <SvgIcon name="refresh" :class="{ spin: anyScanRunning }" style="font-size:18px" />
-            </button>
-            <div v-if="showScanMenu" class="more-menu topbar-scan-menu">
-              <button v-if="authStore.hasPermission('library.scan')" class="more-item" :disabled="fileScanRunning" @click="triggerFileScan">
+          <DropdownMenu v-if="authStore.hasPermission('library.scan') || authStore.hasPermission('library.missing_albums')" v-model:open="showScanMenu" :modal="false">
+            <DropdownMenuTrigger as-child>
+              <button class="btn btn-ghost topbar-scan-trigger" :class="{ 'topbar-scan-btn-active': showScanMenu }" title="Scanner">
+                <SvgIcon name="refresh" :class="{ spin: anyScanRunning }" style="font-size:18px" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="min-w-[260px]">
+              <DropdownMenuItem v-if="authStore.hasPermission('library.scan')" :disabled="fileScanRunning" @select="triggerFileScan">
                 Scanner les fichiers de la bibliothèque
-              </button>
-              <button v-if="authStore.hasPermission('library.missing_albums')" class="more-item" :disabled="metaScanRunning" @click="triggerMetadataScan">
+              </DropdownMenuItem>
+              <DropdownMenuItem v-if="authStore.hasPermission('library.missing_albums')" :disabled="metaScanRunning" @select="triggerMetadataScan">
                 Actualiser toutes les métadonnées
-              </button>
-            </div>
-          </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <span class="topbar-divider" />
 
           <!-- Menu "Mon compte" -->
-          <div class="toolbar-more-wrap" ref="accountMenuRef">
-            <button
-              class="btn btn-ghost topbar-account-trigger"
-              :class="{ 'topbar-scan-btn-active': showAccountMenu }"
-              title="Mon compte"
-              @click="toggleAccountMenu"
-            >
-              <UserAvatar :size="32" />
-            </button>
-            <div v-if="showAccountMenu" class="more-menu topbar-account-menu">
-              <button class="more-item" @click="openAccountPage">Mon compte</button>
-              <button class="more-item" @click="openChangePassword">Changer le mot de passe</button>
-              <button class="more-item" @click="logoutFromMenu">Se déconnecter</button>
-            </div>
-          </div>
+          <DropdownMenu v-model:open="showAccountMenu" :modal="false">
+            <DropdownMenuTrigger as-child>
+              <button class="btn btn-ghost topbar-account-trigger" :class="{ 'topbar-scan-btn-active': showAccountMenu }" title="Mon compte">
+                <UserAvatar :size="32" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="min-w-[220px]">
+              <DropdownMenuItem @select="openAccountPage">Mon compte</DropdownMenuItem>
+              <DropdownMenuItem @select="openChangePassword">Changer le mot de passe</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @select="logoutFromMenu">Se déconnecter</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -621,52 +640,7 @@ function fmtRelative(iso) {
       @close="showGlobalSearch = false; topbarSearchInitial = ''"
     />
 
-    <Teleport to="body">
-      <div v-if="menuOpen && menuTargetList" ref="smartListsMenuContentRef" class="smart-lists-floating-menu" :style="menuPos" @click.stop>
-        <button v-if="menuTargetList.can_edit" class="more-item" @click="openEditSmartList(menuTargetList)">Modifier</button>
-        <button class="more-item" :disabled="duplicatingSmartList" @click="duplicateSmartList(menuTargetList)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</button>
-        <button v-if="menuTargetList.can_edit" class="more-item more-item-danger" @click="confirmDeleteSmartList = menuTargetList; menuOpen = false">Supprimer</button>
-      </div>
-    </Teleport>
 
-    <!-- Flyout "Smart list" — équivalent de la section en ligne, pour la sidebar en mode
-         réduit (icônes seules) où il n'y a pas la place de déplier la liste sur place. -->
-    <Teleport to="body">
-      <div v-if="flyoutOpen" ref="smartListsFlyoutContentRef" class="smart-lists-flyout" :style="flyoutPos" @click.stop>
-        <div class="smart-lists-flyout-header">
-          <span class="smart-lists-flyout-title">Smart list</span>
-          <button class="nav-header-btn" title="Nouvelle liste" @click="openCreateSmartList">+</button>
-        </div>
-        <p v-if="smartListsStore.loaded && !smartListsStore.lists.length" class="nav-empty-hint">Aucune liste</p>
-        <div
-          v-for="sl in smartListsStore.lists" :key="sl.id"
-          class="smart-list-row"
-          :class="{ 'smart-list-row-dragging': draggedListId === sl.id }"
-          draggable="true"
-          @dragstart="onDragStart(sl)"
-          @dragover.prevent="onDragOver(sl)"
-          @drop="onDrop"
-          @dragend="onDragEnd"
-        >
-          <router-link
-            :to="`/collections/${sl.id}`"
-            :title="sl.name"
-            :class="['nav-item', 'nav-sub-item', 'smart-list-link', { 'nav-item-active': route.path === `/collections/${sl.id}` }]"
-            @click="flyoutOpen = false"
-          >
-            <span class="nav-label">{{ sl.name }}</span>
-          </router-link>
-          <div
-            class="nav-inline-menu-wrap"
-            :ref="el => { if (menuTargetList?.id === sl.id) smartListsItemTriggerRef = el }"
-          >
-            <button class="nav-header-btn nav-header-btn-sub" title="Options" @click="openSmartListsMenu($event, sl)">
-              <SvgIcon name="more-vertical" style="font-size:13px" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <SmartListEditModal
       v-if="smartListsStore.editorOpen"
@@ -927,34 +901,8 @@ function fmtRelative(iso) {
 
 /* Menu "Scanner" — même pattern que les menus "..." de SeriesDetailView.vue (non
    mutualisé : celui-ci vit dans le topbar global, hors de tout scroll-row). */
-.toolbar-more-wrap { position: relative; }
 .topbar-scan-trigger { display: flex; align-items: center; padding: 6px; }
 .topbar-scan-btn-active { border-color: var(--vermilion); color: var(--vermilion); background: var(--vermilion-light); }
-.more-menu {
-  position: absolute;
-  top: calc(100% + 4px); right: 0;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 260px;
-  padding: 4px 0;
-  z-index: 300;
-}
-.more-item {
-  display: block;
-  width: 100%; padding: 8px 14px;
-  background: none; border: none; cursor: pointer;
-  font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-  text-align: left;
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-.more-item:hover { background: var(--light); }
-.more-item:disabled { color: var(--muted); cursor: default; }
-.more-item:disabled:hover { background: none; }
-.more-item-danger { color: var(--danger); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
 
 /* Listes intelligentes — section dépliable, voir script pour la raison du Teleport.
    L'en-tête est un seul .nav-item (icône, libellé, chevron, +, badge) plutôt qu'une rangée
@@ -1011,22 +959,10 @@ function fmtRelative(iso) {
    sans effet de transition qui gênerait le suivi du curseur pendant le drag. */
 .smart-list-row-dragging { opacity: 0.4; }
 
-.smart-lists-floating-menu {
-  position: fixed;
-  z-index: 300;
-  min-width: 180px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  padding: 4px 0;
-}
 
 /* Flyout "Smart list" en mode sidebar réduite — même chrome que les autres popovers de
    l'app, mais plus large (contenu = une liste de noms, pas juste des actions courtes). */
 .smart-lists-flyout {
-  position: fixed;
-  z-index: 300;
   width: 240px;
   max-height: 70vh;
   overflow-y: auto;
@@ -1069,16 +1005,7 @@ function fmtRelative(iso) {
   color: #fff; background: var(--vermilion);
   border-radius: 999px; border: 2px solid var(--surface);
 }
-.topbar-notif-menu { min-width: 300px; max-width: 340px; max-height: 400px; overflow-y: auto; padding: 4px; }
 .notif-empty { padding: 16px; text-align: center; font-size: 0.8rem; color: var(--muted); }
-.notif-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 8px; margin-bottom: 2px;
-  background: none; border: none; border-radius: var(--radius-sm);
-  cursor: pointer; text-align: left;
-  transition: background 0.1s;
-}
-.notif-item:hover { background: var(--light); }
 .notif-cover { width: 32px; height: 44px; object-fit: cover; border-radius: 3px; flex-shrink: 0; background: var(--light); }
 .notif-cover-placeholder { display: flex; align-items: center; justify-content: center; font-size: 1rem; }
 .notif-info { min-width: 0; flex: 1; }
@@ -1088,7 +1015,6 @@ function fmtRelative(iso) {
 
 /* Menu "Mon compte" — même squelette que le menu Scanner ci-dessus. */
 .topbar-account-trigger { display: flex; align-items: center; padding: 3px; border-radius: 50%; }
-.topbar-account-menu { min-width: 220px; }
 
 /* Scan progress bar */
 .scan-bar {

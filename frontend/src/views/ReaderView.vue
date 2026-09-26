@@ -7,6 +7,7 @@ import { libraryApi } from '../api/library'
 import client from '../api/client'
 import { sortTomesByNumber } from '../utils/tomeSort'
 import SvgIcon from '../components/SvgIcon.vue'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/shadcn/dropdown-menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +51,14 @@ const MODE_OPTIONS = [
 const modeOptions = computed(() => isSmartphone.value ? MODE_OPTIONS.filter(m => m.value !== 'double') : MODE_OPTIONS)
 const currentModeOption = computed(() => MODE_OPTIONS.find(m => m.value === reader.mode) || MODE_OPTIONS[0])
 function selectMode(m) { reader.setMode(m); showModeMenu.value = false }
+// Un tap sur la page alors que le menu de mode est ouvert ne fait que le fermer (comme
+// avant) : le menu se ferme dès le pointerdown extérieur, avant le clic — on retient donc
+// qu'il vient d'être fermé ainsi, pour que clickZone ne tourne pas la page en plus.
+let modeMenuClosedByOutsideTap = false
+function onModeMenuPointerDownOutside() {
+  modeMenuClosedByOutsideTap = true
+  setTimeout(() => { modeMenuClosedByOutsideTap = false }, 500)
+}
 
 // Panneau de réglages d'image ("baguette magique") — luminosité/contraste/saturation/netteté,
 // appliqués en filtre directement sur les pages (voir imageFilterStyle plus bas) : aucun
@@ -511,6 +520,10 @@ onUnmounted(() => {
 
 function onKey(e) {
   markActivity()
+  // Touches tapées dans le menu de mode (DropdownMenu) : flèches, Entrée et Échap sont gérés
+  // par le menu lui-même — sans ce garde-fou, Échap fermerait le menu PUIS quitterait le
+  // lecteur, et les flèches changeraient de page/d'ajustement en naviguant dans le menu.
+  if (e.target?.closest?.('[data-slot="dropdown-menu-content"]')) return
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goNextPanelOrPage() }
   if (e.key === 'ArrowLeft') { e.preventDefault(); goPrevPanelOrPage() }
   // Haut/Bas : page précédente/suivante en mode Défilement (comme Gauche/Droite) — bascule
@@ -688,7 +701,7 @@ function clickZone(e) {
   markActivity()
   // Un tap en dehors du menu de mode/du panneau de réglages le referme sans déclencher en
   // plus un changement de page.
-  if (showModeMenu.value) { showModeMenu.value = false; return }
+  if (showModeMenu.value || modeMenuClosedByOutsideTap) { showModeMenu.value = false; modeMenuClosedByOutsideTap = false; return }
   if (showAdjustPanel.value) { showAdjustPanel.value = false; return }
   // Pas de zones gauche/droite en Défilement (le scroll natif gère déjà la navigation).
   if (reader.mode === 'vertical') return
@@ -777,28 +790,33 @@ function onTouchEnd(e) {
       </button>
 
       <!-- Sélecteur de mode — menu déroulant plutôt que 3 boutons toujours dépliés. -->
-      <div class="reader-mode-dropdown" @click.stop>
-        <button
-          class="reader-dropdown-btn"
-          :class="{ 'reader-dropdown-btn-open': showModeMenu }"
-          @click="showModeMenu = !showModeMenu"
+      <DropdownMenu v-model:open="showModeMenu" :modal="false">
+        <DropdownMenuTrigger as-child>
+          <button class="reader-dropdown-btn" :class="{ 'reader-dropdown-btn-open': showModeMenu }" @click.stop>
+            <SvgIcon :name="currentModeOption.icon" style="font-size:15px" />
+            <span>{{ currentModeOption.label }}</span>
+            <SvgIcon name="chevron-down" class="reader-dropdown-chevron" :class="{ 'reader-dropdown-chevron-open': showModeMenu }" style="font-size:13px" />
+          </button>
+        </DropdownMenuTrigger>
+        <!-- Même écrin sombre qu'avant (couleurs fixes : le lecteur est toujours sombre). -->
+        <DropdownMenuContent
+          align="start" :side-offset="6"
+          @pointer-down-outside="onModeMenuPointerDownOutside"
+          class="min-w-[168px] rounded-[10px] border-white/20 bg-[#12151c] p-1.5 text-white/75 shadow-[0_12px_32px_rgba(0,0,0,0.5)]"
         >
-          <SvgIcon :name="currentModeOption.icon" style="font-size:15px" />
-          <span>{{ currentModeOption.label }}</span>
-          <SvgIcon name="chevron-down" class="reader-dropdown-chevron" :class="{ 'reader-dropdown-chevron-open': showModeMenu }" style="font-size:13px" />
-        </button>
-        <div v-if="showModeMenu" class="reader-dropdown-menu">
-          <button
+          <DropdownMenuItem
             v-for="m in modeOptions" :key="m.value"
-            class="reader-dropdown-item"
-            :class="{ 'reader-dropdown-item-active': reader.mode === m.value }"
-            @click="selectMode(m.value)"
+            :class="[
+              'gap-2.5 rounded-md p-2.5 text-xs font-bold tracking-wider uppercase [&_svg]:text-current focus:bg-white/10 focus:text-white',
+              reader.mode === m.value ? 'bg-[color-mix(in_srgb,var(--vermilion)_22%,transparent)] text-[var(--vermilion)] focus:bg-[color-mix(in_srgb,var(--vermilion)_30%,transparent)] focus:text-[var(--vermilion)]' : '',
+            ]"
+            @select="selectMode(m.value)"
           >
             <SvgIcon :name="m.icon" style="font-size:15px" />
             <span>{{ m.label }}</span>
-          </button>
-        </div>
-      </div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <!-- Ajustement + zoom fusionnés : le libellé (Largeur/Hauteur) bascule l'ajustement
            au clic, le curseur pilote le zoom — sans objet en mode Défilement pour le
@@ -1079,8 +1097,8 @@ function onTouchEnd(e) {
 /* Sélecteur de mode — bouton bordé ouvrant un menu déroulant (icône + libellé + chevron),
    plutôt que 3 boutons toujours dépliés — style repris de la capture d'écran fournie
    (bordure visible au repos, pas seulement au survol). */
-.reader-mode-dropdown { position: relative; flex-shrink: 0; }
 .reader-dropdown-btn {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1104,42 +1122,6 @@ function onTouchEnd(e) {
 }
 .reader-dropdown-chevron { transition: transform 0.15s; flex-shrink: 0; }
 .reader-dropdown-chevron-open { transform: rotate(180deg); }
-.reader-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 168px;
-  background: #12151c;
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-  padding: 6px;
-  z-index: 20;
-}
-.reader-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.75);
-  font-family: var(--font);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 10px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color 0.15s, color 0.15s;
-}
-.reader-dropdown-item:hover { background-color: rgba(255,255,255,0.08); }
-.reader-dropdown-item-active {
-  background-color: color-mix(in srgb, var(--vermilion) 22%, transparent);
-  color: var(--vermilion);
-}
 
 /* Sur petit écran, la barre du haut n'a pas la place pour flèche + titre + le libellé du
    menu déroulant + icônes — icône seule pour le bouton du menu, toujours identifiable via
@@ -1174,7 +1156,7 @@ function onTouchEnd(e) {
 }
 
 /* Panneau de réglages d'image — même écrin que le menu déroulant du sélecteur de mode
-   (.reader-dropdown-menu), aligné à droite plutôt qu'à gauche (bouton proche du bord droit
+   (DropdownMenuContent, voir template), aligné à droite plutôt qu'à gauche (bouton proche du bord droit
    de la barre). */
 .reader-adjust-wrap { position: relative; flex-shrink: 0; }
 .reader-adjust-panel {

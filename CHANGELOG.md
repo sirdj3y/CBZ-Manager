@@ -14,6 +14,7 @@
 
 - **Composants shadcn-vue** adoptés progressivement, habillés avec les couleurs de l'app (clair et sombre). Vitrine : `/labo/shadcn` (non liée dans le menu).
 - **Recherche globale (⌘K ou champ du haut) refaite en palette shadcn** : même recherche (sans accents, séries/albums/auteurs, suggestions récentes), avec navigation clavier, focus et accessibilité gérés par la bibliothèque.
+- **Menus « ⋯ » et panneaux en composants shadcn** : menus des cartes (accueil, Séries, Albums, fiche Série), menus Actions et Sélection de la fiche Série, menu de la fiche Album, menus du haut (Nouveautés, Scanner, Mon compte), menus des listes intelligentes, sélecteur de mode du lecteur ; panneaux Trier/Filtrer et liste des Smart lists en barre latérale réduite. Plus jamais coupés par une zone qui défile, navigables au clavier. Les menus des cartes Série et Album sont désormais partagés (un seul composant chacun).
 
 ### Corrections
 

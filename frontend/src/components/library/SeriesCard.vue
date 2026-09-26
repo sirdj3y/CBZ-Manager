@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import SvgIcon from '../SvgIcon.vue'
 import { useAuthStore } from '../../stores/auth'
+import SeriesActionsMenu from './SeriesActionsMenu.vue'
 
 const props = defineProps({
   series: { type: Object, required: true },
@@ -19,8 +20,6 @@ const router = useRouter()
 const imgRef = ref(null)
 const imgSrc = ref(null)
 const menuOpen = ref(false)
-const menuRef = ref(null)
-const menuLeft = ref(false)
 const cardHovered = ref(false)
 
 onMounted(() => {
@@ -34,20 +33,7 @@ onMounted(() => {
     { rootMargin: '120px' }
   )
   if (imgRef.value) observer.observe(imgRef.value)
-  document.addEventListener('mousedown', onClickOutside)
 })
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
-
-function onClickOutside(e) {
-  if (menuOpen.value && menuRef.value && !menuRef.value.contains(e.target)) {
-    menuOpen.value = false
-  }
-}
-
-function toggleMenu(e) {
-  menuLeft.value = e.clientX > window.innerWidth * 0.66
-  menuOpen.value = !menuOpen.value
-}
 
 // Mettre à jour l'image si la cover change (ex: après modification de la miniature)
 watch(() => props.series.cover_url, (newUrl) => {
@@ -101,30 +87,16 @@ watch(() => props.series.cover_url, (newUrl) => {
           <SvgIcon name="edit" style="font-size:20px" />
         </button>
         <div class="overlay-spacer"></div>
-        <div v-if="canMenu" class="more-wrap" ref="menuRef">
-          <button class="overlay-btn" :class="{ 'overlay-btn-active': menuOpen }" title="Plus d'options" @click="toggleMenu">
+        <SeriesActionsMenu
+          v-if="canMenu" v-model:open="menuOpen" :series="series"
+          @edit="$emit('edit', $event)" @enrich="$emit('enrich', $event)" @rename="$emit('rename', $event)"
+          @convert="$emit('convert', $event)" @download="$emit('download', $event)" @set-cover="$emit('set-cover', $event)"
+          @toggle-hidden="$emit('toggle-hidden', $event)" @delete="$emit('delete', $event)"
+        >
+          <button class="overlay-btn" :class="{ 'overlay-btn-active': menuOpen }" title="Plus d'options">
             <SvgIcon name="more-vertical" style="font-size:20px" />
           </button>
-          <div v-if="menuOpen" class="more-menu" :class="{ 'more-menu-left': menuLeft }">
-            <template v-if="authStore.hasPermission('library.metadata_edit')">
-              <button class="more-item" @click="$emit('edit', series); menuOpen = false">Éditer les métadonnées</button>
-              <button class="more-item" @click="$emit('enrich', series); menuOpen = false">Compléter les métadonnées</button>
-            </template>
-            <button v-if="authStore.hasPermission('library.rename')" class="more-item" @click="$emit('rename', series); menuOpen = false">Renommer les fichiers</button>
-            <button v-if="authStore.hasPermission('library.convert')" class="more-item" @click="$emit('convert', series); menuOpen = false">Convertir les fichiers</button>
-            <button v-if="authStore.hasPermission('library.download')" class="more-item" @click="$emit('download', series); menuOpen = false">Télécharger la série</button>
-            <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="$emit('set-cover', series); menuOpen = false">Modifier la miniature</button>
-            <template v-if="authStore.hasPermission('library.metadata_edit') || authStore.hasPermission('library.delete')">
-              <div class="more-divider"></div>
-            </template>
-            <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="$emit('toggle-hidden', series); menuOpen = false">
-              {{ series.hidden ? 'Afficher la série' : 'Masquer la série' }}
-            </button>
-            <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="$emit('delete', series); menuOpen = false">
-              Supprimer la série
-            </button>
-          </div>
-        </div>
+        </SeriesActionsMenu>
       </div>
     </div>
 
@@ -231,34 +203,6 @@ watch(() => props.series.cover_url, (newUrl) => {
   padding: 0 8px;
 }
 .overlay-spacer { flex: 1; }
-
-/* More dropdown */
-.more-wrap { position: relative; }
-.more-menu {
-  position: absolute;
-  top: calc(100% + 4px); left: 0;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 190px;
-  padding: 4px 0;
-  z-index: 300;
-}
-.more-menu.more-menu-left { left: auto; right: 0; }
-.more-item {
-  display: block;
-  width: 100%; padding: 8px 14px;
-  background: none; border: none; cursor: pointer;
-  font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-  text-align: left;
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-.more-item:hover { background: var(--light); }
-.more-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.more-item-danger { color: var(--danger); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
 
 .series-info {
   padding: 8px 10px 6px;

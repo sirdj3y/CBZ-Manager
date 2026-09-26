@@ -12,6 +12,10 @@ import MoveTomesModal from '../components/library/MoveTomesModal.vue'
 import BulkEditTomesModal from '../components/metadata/BulkEditTomesModal.vue'
 import MissingAlbumUploadModal from '../components/missingAlbums/MissingAlbumUploadModal.vue'
 import SvgIcon from '../components/SvgIcon.vue'
+import TomeActionsMenu from '../components/library/TomeActionsMenu.vue'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/shadcn/dropdown-menu'
 import { libraryApi } from '../api/library'
 import { tomesApi } from '../api/tomes'
 import { missingAlbumsApi } from '../api/missingAlbums'
@@ -245,8 +249,6 @@ const showCoverPicker = ref(false)
 // sélection en cours. Auparavant dupliqué entre ce menu (sur la cover) et la rangée de
 // boutons toujours visible ; fusionné en une seule barre d'actions.
 const showActionsMenu = ref(false)
-const actionsMenuLeft = ref(false)
-const actionsMenuRef = ref(null)
 const confirmDeleteSeries = ref(false)
 const deletingSeries = ref(false)
 const confirmDownload = ref(false)
@@ -256,17 +258,6 @@ function downloadSeries() {
   confirmDownload.value = false
 }
 
-function toggleActionsMenu(e) {
-  actionsMenuLeft.value = e.clientX > window.innerWidth * 0.66
-  showActionsMenu.value = !showActionsMenu.value
-}
-function onClickOutsideActionsMenu(e) {
-  if (showActionsMenu.value && actionsMenuRef.value && !actionsMenuRef.value.contains(e.target)) {
-    showActionsMenu.value = false
-  }
-}
-onMounted(() => document.addEventListener('mousedown', onClickOutsideActionsMenu))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutsideActionsMenu))
 
 async function deleteSeries() {
   deletingSeries.value = true
@@ -310,6 +301,9 @@ function clearSelection() { selectedIds.clear() }
 // déjà son propre Échap pour se refermer en premier, ex. MetadataDrawer/MoveTomesModal).
 function onSelectionEscape(e) {
   if (e.key !== 'Escape' || !selectedIds.size) return
+  // Échap dans un menu, un popover ou une palette shadcn (rendus dans <body>) : il les ferme
+  // eux seuls, sans vider la sélection en plus.
+  if (e.target?.closest?.('[data-slot$="-content"]')) return
   if (showTomeMeta.value || showMove.value || showBulkEdit.value || confirmBulkDelete.value || confirmDeleteTome.value || openMenuId.value !== null || showSelectionMenu.value) return
   clearSelection()
 }
@@ -324,19 +318,6 @@ function openMoveSelection() {
 // Menu « ... » secondaire de la barre de sélection (Déplacer/Supprimer) — état séparé de
 // celui de la barre d'actions série (showActionsMenu), les deux pouvant coexister dans le DOM.
 const showSelectionMenu = ref(false)
-const selectionMenuLeft = ref(false)
-const selectionMenuRef = ref(null)
-function toggleSelectionMenu(e) {
-  selectionMenuLeft.value = e.clientX > window.innerWidth * 0.66
-  showSelectionMenu.value = !showSelectionMenu.value
-}
-function onClickOutsideSelectionMenu(e) {
-  if (showSelectionMenu.value && selectionMenuRef.value && !selectionMenuRef.value.contains(e.target)) {
-    showSelectionMenu.value = false
-  }
-}
-onMounted(() => document.addEventListener('mousedown', onClickOutsideSelectionMenu))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutsideSelectionMenu))
 
 // Après un déplacement (lot ou individuel), la série courante peut avoir été supprimée si
 // elle vient d'être vidée de son dernier album — dans ce cas on repart vers /series plutôt
@@ -376,21 +357,12 @@ async function bulkDelete() {
 // Menu « plus d'options » (3 points) par album — déplacer/éditer/supprimer un seul album
 // sans passer par la sélection multiple ni ouvrir le tiroir d'édition complet.
 const openMenuId = ref(null)
-const menuLeft = ref(false)
+function setMenuOpen(id, open) {
+  if (open) openMenuId.value = id
+  else if (openMenuId.value === id) openMenuId.value = null
+}
 const confirmDeleteTome = ref(null)
 const deletingSingle = ref(false)
-
-function toggleTomeMenu(e, tomeId) {
-  menuLeft.value = e.clientX > window.innerWidth * 0.66
-  openMenuId.value = openMenuId.value === tomeId ? null : tomeId
-}
-function onClickOutsideMenu(e) {
-  if (openMenuId.value !== null && !e.target.closest('.tome-more-wrap')) {
-    openMenuId.value = null
-  }
-}
-onMounted(() => document.addEventListener('mousedown', onClickOutsideMenu))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutsideMenu))
 
 function openMoveSingle(tome) {
   moveTomeIds.value = [tome.id]
@@ -526,21 +498,25 @@ async function deleteSingleTome() {
             <button v-if="authStore.hasPermission('library.download')" class="hero-btn hero-btn-outline hero-btn-icon" title="Télécharger" @click="confirmDownload = true">
               <SvgIcon name="download" style="font-size:15px" />
             </button>
-            <div v-if="canSeriesMoreMenu" class="toolbar-more-wrap" ref="actionsMenuRef">
-              <button class="hero-btn hero-btn-outline hero-btn-icon" :class="{ 'toolbar-more-btn-active': showActionsMenu }" title="Plus d'options" @click="toggleActionsMenu">
-                <SvgIcon name="more-vertical" style="font-size:13px" />
-              </button>
-              <div v-if="showActionsMenu" class="more-menu toolbar-menu" :class="{ 'more-menu-left': actionsMenuLeft }">
-                <button v-if="authStore.hasPermission('library.convert')" class="more-item" @click="showConverter = true; showActionsMenu = false">Convertir les fichiers</button>
-                <button v-if="authStore.hasPermission('library.rename')" class="more-item" @click="showRename = true; showActionsMenu = false">Renommer les fichiers</button>
-                <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="showCoverPicker = true; showActionsMenu = false">Modifier la miniature</button>
-                <button v-if="authStore.hasPermission('library.metadata_edit')" class="more-item" @click="toggleSeriesHidden(); showActionsMenu = false">
-                  {{ series.hidden ? 'Afficher la série' : 'Masquer la série' }}
+            <DropdownMenu v-if="canSeriesMoreMenu" v-model:open="showActionsMenu" :modal="false">
+              <DropdownMenuTrigger as-child>
+                <button class="hero-btn hero-btn-outline hero-btn-icon" :class="{ 'toolbar-more-btn-active': showActionsMenu }" title="Plus d'options">
+                  <SvgIcon name="more-vertical" style="font-size:13px" />
                 </button>
-                <div v-if="authStore.hasPermission('library.delete')" class="more-divider"></div>
-                <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="confirmDeleteSeries = true; showActionsMenu = false">Supprimer la série</button>
-              </div>
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="min-w-[190px]">
+                <DropdownMenuItem v-if="authStore.hasPermission('library.convert')" @select="showConverter = true">Convertir les fichiers</DropdownMenuItem>
+                <DropdownMenuItem v-if="authStore.hasPermission('library.rename')" @select="showRename = true">Renommer les fichiers</DropdownMenuItem>
+                <DropdownMenuItem v-if="authStore.hasPermission('library.metadata_edit')" @select="showCoverPicker = true">Modifier la miniature</DropdownMenuItem>
+                <DropdownMenuItem v-if="authStore.hasPermission('library.metadata_edit')" @select="toggleSeriesHidden()">
+                  {{ series.hidden ? 'Afficher la série' : 'Masquer la série' }}
+                </DropdownMenuItem>
+                <template v-if="authStore.hasPermission('library.delete')">
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" @select="confirmDeleteSeries = true">Supprimer la série</DropdownMenuItem>
+                </template>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </section>
@@ -582,16 +558,18 @@ async function deleteSingleTome() {
         <span class="selection-count">{{ selectedIds.size }} album{{ selectedIds.size > 1 ? 's' : '' }} sélectionné{{ selectedIds.size > 1 ? 's' : '' }}</span>
         <button v-if="authStore.hasPermission('library.metadata_edit')" class="btn btn-secondary btn-sm" @click="showBulkEdit = true">Éditer…</button>
         <a v-if="authStore.hasPermission('library.download')" class="btn btn-secondary btn-sm" :href="tomesApi.downloadBulkUrl([...selectedIds])">Télécharger</a>
-        <div v-if="authStore.hasPermission('library.move') || authStore.hasPermission('library.delete')" class="toolbar-more-wrap" ref="selectionMenuRef">
-          <button class="toolbar-more-btn" :class="{ 'toolbar-more-btn-active': showSelectionMenu }" title="Plus d'options" @click="toggleSelectionMenu">
-            <SvgIcon name="more-vertical" style="font-size:18px" />
-          </button>
-          <div v-if="showSelectionMenu" class="more-menu toolbar-menu" :class="{ 'more-menu-left': selectionMenuLeft }">
-            <button v-if="authStore.hasPermission('library.move')" class="more-item" @click="openMoveSelection(); showSelectionMenu = false">Déplacer</button>
-            <div v-if="authStore.hasPermission('library.move') && authStore.hasPermission('library.delete')" class="more-divider"></div>
-            <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="confirmBulkDelete = true; showSelectionMenu = false">Supprimer</button>
-          </div>
-        </div>
+        <DropdownMenu v-if="authStore.hasPermission('library.move') || authStore.hasPermission('library.delete')" v-model:open="showSelectionMenu" :modal="false">
+          <DropdownMenuTrigger as-child>
+            <button class="toolbar-more-btn" :class="{ 'toolbar-more-btn-active': showSelectionMenu }" title="Plus d'options">
+              <SvgIcon name="more-vertical" style="font-size:18px" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" class="min-w-[160px]">
+            <DropdownMenuItem v-if="authStore.hasPermission('library.move')" @select="openMoveSelection()">Déplacer</DropdownMenuItem>
+            <DropdownMenuSeparator v-if="authStore.hasPermission('library.move') && authStore.hasPermission('library.delete')" />
+            <DropdownMenuItem v-if="authStore.hasPermission('library.delete')" variant="destructive" @select="confirmBulkDelete = true">Supprimer</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button class="btn btn-ghost btn-sm selection-cancel" @click="clearSelection">✕ Annuler la sélection</button>
       </div>
 
@@ -645,24 +623,14 @@ async function deleteSingleTome() {
                 <SvgIcon name="edit" style="font-size:20px" />
               </button>
               <div v-if="canTomeMoreMenu" class="tome-more-wrap" @click.stop>
-                <button
-                  class="overlay-btn tome-more-btn"
-                  :class="{ 'overlay-btn-active': openMenuId === entry.id }"
-                  title="Plus d'options"
-                  @click="toggleTomeMenu($event, entry.id)"
+                <TomeActionsMenu
+                  :tome="entry" :open="openMenuId === entry.id" @update:open="setMenuOpen(entry.id, $event)"
+                  @edit="onEditTome" @search-metadata="onSearchTomeMetadata" @move="openMoveSingle" @delete="confirmDeleteTome = $event"
                 >
-                  <SvgIcon name="more-vertical" style="font-size:20px" />
-                </button>
-                <div v-if="openMenuId === entry.id" class="more-menu" :class="{ 'more-menu-left': menuLeft }">
-                  <template v-if="authStore.hasPermission('library.metadata_edit')">
-                    <button class="more-item" @click="onEditTome(entry); openMenuId = null">Éditer les métadonnées</button>
-                    <button class="more-item" @click="onSearchTomeMetadata(entry); openMenuId = null">Rechercher les métadonnées</button>
-                  </template>
-                  <button v-if="authStore.hasPermission('library.move')" class="more-item" @click="openMoveSingle(entry); openMenuId = null">Déplacer vers une série</button>
-                  <a v-if="authStore.hasPermission('library.download')" class="more-item" :href="tomesApi.downloadUrl(entry.id)" @click="openMenuId = null">Télécharger</a>
-                  <div v-if="authStore.hasPermission('library.delete')" class="more-divider"></div>
-                  <button v-if="authStore.hasPermission('library.delete')" class="more-item more-item-danger" @click="confirmDeleteTome = entry; openMenuId = null">Supprimer l'album</button>
-                </div>
+                  <button class="overlay-btn tome-more-btn" :class="{ 'overlay-btn-active': openMenuId === entry.id }" title="Plus d'options">
+                    <SvgIcon name="more-vertical" style="font-size:20px" />
+                  </button>
+                </TomeActionsMenu>
               </div>
             </div>
           </div>
@@ -1316,31 +1284,6 @@ async function deleteSingleTome() {
 /* Menu "plus d'options" — en bas à droite de la cover, s'ouvre vers le bas comme sur la
    page Séries. */
 .tome-more-wrap { position: absolute; bottom: 8px; right: 8px; }
-.more-menu {
-  position: absolute;
-  top: calc(100% + 4px); left: 0;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 190px;
-  padding: 4px 0;
-  z-index: 300;
-}
-.more-menu.more-menu-left { left: auto; right: 0; }
-.more-item {
-  display: block;
-  width: 100%; padding: 8px 14px;
-  background: none; border: none; cursor: pointer;
-  font-size: 0.8125rem; font-family: var(--font); color: var(--text);
-  text-align: left;
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-.more-item:hover { background: var(--light); }
-.more-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.more-item-danger { color: var(--danger); }
-.more-item-danger:hover { background: var(--danger-bg-light); }
 
 .tome-info {
   padding: 7px 9px; border-top: 1px solid var(--border); cursor: pointer;
@@ -1374,7 +1317,6 @@ async function deleteSingleTome() {
 }
 .selection-count { font-size: 0.82rem; font-weight: 600; color: var(--primary); margin-right: 4px; }
 .selection-cancel { margin-left: auto; }
-.toolbar-more-wrap { position: relative; }
 /* Déclencheur "..." à droite des boutons principaux — .overlay-btn (icône blanche, pensé
    pour survoler une image) ne convient pas ici, fond clair de la barre. */
 .toolbar-more-btn {

@@ -68,6 +68,9 @@ watch(selectMode, (v) => { if (!v) selectedIds.clear() })
 // déjà son propre Échap pour se refermer en premier, ex. SeriesMetadataModal/RenameModal).
 function onSelectionEscape(e) {
   if (e.key !== 'Escape' || !selectedIds.size) return
+  // Échap dans un menu, un popover ou une palette shadcn (rendus dans <body>) : il les ferme
+  // eux seuls, sans vider la sélection en plus.
+  if (e.target?.closest?.('[data-slot$="-content"]')) return
   if (showSeriesMeta.value || showEnrich.value || showRename.value || showConverter.value || showCoverPicker.value || confirmDeleteSeries.value || confirmBulkDelete.value) return
   clearSelection()
 }

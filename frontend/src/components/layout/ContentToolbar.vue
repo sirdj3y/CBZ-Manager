@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLibraryStore } from '../../stores/library'
 import { libraryApi } from '../../api/library'
 import SvgIcon from '../SvgIcon.vue'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/shadcn/popover'
 import AutocompleteInput from '../ui/AutocompleteInput.vue'
 
 const props = defineProps({
@@ -59,48 +60,25 @@ function onAlphaVTouchEnd() {
 }
 
 const filterOpen = ref(false)
-const filterWrapRef = ref(null)
-const filterBtnRef = ref(null)
-const filterDropdownRef = ref(null)
-const filterPos = ref({ top: '0px', left: 'auto', right: '0px' })
 const ratingHover = ref(0)
 
-// Le menu est téléporté dans <body> en position:fixed (voir template) — .subbar doit
-// pouvoir défiler horizontalement sur mobile (overflow-x:auto), ce qui clippe aussi
-// verticalement tout ce qui dépasserait de sa propre boîte (règle CSS : un axe non-visible
-// force l'autre à devenir "auto" lui aussi) — le dropdown ne peut donc plus rester un
-// simple descendant en position:absolute sans être coupé. Même pattern que les autres
-// menus "..." de l'app pour la même raison (voir CLAUDE.md).
-function openFilter() {
-  if (filterBtnRef.value) {
-    const rect = filterBtnRef.value.getBoundingClientRect()
-    const MARGIN = 8
-    let right = window.innerWidth - rect.right
-    if (right + 240 > window.innerWidth - MARGIN) right = MARGIN
-    filterPos.value = { top: (rect.bottom + 6) + 'px', left: 'auto', right: right + 'px' }
-  }
-  filterOpen.value = !filterOpen.value
+// Tri et filtres : Popover de shadcn-vue, rendu hors de .subbar (qui défile horizontalement
+// sur mobile et rognerait tout panneau en position:absolute) et positionné par Reka UI.
+// La liste de suggestions d'AutocompleteInput est elle aussi rendue dans <body> : un clic
+// dedans ne doit pas être pris pour un clic à l'extérieur du panneau.
+function keepOpenForAutocomplete(e) {
+  if (e.target?.closest?.('.autocomplete-list')) e.preventDefault()
 }
 
-function onClickOutside(e) {
-  if (filterOpen.value && !filterWrapRef.value?.contains(e.target) && !filterDropdownRef.value?.contains(e.target)) {
-    filterOpen.value = false
-  }
-  if (sortOpen.value && !sortWrapRef.value?.contains(e.target) && !sortDropdownRef.value?.contains(e.target)) {
-    sortOpen.value = false
-  }
-}
 const classifications = ref([])
 
 onMounted(() => {
-  document.addEventListener('mousedown', onClickOutside)
   // Nécessaire à l'autocomplétion des filtres Dessinateur/Scénariste/Éditeur ci-dessous —
   // ni SeriesView ni BooksView ne le déclenchent elles-mêmes (contrairement à la page
   // Auteurs ou à l'import).
   if (!library.authorNames.writers.length) library.fetchAuthors()
   libraryApi.getClassifications().then(({ data }) => { classifications.value = data }).catch(() => {})
 })
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 
 // Pool commun scénaristes + dessinateurs (dédupliqué) — même logique que MetadataForm/
 // SeriesMetadataModal : un auteur polyvalent (ex. Peyo) apparaît dans les deux métiers.
@@ -144,20 +122,6 @@ function toggleSortDir() {
 }
 
 const sortOpen = ref(false)
-const sortWrapRef = ref(null)
-const sortBtnRef = ref(null)
-const sortDropdownRef = ref(null)
-const sortPos = ref({ top: '0px', left: 'auto', right: '0px' })
-function openSort() {
-  if (sortBtnRef.value) {
-    const rect = sortBtnRef.value.getBoundingClientRect()
-    const MARGIN = 8
-    let right = window.innerWidth - rect.right
-    if (right + 220 > window.innerWidth - MARGIN) right = MARGIN
-    sortPos.value = { top: (rect.bottom + 6) + 'px', left: 'auto', right: right + 'px' }
-  }
-  sortOpen.value = !sortOpen.value
-}
 
 const hasActiveFilters = computed(() =>
   !!(library.filters.writer || library.filters.penciller || library.filters.publisher ||
@@ -209,29 +173,147 @@ const hasActiveFilters = computed(() =>
       </div>
 
       <!-- Sort -->
-      <div class="sort-wrap" ref="sortWrapRef">
-        <button
-          ref="sortBtnRef"
-          type="button"
-          @click="openSort"
-          :class="['btn btn-ghost btn-icon btn-sm sort-btn', { 'sort-btn-active': sortOpen }]"
-          title="Trier"
-        >
-          <SvgIcon name="arrow-up-down" style="font-size:14px" />
-        </button>
-      </div>
+      <Popover v-model:open="sortOpen">
+        <PopoverTrigger as-child>
+          <button
+            type="button"
+            :class="['btn btn-ghost btn-icon btn-sm sort-btn', { 'sort-btn-active': sortOpen }]"
+            title="Trier"
+          >
+            <SvgIcon name="arrow-up-down" style="font-size:14px" />
+          </button>
+        </PopoverTrigger>
+        <!-- Popover transparent : le panneau visible est le <div> intérieur, écrit dans ce
+             fichier pour que son CSS scoped s'y applique (pas à la racine du Popover, rendue
+             dans <body> par Reka UI). -->
+        <PopoverContent align="end" :side-offset="6" class="w-auto border-0 bg-transparent p-0 shadow-none">
+          <div class="filter-dropdown sort-dropdown">
+            <div class="filter-header">
+              <span>Trier par</span>
+            </div>
+            <div class="sort-field-row">
+              <select v-model="sortField" class="form-control">
+                <option v-for="o in sortCriteria" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+              <button
+                type="button"
+                class="sort-dir-btn"
+                @click="toggleSortDir"
+                :title="library.sortDir === 'asc' ? 'Croissant' : 'Décroissant'"
+              >
+                <SvgIcon :name="library.sortDir === 'asc' ? 'arrow-down-a-z' : 'arrow-down-z-a'" style="font-size:16px" />
+              </button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <!-- Filter button -->
-      <div class="filter-wrap" v-if="showFilter" ref="filterWrapRef">
-        <button
-          ref="filterBtnRef"
-          @click="openFilter"
-          :class="['btn btn-ghost btn-icon btn-sm filter-btn', { 'filter-btn-active': filterOpen || hasActiveFilters }]"
-          title="Filtrer"
-        >
-          <SvgIcon :name="hasActiveFilters ? 'filter-off' : 'filter'" style="font-size:14px" :key="hasActiveFilters ? 'off' : 'on'" />
-        </button>
-      </div>
+      <Popover v-if="showFilter" v-model:open="filterOpen">
+        <PopoverTrigger as-child>
+          <button
+            :class="['btn btn-ghost btn-icon btn-sm filter-btn', { 'filter-btn-active': filterOpen || hasActiveFilters }]"
+            title="Filtrer"
+          >
+            <SvgIcon :name="hasActiveFilters ? 'filter-off' : 'filter'" style="font-size:14px" :key="hasActiveFilters ? 'off' : 'on'" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" :side-offset="6" class="w-auto border-0 bg-transparent p-0 shadow-none" @interact-outside="keepOpenForAutocomplete">
+          <div class="filter-dropdown">
+            <div class="filter-header">
+              <span>Filtres</span>
+              <button class="btn btn-ghost btn-sm" @click="library.filters = { format: '' }; library.showHidden = false; filterOpen = false">Effacer</button>
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Dessinateur</label>
+              <AutocompleteInput
+                v-model="library.filters.penciller"
+                :suggestions="authorPool"
+                placeholder="ex: Uderzo"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Scénariste</label>
+              <AutocompleteInput
+                v-model="library.filters.writer"
+                :suggestions="authorPool"
+                placeholder="ex: Goscinny"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Éditeur</label>
+              <AutocompleteInput
+                v-model="library.filters.publisher"
+                :suggestions="library.authorNames.publishers"
+                placeholder="ex: Dargaud"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Étiquette</label>
+              <AutocompleteInput
+                v-model="library.filters.tag"
+                :suggestions="library.authorNames.tags"
+                placeholder="ex: Favori"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Genre</label>
+              <AutocompleteInput
+                v-model="library.filters.genre"
+                :suggestions="library.authorNames.genres"
+                placeholder="ex: Humour"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Classification</label>
+              <select v-model="library.filters.classification" class="form-control">
+                <option value="">Toutes</option>
+                <option v-for="c in classifications" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Format</label>
+              <div class="format-btns">
+                <button
+                  v-for="fmt in ['cbz', 'cbr', 'pdf']"
+                  :key="fmt"
+                  :class="['fmt-btn', `fmt-btn-${fmt}`, { 'fmt-btn-active': library.filters.format === fmt }]"
+                  @click="library.filters.format = library.filters.format === fmt ? '' : fmt"
+                >{{ fmt.toUpperCase() }}</button>
+              </div>
+            </div>
+            <div v-if="activeView === 'books'" class="filter-group">
+              <label class="form-label">Note Bedetheque.com minimale</label>
+              <div class="rating-btns" @mouseleave="ratingHover = 0">
+                <button
+                  v-for="n in [1,2,3,4,5]"
+                  :key="n"
+                  type="button"
+                  class="rating-star-btn"
+                  :class="{ filled: n <= (ratingHover || library.filters.rating || 0) }"
+                  :title="n + ' étoile' + (n > 1 ? 's' : '') + ' et plus'"
+                  @mouseenter="ratingHover = n"
+                  @click="library.filters.rating = library.filters.rating === n ? 0 : n"
+                >★</button>
+              </div>
+            </div>
+            <div class="filter-group filter-group-toggle">
+              <label class="toggle-label">
+                <input type="checkbox" v-model="library.filters.noMeta" class="toggle-checkbox" />
+                <span>Sans métadonnées uniquement</span>
+              </label>
+              <label v-if="activeView === 'books'" class="toggle-label" style="margin-top: 8px">
+                <input type="checkbox" v-model="library.filters.oneshot" class="toggle-checkbox" />
+                <span>One-shot uniquement</span>
+              </label>
+              <label class="toggle-label" style="margin-top: 8px">
+                <input type="checkbox" v-model="library.showHidden" class="toggle-checkbox" />
+                <span>Afficher les séries masquées</span>
+              </label>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <!-- Sélectionner -->
       <button
@@ -248,126 +330,7 @@ const hasActiveFilters = computed(() =>
       </button>
     </div>
 
-    <!-- Sort dropdown — même contrainte que le filtre : téléporté en position:fixed. -->
-    <Teleport to="body">
-      <div v-if="sortOpen" ref="sortDropdownRef" class="filter-dropdown sort-dropdown" :style="sortPos" @click.stop>
-        <div class="filter-header">
-          <span>Trier par</span>
-        </div>
-        <div class="sort-field-row">
-          <select v-model="sortField" class="form-control">
-            <option v-for="o in sortCriteria" :key="o.value" :value="o.value">{{ o.label }}</option>
-          </select>
-          <button
-            type="button"
-            class="sort-dir-btn"
-            @click="toggleSortDir"
-            :title="library.sortDir === 'asc' ? 'Croissant' : 'Décroissant'"
-          >
-            <SvgIcon :name="library.sortDir === 'asc' ? 'arrow-down-a-z' : 'arrow-down-z-a'" style="font-size:16px" />
-          </button>
-        </div>
-      </div>
-    </Teleport>
 
-    <!-- Filter dropdown — téléporté en position:fixed (voir openFilter) : .subbar défile
-         horizontalement sur mobile, ce qui clippe verticalement tout descendant en
-         position:absolute qui en dépasserait. -->
-    <Teleport to="body">
-      <div v-if="filterOpen" ref="filterDropdownRef" class="filter-dropdown" :style="filterPos" @click.stop>
-        <div class="filter-header">
-          <span>Filtres</span>
-          <button class="btn btn-ghost btn-sm" @click="library.filters = { format: '' }; library.showHidden = false; filterOpen = false">Effacer</button>
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Dessinateur</label>
-          <AutocompleteInput
-            v-model="library.filters.penciller"
-            :suggestions="authorPool"
-            placeholder="ex: Uderzo"
-          />
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Scénariste</label>
-          <AutocompleteInput
-            v-model="library.filters.writer"
-            :suggestions="authorPool"
-            placeholder="ex: Goscinny"
-          />
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Éditeur</label>
-          <AutocompleteInput
-            v-model="library.filters.publisher"
-            :suggestions="library.authorNames.publishers"
-            placeholder="ex: Dargaud"
-          />
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Étiquette</label>
-          <AutocompleteInput
-            v-model="library.filters.tag"
-            :suggestions="library.authorNames.tags"
-            placeholder="ex: Favori"
-          />
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Genre</label>
-          <AutocompleteInput
-            v-model="library.filters.genre"
-            :suggestions="library.authorNames.genres"
-            placeholder="ex: Humour"
-          />
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Classification</label>
-          <select v-model="library.filters.classification" class="form-control">
-            <option value="">Toutes</option>
-            <option v-for="c in classifications" :key="c" :value="c">{{ c }}</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label class="form-label">Format</label>
-          <div class="format-btns">
-            <button
-              v-for="fmt in ['cbz', 'cbr', 'pdf']"
-              :key="fmt"
-              :class="['fmt-btn', `fmt-btn-${fmt}`, { 'fmt-btn-active': library.filters.format === fmt }]"
-              @click="library.filters.format = library.filters.format === fmt ? '' : fmt"
-            >{{ fmt.toUpperCase() }}</button>
-          </div>
-        </div>
-        <div v-if="activeView === 'books'" class="filter-group">
-          <label class="form-label">Note Bedetheque.com minimale</label>
-          <div class="rating-btns" @mouseleave="ratingHover = 0">
-            <button
-              v-for="n in [1,2,3,4,5]"
-              :key="n"
-              type="button"
-              class="rating-star-btn"
-              :class="{ filled: n <= (ratingHover || library.filters.rating || 0) }"
-              :title="n + ' étoile' + (n > 1 ? 's' : '') + ' et plus'"
-              @mouseenter="ratingHover = n"
-              @click="library.filters.rating = library.filters.rating === n ? 0 : n"
-            >★</button>
-          </div>
-        </div>
-        <div class="filter-group filter-group-toggle">
-          <label class="toggle-label">
-            <input type="checkbox" v-model="library.filters.noMeta" class="toggle-checkbox" />
-            <span>Sans métadonnées uniquement</span>
-          </label>
-          <label v-if="activeView === 'books'" class="toggle-label" style="margin-top: 8px">
-            <input type="checkbox" v-model="library.filters.oneshot" class="toggle-checkbox" />
-            <span>One-shot uniquement</span>
-          </label>
-          <label class="toggle-label" style="margin-top: 8px">
-            <input type="checkbox" v-model="library.showHidden" class="toggle-checkbox" />
-            <span>Afficher les séries masquées</span>
-          </label>
-        </div>
-      </div>
-    </Teleport>
   </div>
 
   <!-- Version mobile : colonne fixe sur le bord droit, tap ou glisser pour naviguer —
@@ -541,8 +504,6 @@ const hasActiveFilters = computed(() =>
 .select-mode-check { color: #fff; font-size: 9px; font-weight: 700; line-height: 1; }
 
 .filter-dropdown {
-  position: fixed;
-  z-index: 200;
   width: 240px;
   background: var(--surface-raised);
   border: 1px solid var(--border);

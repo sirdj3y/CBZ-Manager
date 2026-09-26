@@ -1,14 +1,19 @@
 <script setup>
 import { reactiveOmit } from "@vueuse/core";
-import { DropdownMenuSubContent, useForwardPropsEmits } from "reka-ui";
+import { PopoverContent, PopoverPortal, useForwardPropsEmits } from "reka-ui";
 import { cn } from '@/components/shadcn/lib/utils';
+
+defineOptions({
+  inheritAttrs: false,
+});
 
 const props = defineProps({
   forceMount: { type: Boolean, required: false },
-  loop: { type: Boolean, required: false },
   memoDependencies: { type: Array, required: false },
-  sideOffset: { type: Number, required: false },
+  side: { type: null, required: false },
+  sideOffset: { type: Number, required: false, default: 4 },
   sideFlip: { type: Boolean, required: false },
+  align: { type: null, required: false, default: "center" },
   alignOffset: { type: Number, required: false },
   alignFlip: { type: Boolean, required: false },
   avoidCollisions: { type: Boolean, required: false },
@@ -23,8 +28,10 @@ const props = defineProps({
   disableUpdateOnLayoutShift: { type: Boolean, required: false },
   prioritizePosition: { type: Boolean, required: false },
   reference: { type: null, required: false },
+  dir: { type: String, required: false },
   asChild: { type: Boolean, required: false },
   as: { type: null, required: false },
+  disableOutsidePointerEvents: { type: Boolean, required: false },
   class: {
     type: [Boolean, null, String, Object, Array],
     required: false,
@@ -36,7 +43,6 @@ const emits = defineEmits([
   "pointerDownOutside",
   "focusOutside",
   "interactOutside",
-  "entryFocus",
   "openAutoFocus",
   "closeAutoFocus",
 ]);
@@ -47,16 +53,18 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
 </script>
 
 <template>
-  <DropdownMenuSubContent
-    data-slot="dropdown-menu-sub-content"
-    v-bind="forwarded"
-    :class="
-      cn(
-        'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-[1000] min-w-[8rem] max-w-(--reka-dropdown-menu-content-available-width) origin-(--reka-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg',
-        props.class,
-      )
-    "
-  >
-    <slot />
-  </DropdownMenuSubContent>
+  <PopoverPortal>
+    <PopoverContent
+      data-slot="popover-content"
+      v-bind="{ ...$attrs, ...forwarded }"
+      :class="
+        cn(
+          'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-[1000] w-72 max-w-(--reka-popover-content-available-width) rounded-md border p-4 shadow-md origin-(--reka-popover-content-transform-origin) outline-hidden',
+          props.class,
+        )
+      "
+    >
+      <slot />
+    </PopoverContent>
+  </PopoverPortal>
 </template>
