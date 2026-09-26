@@ -9,6 +9,7 @@ import { sortTomesByNumber } from '../utils/tomeSort'
 import SvgIcon from '../components/SvgIcon.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/shadcn/dropdown-menu'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -765,19 +766,17 @@ function onTouchEnd(e) {
     </Transition>
 
     <!-- Tome suivant (fin de l'album atteinte, façon Netflix) -->
-    <Teleport to="body">
-      <div v-if="showNextTomeDialog && nextTomeInfo" class="resume-backdrop" @click.self="showNextTomeDialog = false">
-        <div class="resume-dialog next-tome-dialog">
-          <img v-if="nextTomeInfo.cover_url" :src="nextTomeInfo.cover_url" :alt="nextTomeInfo.title" class="next-tome-cover" />
-          <p class="resume-title">Tome suivant</p>
-          <p class="resume-sub">{{ nextTomeInfo.title || ('Tome ' + nextTomeInfo.number) }}</p>
-          <div class="resume-actions">
-            <button class="btn btn-primary btn-sm" @click="goToNextTome">Lire la suite →</button>
-            <button class="btn btn-ghost btn-sm" @click="showNextTomeDialog = false">Rester ici</button>
-          </div>
+    <AppDialog v-if="showNextTomeDialog && nextTomeInfo" title="Tome suivant" @close="showNextTomeDialog = false">
+      <div class="resume-dialog next-tome-dialog">
+        <img v-if="nextTomeInfo.cover_url" :src="nextTomeInfo.cover_url" :alt="nextTomeInfo.title" class="next-tome-cover" />
+        <p class="resume-title">Tome suivant</p>
+        <p class="resume-sub">{{ nextTomeInfo.title || ('Tome ' + nextTomeInfo.number) }}</p>
+        <div class="resume-actions">
+          <button class="btn btn-primary btn-sm" @click="goToNextTome">Lire la suite →</button>
+          <button class="btn btn-ghost btn-sm" @click="showNextTomeDialog = false">Rester ici</button>
         </div>
       </div>
-    </Teleport>
+    </AppDialog>
 
     <!-- Top toolbar — barre opaque toujours visible (plus d'auto-masquage), style repris
          d'une capture d'écran fournie par l'utilisateur : sélecteur de mode en menu
@@ -1459,11 +1458,6 @@ function onTouchEnd(e) {
 .resume-banner-fade-enter-from, .resume-banner-fade-leave-to { opacity: 0; transform: translate(-50%, -8px); }
 
 /* Resume dialog (classes encore utilisées par la popup "Tome suivant" ci-dessous). */
-.resume-backdrop {
-  position: fixed; inset: 0; z-index: 1000;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center;
-}
 .resume-dialog {
   background: var(--surface-raised); border-radius: var(--radius);
   padding: 28px 32px; text-align: center;

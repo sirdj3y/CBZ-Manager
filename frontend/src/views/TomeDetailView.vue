@@ -21,6 +21,7 @@ import { truncateForReadMore } from '../utils/text'
 import { sortTomesByNumber } from '../utils/tomeSort'
 import { heroVariantFor, HERO_GRADIENTS_WASH } from '../utils/heroGradient'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -592,7 +593,7 @@ async function toggleRead() {
     />
 
     <!-- Confirmation suppression -->
-    <div v-if="confirmDelete" class="confirm-backdrop" @click.self="confirmDelete = false">
+    <AppDialog v-if="confirmDelete" title="Supprimer l'album ?" @close="confirmDelete = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer l'album ?</p>
         <p class="confirm-desc">
@@ -605,7 +606,7 @@ async function toggleRead() {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -815,11 +816,6 @@ async function toggleRead() {
 
 
 /* Confirmation de suppression */
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

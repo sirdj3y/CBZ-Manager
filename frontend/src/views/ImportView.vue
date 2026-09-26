@@ -21,6 +21,7 @@ import { settingsApi } from '../api/settings'
 import { tomesApi } from '../api/tomes'
 import Hint from '../components/ui/Hint.vue'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/shadcn/hover-card'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -1394,87 +1395,83 @@ watch(() => route.path, (path) => {
     </main>
 
     <!-- Modale confirmation création série -->
-    <Teleport to="body">
-      <div v-if="showCreateSeriesConfirm" class="modal-backdrop" @click.self="cancelCreateSeries">
-        <div class="modal-box">
-          <p class="modal-title">Créer une nouvelle série ?</p>
-          <p class="modal-body">
-            Êtes-vous sûr de vouloir créer la série « {{ pendingNewSeriesName }} » ?
-          </p>
-          <div v-if="similarSeriesForNew.length" class="similar-series-warning">
-            <p class="similar-series-warning-title">⚠️ Nom proche d'une série déjà existante — vérifiez qu'il ne s'agit pas de la même série avant de continuer :</p>
-            <button
-              v-for="s in similarSeriesForNew"
-              :key="s.id"
-              type="button"
-              class="similar-series-option"
-              @click="pickSimilarSeries(s)"
-            >« {{ s.name }} » <span class="similar-series-count">{{ s.tome_count ?? 0 }} album(s)</span></button>
-          </div>
-          <div class="field modal-bede-field">
-            <p v-if="bedeSuggestLoading" class="bede-suggest-loading">Recherche sur Bedetheque.com…</p>
-            <div v-else-if="bedeSuggestions.length" class="bede-suggest-list">
-              <div
-                v-for="c in bedeSuggestions"
-                :key="c.url"
-                role="button"
-                tabindex="0"
-                :class="['bede-suggest-card', { 'bede-suggest-selected': pendingNewSeriesBedethequeUrl === c.url }]"
-                @click="pendingNewSeriesBedethequeUrl = c.url"
-                @keydown.enter="pendingNewSeriesBedethequeUrl = c.url"
-              >
-                <span class="bede-suggest-check">{{ pendingNewSeriesBedethequeUrl === c.url ? '✓' : '' }}</span>
-                <span class="bede-suggest-info">
-                  <span class="bede-suggest-name">{{ c.name }}</span>
-                  <span class="bede-suggest-meta">
-                    {{ c.album_count }} album(s)<template v-if="c.status"> · {{ c.status }}</template><template v-if="c.year_min"> · {{ c.year_min }}{{ c.year_max && c.year_max !== c.year_min ? '–' + c.year_max : '' }}</template>
-                  </span>
+    <AppDialog v-if="showCreateSeriesConfirm" title="Créer une nouvelle série ?" @close="cancelCreateSeries">
+      <div class="modal-box">
+        <p class="modal-title">Créer une nouvelle série ?</p>
+        <p class="modal-body">
+          Êtes-vous sûr de vouloir créer la série « {{ pendingNewSeriesName }} » ?
+        </p>
+        <div v-if="similarSeriesForNew.length" class="similar-series-warning">
+          <p class="similar-series-warning-title">⚠️ Nom proche d'une série déjà existante — vérifiez qu'il ne s'agit pas de la même série avant de continuer :</p>
+          <button
+            v-for="s in similarSeriesForNew"
+            :key="s.id"
+            type="button"
+            class="similar-series-option"
+            @click="pickSimilarSeries(s)"
+          >« {{ s.name }} » <span class="similar-series-count">{{ s.tome_count ?? 0 }} album(s)</span></button>
+        </div>
+        <div class="field modal-bede-field">
+          <p v-if="bedeSuggestLoading" class="bede-suggest-loading">Recherche sur Bedetheque.com…</p>
+          <div v-else-if="bedeSuggestions.length" class="bede-suggest-list">
+            <div
+              v-for="c in bedeSuggestions"
+              :key="c.url"
+              role="button"
+              tabindex="0"
+              :class="['bede-suggest-card', { 'bede-suggest-selected': pendingNewSeriesBedethequeUrl === c.url }]"
+              @click="pendingNewSeriesBedethequeUrl = c.url"
+              @keydown.enter="pendingNewSeriesBedethequeUrl = c.url"
+            >
+              <span class="bede-suggest-check">{{ pendingNewSeriesBedethequeUrl === c.url ? '✓' : '' }}</span>
+              <span class="bede-suggest-info">
+                <span class="bede-suggest-name">{{ c.name }}</span>
+                <span class="bede-suggest-meta">
+                  {{ c.album_count }} album(s)<template v-if="c.status"> · {{ c.status }}</template><template v-if="c.year_min"> · {{ c.year_min }}{{ c.year_max && c.year_max !== c.year_min ? '–' + c.year_max : '' }}</template>
                 </span>
-                <Hint label="Voir sur Bedetheque.com">
-                  <a :href="c.url" target="_blank" rel="noopener" class="bede-suggest-link" @click.stop>↗</a>
-                </Hint>
-              </div>
+              </span>
+              <Hint label="Voir sur Bedetheque.com">
+                <a :href="c.url" target="_blank" rel="noopener" class="bede-suggest-link" @click.stop>↗</a>
+              </Hint>
             </div>
-            <button
-              v-if="bedeSuggestions.length && !bedeSuggestLoading"
-              type="button"
-              class="link-btn bede-manual-toggle"
-              @click="showManualBedeUrl = !showManualBedeUrl"
-            >{{ showManualBedeUrl ? 'Masquer' : 'Ou saisir une URL manuellement' }}</button>
-            <input
-              v-if="showManualBedeUrl || (!bedeSuggestLoading && !bedeSuggestions.length)"
-              type="text"
-              class="form-control"
-              v-model="pendingNewSeriesBedethequeUrl"
-              placeholder="https://www.bedetheque.com/serie-XXXXX-BD-....html"
-              style="margin-top: 6px"
-            />
-            <p v-if="!bedeSuggestLoading" class="dest-status-hint">Permet de compléter automatiquement les métadonnées de tous les albums à l'étape suivante.</p>
           </div>
-          <div class="modal-actions">
-            <button class="btn btn-ghost btn-sm" @click="cancelCreateSeries">Annuler</button>
-            <button class="btn btn-primary btn-sm" :disabled="bedeSuggestLoading" @click="confirmCreateSeries">{{ similarSeriesForNew.length ? 'Créer quand même' : 'Créer' }}</button>
-          </div>
+          <button
+            v-if="bedeSuggestions.length && !bedeSuggestLoading"
+            type="button"
+            class="link-btn bede-manual-toggle"
+            @click="showManualBedeUrl = !showManualBedeUrl"
+          >{{ showManualBedeUrl ? 'Masquer' : 'Ou saisir une URL manuellement' }}</button>
+          <input
+            v-if="showManualBedeUrl || (!bedeSuggestLoading && !bedeSuggestions.length)"
+            type="text"
+            class="form-control"
+            v-model="pendingNewSeriesBedethequeUrl"
+            placeholder="https://www.bedetheque.com/serie-XXXXX-BD-....html"
+            style="margin-top: 6px"
+          />
+          <p v-if="!bedeSuggestLoading" class="dest-status-hint">Permet de compléter automatiquement les métadonnées de tous les albums à l'étape suivante.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" @click="cancelCreateSeries">Annuler</button>
+          <button class="btn btn-primary btn-sm" :disabled="bedeSuggestLoading" @click="confirmCreateSeries">{{ similarSeriesForNew.length ? 'Créer quand même' : 'Créer' }}</button>
         </div>
       </div>
-    </Teleport>
+    </AppDialog>
 
     <!-- Modale alerte métadonnées perdues -->
-    <Teleport to="body">
-      <div v-if="showMetaWarnModal" class="modal-backdrop" @click.self="showMetaWarnModal = false">
-        <div class="modal-box">
-          <p class="modal-title">⚠️ Métadonnées non enregistrées</p>
-          <p class="modal-body">
-            Au moins un fichier n'est pas au format CBZ — les métadonnées saisies ne seront pas enregistrées.
-            Voulez-vous activer la conversion en CBZ, ou continuer sans métadonnées ?
-          </p>
-          <div class="modal-actions">
-            <button class="btn btn-ghost btn-sm" @click="showMetaWarnModal = false">Annuler</button>
-            <button class="btn btn-primary btn-sm" @click="showMetaWarnModal = false; startImport()">Importer sans métadonnées</button>
-          </div>
+    <AppDialog v-if="showMetaWarnModal" title="Métadonnées non enregistrées" @close="showMetaWarnModal = false">
+      <div class="modal-box">
+        <p class="modal-title">⚠️ Métadonnées non enregistrées</p>
+        <p class="modal-body">
+          Au moins un fichier n'est pas au format CBZ — les métadonnées saisies ne seront pas enregistrées.
+          Voulez-vous activer la conversion en CBZ, ou continuer sans métadonnées ?
+        </p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" @click="showMetaWarnModal = false">Annuler</button>
+          <button class="btn btn-primary btn-sm" @click="showMetaWarnModal = false; startImport()">Importer sans métadonnées</button>
         </div>
       </div>
-    </Teleport>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -1575,11 +1572,6 @@ watch(() => route.path, (path) => {
 /* Sections étape 2 (toujours visibles, plus d'accordéon) */
 .import-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
 .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.45);
-  display: flex; align-items: center; justify-content: center;
-}
 .modal-box {
   background: var(--surface-raised);
   border: 1px solid var(--border);

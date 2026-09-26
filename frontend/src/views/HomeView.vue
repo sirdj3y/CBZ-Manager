@@ -21,6 +21,7 @@ import heroAccolade from '../assets/hero-accolade.png'
 import heroCoverFrame from '../assets/hero-book-frame.png'
 import heroCoverSheen from '../assets/hero-book-sheen.png'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const router = useRouter()
 const library = useLibraryStore()
@@ -606,7 +607,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
     <CoverPickerModal v-if="showCoverPicker && selectedSeries" :series="selectedSeries" @close="showCoverPicker = false" @updated="({ cover_url }) => { const s = library.series.find(s => s.id === selectedSeries.id); if (s) s.cover_url = cover_url }" />
 
     <!-- Confirmation suppression série -->
-    <div v-if="confirmDeleteSeries" class="confirm-backdrop" @click.self="confirmDeleteSeries = null">
+    <AppDialog v-if="confirmDeleteSeries" title="Supprimer la série ?" @close="confirmDeleteSeries = null">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer la série ?</p>
         <p class="confirm-desc">
@@ -617,7 +618,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
           <button class="btn btn-danger btn-sm" @click="confirmDelete">Supprimer définitivement</button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </AppLayout>
 
 </template>
@@ -1100,11 +1101,6 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
 }
 
 /* Confirm delete */
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

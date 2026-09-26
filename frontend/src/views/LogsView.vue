@@ -7,6 +7,7 @@ import { logsApi } from '../api/logs'
 import { useNotificationStore } from '../stores/notifications'
 import { useSecurityAlertsStore } from '../stores/securityAlerts'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const route = useRoute()
 const notif = useNotificationStore()
@@ -243,7 +244,7 @@ const filteredLogs = computed(() => logs.value.filter(l => {
     </main>
 
     <!-- Confirmation effacement -->
-    <div v-if="confirmClear" class="confirm-backdrop" @click.self="confirmClear = false">
+    <AppDialog v-if="confirmClear" title="Effacer l'historique ?" @close="confirmClear = false">
       <div class="confirm-box">
         <p class="confirm-title">Effacer l'historique ?</p>
         <p class="confirm-desc">Toutes les entrées seront supprimées définitivement.</p>
@@ -252,7 +253,7 @@ const filteredLogs = computed(() => logs.value.filter(l => {
           <button class="btn btn-danger btn-sm" @click="clearLogs">Effacer</button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -376,11 +377,6 @@ const filteredLogs = computed(() => logs.value.filter(l => {
 .log-badge-error { background: var(--danger-bg-light); color: var(--danger); }
 
 /* Confirm */
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

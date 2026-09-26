@@ -8,6 +8,7 @@ import { profilesApi } from '../../api/profiles'
 import { libraryApi } from '../../api/library'
 import { useNotificationStore } from '../../stores/notifications'
 import Hint from '../../components/ui/Hint.vue'
+import AppDialog from '../../components/ui/AppDialog.vue'
 
 const notif = useNotificationStore()
 const route = useRoute()
@@ -630,104 +631,92 @@ async function doDeleteProfile() {
     </main>
 
     <!-- Confirmation de suppression utilisateur -->
-    <Teleport to="body">
-      <div v-if="pendingDeleteId" class="modal-backdrop" @click="pendingDeleteId = null" />
-      <div v-if="pendingDeleteId" class="modal-wrap modal-wrap-sm">
-        <div class="modal-box">
-          <div class="modal-body">
-            <p>Supprimer définitivement le compte « <strong>{{ newUsername }}</strong> » ?</p>
-          </div>
-          <div class="modal-footer">
-            <div class="modal-footer-spacer" />
-            <button class="btn btn-ghost btn-sm" @click="pendingDeleteId = null">Annuler</button>
-            <button class="btn btn-danger btn-sm" @click="doDelete">Supprimer</button>
-          </div>
-        </div>
+    <AppDialog v-if="pendingDeleteId" :title="`Supprimer définitivement le compte « ${newUsername} » ?`" @close="pendingDeleteId = null">
+      <div class="modal-box modal-box-sm">
+      <div class="modal-body">
+        <p>Supprimer définitivement le compte « <strong>{{ newUsername }}</strong> » ?</p>
       </div>
-    </Teleport>
+      <div class="modal-footer">
+        <div class="modal-footer-spacer" />
+        <button class="btn btn-ghost btn-sm" @click="pendingDeleteId = null">Annuler</button>
+        <button class="btn btn-danger btn-sm" @click="doDelete">Supprimer</button>
+      </div>
+      </div>
+    </AppDialog>
 
     <!-- Confirmation de suppression profil -->
-    <Teleport to="body">
-      <div v-if="pendingDeleteProfileId" class="modal-backdrop" @click="pendingDeleteProfileId = null" />
-      <div v-if="pendingDeleteProfileId" class="modal-wrap modal-wrap-sm">
-        <div class="modal-box">
-          <div class="modal-body">
-            <p>Supprimer ce profil ? Les utilisateurs qui l'ont perdront leurs permissions (aucun profil = aucun droit).</p>
-          </div>
-          <div class="modal-footer">
-            <div class="modal-footer-spacer" />
-            <button class="btn btn-ghost btn-sm" @click="pendingDeleteProfileId = null">Annuler</button>
-            <button class="btn btn-danger btn-sm" @click="doDeleteProfile">Supprimer</button>
-          </div>
-        </div>
+    <AppDialog v-if="pendingDeleteProfileId" title="Supprimer ce profil ?" @close="pendingDeleteProfileId = null">
+      <div class="modal-box modal-box-sm">
+      <div class="modal-body">
+        <p>Supprimer ce profil ? Les utilisateurs qui l'ont perdront leurs permissions (aucun profil = aucun droit).</p>
       </div>
-    </Teleport>
+      <div class="modal-footer">
+        <div class="modal-footer-spacer" />
+        <button class="btn btn-ghost btn-sm" @click="pendingDeleteProfileId = null">Annuler</button>
+        <button class="btn btn-danger btn-sm" @click="doDeleteProfile">Supprimer</button>
+      </div>
+      </div>
+    </AppDialog>
 
     <!-- Mot de passe temporaire — affiché une seule fois -->
-    <Teleport to="body">
-      <div v-if="tempPasswordInfo" class="modal-backdrop" />
-      <div v-if="tempPasswordInfo" class="modal-wrap">
-        <div class="modal-box">
-          <div class="modal-header">
-            <div class="modal-header-info">
-              <p class="modal-title">Compte « {{ tempPasswordInfo.username }} » créé</p>
-            </div>
-          </div>
-          <div class="modal-body">
-            <p class="form-hint">
-              Ce mot de passe ne sera plus jamais affiché — notez-le ou copiez-le maintenant, puis transmettez-le à l'utilisateur.
-            </p>
-            <div class="temp-password-box">
-              <code>{{ tempPasswordInfo.password }}</code>
-              <button class="btn btn-ghost btn-sm" @click="copyPassword">Copier</button>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <div class="modal-footer-spacer" />
-            <button class="btn btn-primary btn-sm" @click="tempPasswordInfo = null">J'ai noté le mot de passe</button>
-          </div>
+    <AppDialog v-if="tempPasswordInfo" :title="`Compte « ${tempPasswordInfo.username} » créé`" :dismissible="false" @close="tempPasswordInfo = null">
+      <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Compte « {{ tempPasswordInfo.username }} » créé</p>
         </div>
       </div>
-    </Teleport>
+      <div class="modal-body">
+        <p class="form-hint">
+          Ce mot de passe ne sera plus jamais affiché — notez-le ou copiez-le maintenant, puis transmettez-le à l'utilisateur.
+        </p>
+        <div class="temp-password-box">
+          <code>{{ tempPasswordInfo.password }}</code>
+          <button class="btn btn-ghost btn-sm" @click="copyPassword">Copier</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-spacer" />
+        <button class="btn btn-primary btn-sm" @click="tempPasswordInfo = null">J'ai noté le mot de passe</button>
+      </div>
+      </div>
+    </AppDialog>
 
     <!-- Séries masquées pour un utilisateur -->
-    <Teleport to="body">
-      <div v-if="hiddenSeriesUser" class="modal-backdrop" @click="hiddenSeriesUser = null" />
-      <div v-if="hiddenSeriesUser" class="modal-wrap">
-        <div class="modal-box">
-          <div class="modal-header">
-            <div class="modal-header-info">
-              <p class="modal-title">Séries masquées pour « {{ hiddenSeriesUser.username }} »</p>
-            </div>
-            <button @click="hiddenSeriesUser = null" class="btn btn-ghost btn-icon btn-sm">✕</button>
-          </div>
-          <div class="modal-body">
-            <div v-if="loadingHiddenSeries" class="form-hint">Chargement…</div>
-            <template v-else>
-              <div class="permissions-header">
-                <p class="form-hint" style="margin:0">Cochées = invisibles pour cet utilisateur, partout dans l'app.</p>
-                <button type="button" class="btn btn-ghost btn-sm" @click="toggleAllSeries">
-                  {{ checkedSeriesIds.size === allSeries.length ? 'Tout décocher' : 'Tout cocher' }}
-                </button>
-              </div>
-              <div class="series-list">
-                <label v-for="s in allSeries" :key="s.id" :class="['series-row', { 'series-row-checked': checkedSeriesIds.has(s.id) }]">
-                  <input type="checkbox" :checked="checkedSeriesIds.has(s.id)" @change="toggleSeries(s.id)" class="toggle-checkbox" />
-                  <span>{{ s.name }}</span>
-                </label>
-              </div>
-            </template>
-          </div>
-          <div class="modal-footer">
-            <div class="modal-footer-spacer" />
-            <button class="btn btn-ghost btn-sm" @click="hiddenSeriesUser = null">Annuler</button>
-            <button class="btn btn-primary btn-sm" :disabled="savingHiddenSeries || loadingHiddenSeries" @click="saveHiddenSeries">
-              {{ savingHiddenSeries ? 'Enregistrement…' : 'Enregistrer' }}
+    <AppDialog v-if="hiddenSeriesUser" :title="`Séries masquées pour « ${hiddenSeriesUser.username} »`" @close="hiddenSeriesUser = null">
+      <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <p class="modal-title">Séries masquées pour « {{ hiddenSeriesUser.username }} »</p>
+        </div>
+        <button @click="hiddenSeriesUser = null" class="btn btn-ghost btn-icon btn-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <div v-if="loadingHiddenSeries" class="form-hint">Chargement…</div>
+        <template v-else>
+          <div class="permissions-header">
+            <p class="form-hint" style="margin:0">Cochées = invisibles pour cet utilisateur, partout dans l'app.</p>
+            <button type="button" class="btn btn-ghost btn-sm" @click="toggleAllSeries">
+              {{ checkedSeriesIds.size === allSeries.length ? 'Tout décocher' : 'Tout cocher' }}
             </button>
           </div>
-        </div>
+          <div class="series-list">
+            <label v-for="s in allSeries" :key="s.id" :class="['series-row', { 'series-row-checked': checkedSeriesIds.has(s.id) }]">
+              <input type="checkbox" :checked="checkedSeriesIds.has(s.id)" @change="toggleSeries(s.id)" class="toggle-checkbox" />
+              <span>{{ s.name }}</span>
+            </label>
+          </div>
+        </template>
       </div>
-    </Teleport>
+      <div class="modal-footer">
+        <div class="modal-footer-spacer" />
+        <button class="btn btn-ghost btn-sm" @click="hiddenSeriesUser = null">Annuler</button>
+        <button class="btn btn-primary btn-sm" :disabled="savingHiddenSeries || loadingHiddenSeries" @click="saveHiddenSeries">
+          {{ savingHiddenSeries ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+      </div>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -889,21 +878,14 @@ async function doDeleteProfile() {
 
 /* Modales — même squelette que RenameModal.vue (chaque modale duplique son propre CSS
    dans cette codebase, pas de classes globales partagées). */
-.modal-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--overlay-bg); }
-.modal-wrap {
-  position: fixed; inset: 0; z-index: 201;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
 .modal-box {
-  pointer-events: auto;
   background: var(--surface-raised);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column;
 }
-.modal-wrap-sm .modal-box { max-width: 360px; }
+.modal-box.modal-box-sm { max-width: 360px; }
 .modal-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .modal-header-info { flex: 1; min-width: 0; }
 .modal-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }

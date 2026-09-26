@@ -15,6 +15,7 @@ import { useLibraryStore } from '../stores/library'
 import { useAuthStore } from '../stores/auth'
 import { sortTitle } from '../utils/text'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -406,7 +407,7 @@ function searchTomeMetadata(tome) {
     />
 
     <!-- Confirmation suppression en lot -->
-    <div v-if="confirmBulkDelete" class="confirm-backdrop" @click.self="confirmBulkDelete = false">
+    <AppDialog v-if="confirmBulkDelete" :title="`Supprimer ${selectedIds.size} album${selectedIds.size > 1 ? 's' : ''} ?`" @close="confirmBulkDelete = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer {{ selectedIds.size }} album{{ selectedIds.size > 1 ? 's' : '' }} ?</p>
         <p class="confirm-desc">Les fichiers seront supprimés définitivement du disque.</p>
@@ -417,10 +418,10 @@ function searchTomeMetadata(tome) {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
 
     <!-- Confirmation suppression d'un seul album -->
-    <div v-if="confirmDeleteTome" class="confirm-backdrop" @click.self="confirmDeleteTome = null">
+    <AppDialog v-if="confirmDeleteTome" title="Supprimer l'album ?" @close="confirmDeleteTome = null">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer l'album ?</p>
         <p class="confirm-desc">
@@ -433,7 +434,7 @@ function searchTomeMetadata(tome) {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -621,11 +622,6 @@ function searchTomeMetadata(tome) {
 .btn-danger-ghost { color: var(--danger); }
 .btn-danger-ghost:hover { background: var(--danger-bg-light); }
 
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 300;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

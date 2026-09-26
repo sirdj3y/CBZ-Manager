@@ -26,6 +26,7 @@ import { sortTomesByNumber } from '../utils/tomeSort'
 import { truncateForReadMore } from '../utils/text'
 import { heroVariantFor, HERO_GRADIENTS_WIDE } from '../utils/heroGradient'
 import Hint from '../components/ui/Hint.vue'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const notif = useNotificationStore()
 const libraryStore = useLibraryStore()
@@ -835,7 +836,7 @@ async function deleteSingleTome() {
     />
 
     <!-- Confirmation téléchargement de la série -->
-    <div v-if="confirmDownload" class="confirm-backdrop" @click.self="confirmDownload = false">
+    <AppDialog v-if="confirmDownload" title="Télécharger la série ?" @close="confirmDownload = false">
       <div class="confirm-box">
         <p class="confirm-title">Télécharger la série ?</p>
         <p class="confirm-desc">
@@ -846,10 +847,10 @@ async function deleteSingleTome() {
           <button class="btn btn-primary btn-sm" @click="downloadSeries">Télécharger</button>
         </div>
       </div>
-    </div>
+    </AppDialog>
 
     <!-- Confirmation suppression de la série -->
-    <div v-if="confirmDeleteSeries" class="confirm-backdrop" @click.self="confirmDeleteSeries = false">
+    <AppDialog v-if="confirmDeleteSeries" title="Supprimer la série ?" @close="confirmDeleteSeries = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer la série ?</p>
         <p class="confirm-desc">
@@ -862,10 +863,10 @@ async function deleteSingleTome() {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
 
     <!-- Confirmation suppression en lot -->
-    <div v-if="confirmBulkDelete" class="confirm-backdrop" @click.self="confirmBulkDelete = false">
+    <AppDialog v-if="confirmBulkDelete" :title="`Supprimer ${selectedIds.size} album${selectedIds.size > 1 ? 's' : ''} ?`" @close="confirmBulkDelete = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer {{ selectedIds.size }} album{{ selectedIds.size > 1 ? 's' : '' }} ?</p>
         <p class="confirm-desc">Les fichiers seront supprimés définitivement du disque.</p>
@@ -876,10 +877,10 @@ async function deleteSingleTome() {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
 
     <!-- Confirmation suppression d'un seul album -->
-    <div v-if="confirmDeleteTome" class="confirm-backdrop" @click.self="confirmDeleteTome = null">
+    <AppDialog v-if="confirmDeleteTome" title="Supprimer l'album ?" @close="confirmDeleteTome = null">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer l'album ?</p>
         <p class="confirm-desc">
@@ -892,7 +893,7 @@ async function deleteSingleTome() {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -1345,11 +1346,6 @@ async function deleteSingleTome() {
 .btn-danger-ghost:hover { background: var(--danger-bg-light); }
 
 /* Confirmation de suppression */
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

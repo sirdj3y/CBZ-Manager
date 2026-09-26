@@ -22,6 +22,7 @@ import {
 } from '@/components/shadcn/dropdown-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/shadcn/popover'
 import Hint from '../ui/Hint.vue'
+import AppDialog from '../ui/AppDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -664,7 +665,7 @@ function fmtRelative(iso) {
       @saved="onSmartListSaved"
     />
 
-    <div v-if="confirmDeleteSmartList" class="confirm-backdrop" @click.self="confirmDeleteSmartList = null">
+    <AppDialog v-if="confirmDeleteSmartList" title="Supprimer la liste ?" @close="confirmDeleteSmartList = null">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer la liste ?</p>
         <p class="confirm-desc"><strong>{{ confirmDeleteSmartList.name }}</strong> sera supprimée définitivement. Les albums eux-mêmes ne sont pas touchés.</p>
@@ -673,7 +674,7 @@ function fmtRelative(iso) {
           <button class="btn btn-danger btn-sm" :disabled="deletingSmartList" @click="doDeleteSmartList">{{ deletingSmartList ? 'Suppression…' : 'Supprimer' }}</button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </div>
 </template>
 
@@ -995,11 +996,6 @@ function fmtRelative(iso) {
   color: var(--muted);
 }
 
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;

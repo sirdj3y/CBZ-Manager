@@ -16,6 +16,7 @@ import { useNotificationStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
 import { sortTomesByNumber } from '../utils/tomeSort'
 import { sortTitle } from '../utils/text'
+import AppDialog from '../components/ui/AppDialog.vue'
 
 const library = useLibraryStore()
 const notif = useNotificationStore()
@@ -275,7 +276,7 @@ async function handleToggleHidden(series) {
     />
 
     <!-- Confirmation suppression série -->
-    <div v-if="confirmDeleteSeries" class="confirm-backdrop" @click.self="confirmDeleteSeries = null">
+    <AppDialog v-if="confirmDeleteSeries" title="Supprimer la série ?" @close="confirmDeleteSeries = null">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer la série ?</p>
         <p class="confirm-desc">
@@ -286,10 +287,10 @@ async function handleToggleHidden(series) {
           <button class="btn btn-danger btn-sm" @click="confirmDelete">Supprimer définitivement</button>
         </div>
       </div>
-    </div>
+    </AppDialog>
 
     <!-- Confirmation suppression en lot -->
-    <div v-if="confirmBulkDelete" class="confirm-backdrop" @click.self="confirmBulkDelete = false">
+    <AppDialog v-if="confirmBulkDelete" :title="`Supprimer ${selectedIds.size} série${selectedIds.size > 1 ? 's' : ''} ?`" @close="confirmBulkDelete = false">
       <div class="confirm-box">
         <p class="confirm-title">Supprimer {{ selectedIds.size }} série{{ selectedIds.size > 1 ? 's' : '' }} ?</p>
         <p class="confirm-desc">Tous leurs fichiers seront supprimés définitivement du disque.</p>
@@ -300,7 +301,7 @@ async function handleToggleHidden(series) {
           </button>
         </div>
       </div>
-    </div>
+    </AppDialog>
   </AppLayout>
 </template>
 
@@ -339,11 +340,6 @@ async function handleToggleHidden(series) {
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 .state-pulse { font-size: 0.9rem; color: var(--muted); animation: pulse 1.4s ease-in-out infinite; }
 
-.confirm-backdrop {
-  position: fixed; inset: 0; z-index: 500;
-  background: var(--overlay-bg);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
 .confirm-box {
   background: var(--surface-raised); border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 24px; max-width: 400px; width: 100%;
