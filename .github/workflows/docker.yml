@@ -14,6 +14,9 @@ on:
     paths-ignore: ["**.md", "design-tests/**", "docker-compose*.yml", ".env.example"]
   workflow_dispatch:
 
+# Machines fixées sur Ubuntu 24.04 (ubuntu-latest bascule sur 26 le 19/10/2026) : le build ne
+# doit pas changer d'environnement sans qu'on le décide — à réévaluer quand Playwright et les
+# actions utilisées supporteront officiellement Ubuntu 26.
 concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true
@@ -24,12 +27,12 @@ env:
 jobs:
   # Les tests bloquent la publication : une image n'est construite que s'ils passent.
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Même version de Python que l'image (python:3.11-slim).
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -42,7 +45,7 @@ jobs:
           pip install -r requirements-dev.txt
           python -m pytest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -57,11 +60,11 @@ jobs:
   # L'app complète dans un vrai navigateur (Playwright/Chromium) : menus, modales, palette…
   # Captures d'écran des échecs en artefact.
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -69,7 +72,7 @@ jobs:
             backend/requirements.txt
             requirements-dev.txt
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -91,7 +94,7 @@ jobs:
 
       - name: Captures d'écran des échecs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-captures
           path: e2e/artifacts/
@@ -99,12 +102,12 @@ jobs:
 
   build:
     needs: [tests, e2e]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Version et tags
         id: meta
@@ -128,11 +131,11 @@ jobs:
           echo "push=$push" >> "$GITHUB_OUTPUT"
           echo "Version $version — tags : $tags — publication : $push" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Connexion à GHCR
         if: steps.meta.outputs.push == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -141,7 +144,7 @@ jobs:
       # linux/amd64 uniquement : le DS423+ est en Intel x86_64.
       # provenance: false évite les manifestes d'attestation sans tag, qui encombrent le registre.
       - name: Build (et publication)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
