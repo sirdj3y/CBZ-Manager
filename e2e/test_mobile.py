@@ -28,3 +28,13 @@ def test_bandeau_d_accueil_avec_fond(phone):
     assert clip.is_visible(), "le fond du bandeau doit rester affiché sur smartphone"
     color = phone.locator(".home-hero-title").first.evaluate("e => getComputedStyle(e).color")
     assert color == "rgb(255, 255, 255)", "titre en blanc sur le voile sombre"
+
+
+def test_avatars_predefinis_dans_la_carte(phone):
+    phone.goto("/account")
+    grid = phone.locator(".preset-grid")
+    grid.wait_for()
+    card = phone.locator(".settings-section").first.bounding_box()
+    for btn in grid.locator(".preset-btn").all():
+        b = btn.bounding_box()
+        assert b["x"] + b["width"] <= card["x"] + card["width"], "un avatar dépasse de la carte"

@@ -8,7 +8,7 @@ import { useNotificationStore } from '../stores/notifications'
 import Hint from '../components/ui/Hint.vue'
 import AppDialog from '../components/ui/AppDialog.vue'
 import { passkeysApi } from '../api/passkeys'
-import { defaultPasskeyName, isCancelled, passkeyStatus, registerPasskey } from '../utils/passkeys'
+import { defaultPasskeyName, isCancelled, passkeyErrorMessage, passkeyStatus, registerPasskey } from '../utils/passkeys'
 
 const auth = useAuthStore()
 const notif = useNotificationStore()
@@ -52,7 +52,7 @@ async function confirmAddPasskey() {
     pkNameOpen.value = false
     notif.success('Passkey ajoutée')
   } catch (e) {
-    if (!isCancelled(e)) notif.error(e.response?.data?.detail || "Impossible d'ajouter la passkey")
+    if (!isCancelled(e)) notif.error(passkeyErrorMessage(e, "Impossible d'ajouter la passkey"))
   } finally {
     pkBusy.value = false
   }
@@ -361,14 +361,16 @@ async function saveUsername() {
 .avatar-actions { display: flex; align-items: center; gap: 8px; }
 
 .preset-grid {
-  display: grid; grid-template-columns: repeat(5, 56px);
-  gap: 18px;
+  /* 5 colonnes de 56 px au plus, qui rétrécissent sur un écran étroit (iPhone : la carte n'a
+     que ~290 px, les colonnes fixes débordaient). */
+  display: grid; grid-template-columns: repeat(5, minmax(0, 56px));
+  gap: clamp(8px, 3vw, 18px);
   margin-top: 16px; padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 .preset-btn {
   padding: 0; border: 2px solid transparent; border-radius: 50%;
-  width: 56px; height: 56px; cursor: pointer; background: none;
+  width: 100%; aspect-ratio: 1; cursor: pointer; background: none;
   transition: border-color 0.15s, opacity 0.15s;
 }
 .preset-btn:hover:not(:disabled) { border-color: var(--primary); }

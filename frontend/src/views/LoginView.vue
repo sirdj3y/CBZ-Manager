@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { isCancelled, loginWithPasskey, passkeyStatus } from '../utils/passkeys'
+import { isCancelled, loginWithPasskey, passkeyErrorMessage, passkeyStatus } from '../utils/passkeys'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -28,7 +28,7 @@ async function submitPasskey() {
     await loginWithPasskey()
     goAfterLogin()
   } catch (e) {
-    if (!isCancelled(e)) error.value = e.response?.data?.detail || 'Connexion par passkey impossible'
+    if (!isCancelled(e)) error.value = passkeyErrorMessage(e, 'Connexion par passkey impossible')
   } finally {
     loading.value = false
   }

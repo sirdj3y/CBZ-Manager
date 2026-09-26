@@ -53,3 +53,32 @@ def test_passkey_proposee_seulement_depuis_l_adresse_publique(page, server):
     page.locator(".login-card").wait_for()
     page.get_by_text("Connexion par passkey disponible sur").wait_for()
     assert page.get_by_role("button", name="Se connecter avec une passkey").count() == 0
+
+
+def test_deuxieme_passkey_sur_le_meme_appareil_message_clair(page, server):
+    """Cas de l'iPhone qui a déjà la passkey du Mac (trousseau iCloud) : l'appareil refuse
+    d'en créer une seconde pour le même compte ; message explicite, pas une erreur obscure."""
+    _virtual_authenticator(page)
+    goto(page, "/account")
+
+    def add(name):
+        page.get_by_role("button", name="Ajouter une passkey").click()
+        box = dialog(page)
+        box.first.wait_for()
+        box.locator("input").fill(name)
+        box.get_by_role("button", name="Continuer").click()
+        return box
+
+    assert gone(add("Premier"), timeout=10)
+    page.locator(".pk-item", has_text="Premier").wait_for()
+    add("Second")
+    page.get_by_text("Cet appareil a déjà une passkey pour ce compte").first.wait_for(timeout=10000)
+    assert page.locator(".pk-item").count() == 1
+
+    # Nettoyage
+    page.keyboard.press("Escape")
+    page.locator(".pk-item", has_text="Premier").locator("button").click()
+    confirm = dialog(page)
+    confirm.first.wait_for()
+    confirm.get_by_role("button", name="Supprimer").click()
+    page.locator(".pk-item").first.wait_for(state="detached")

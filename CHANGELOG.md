@@ -2,6 +2,15 @@
 
 ---
 
+## Non publié (branche develop)
+
+### Corrections
+
+- **Mon compte sur smartphone** : les avatars prédéfinis dépassaient de leur carte ; la grille s'adapte désormais à la largeur de l'écran.
+- **Passkeys** : ajouter une passkey sur un appareil qui en a déjà une pour ce compte (synchronisée depuis un autre appareil, par exemple du Mac vers l'iPhone via le trousseau iCloud) affichait une erreur obscure. Un message explique désormais qu'elle est déjà utilisable. Les autres erreurs affichent leur détail technique.
+
+---
+
 ## v1.27.1 — 2026-09-26 — Corrections d'affichage sur smartphone
 
 ### Corrections

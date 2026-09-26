@@ -28,6 +28,18 @@ export function isCancelled(e) {
   return e?.name === 'NotAllowedError' || e?.name === 'AbortError'
 }
 
+// Message affichable pour une erreur de passkey. Cas fréquent : l'appareil a DÉJÀ une passkey
+// pour ce compte, synchronisée depuis un autre appareil (trousseau iCloud entre Mac et iPhone,
+// gestionnaire Google, 1Password…) — il refuse alors d'en créer une seconde (InvalidStateError,
+// d'après la liste excludeCredentials envoyée par le serveur). Elle est déjà utilisable.
+export function passkeyErrorMessage(e, fallback) {
+  if (e?.name === 'InvalidStateError' || e?.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') {
+    return "Cet appareil a déjà une passkey pour ce compte, sans doute synchronisée depuis un autre appareil (trousseau iCloud, gestionnaire de mots de passe). Elle permet déjà de vous connecter."
+  }
+  if (e?.response?.data?.detail) return e.response.data.detail
+  return e?.message ? `${fallback} : ${e.message}` : fallback
+}
+
 export async function registerPasskey(name) {
   const { data } = await passkeysApi.registerOptions()
   const credential = await startRegistration({ optionsJSON: data.options })
