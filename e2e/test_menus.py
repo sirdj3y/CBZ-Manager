@@ -84,3 +84,14 @@ def test_palette_de_recherche(page):
     page.keyboard.press("Enter")
     page.wait_for_url("**/series/*")
     assert gone(dialog(page))
+
+
+def test_controles_natifs_suivent_le_theme(page):
+    """Listes <select>, barres de défilement… natives : color-scheme suit le thème de l'app."""
+    goto(page, "/series")
+    scheme = lambda: page.evaluate("getComputedStyle(document.documentElement).colorScheme")
+    dark_now = page.evaluate("document.documentElement.getAttribute('data-theme') === 'dark'")
+    assert scheme() == ("dark" if dark_now else "light")
+    page.locator('button[aria-label="Mode sombre"], button[aria-label="Mode clair"]').first.click()
+    page.wait_for_timeout(200)
+    assert scheme() == ("light" if dark_now else "dark")

@@ -5,6 +5,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* Contrôles natifs du navigateur (liste d'un <select>, barres de défilement, champs date,
+     cases à cocher) dessinés dans le thème de l'app — sans ça, ils restaient clairs en
+     mode sombre. Les <select> restent natifs exprès : sur iPhone, le sélecteur du système
+     est plus pratique au doigt qu'une liste dessinée. */
+  color-scheme: light;
   --sidebar-w:    250px;
   --navbar-h:     52px;
 
@@ -105,6 +110,7 @@
 
 /* ── Thème sombre ───────────────────────────────────────────── */
 [data-theme="dark"] {
+  color-scheme: dark;
   /* Palette proposée par le brief lui-même (§6 "Points à trancher") : fond #0F192E,
      surfaces #14213D, texte #EDE7DA, vermillon conservé tel quel, filets #243352. */
   --white:        #1e1e2e;
