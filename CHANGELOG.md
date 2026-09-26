@@ -2,6 +2,16 @@
 
 ---
 
+## v1.27.3 — 2026-09-27 — Fenêtres modales sous Edge
+
+### Corrections
+
+- **Fenêtres modales sous Edge (Windows)** : elles ne répondaient plus à la souris, seulement au clavier. Le clic à côté de la fenêtre (qui la ferme) est désormais détecté autrement, sans rendre le fond transparent aux clics.
+- **Passkeys** : le nom de l'appareil se saisit directement dans la section Passkeys, sans fenêtre par-dessus la page.
+- **Passkeys** : le lien « ouvrez l'application depuis… » s'affichait aussi quand l'application était déjà ouverte depuis la bonne adresse.
+
+---
+
 ## v1.27.2 — 2026-09-27 — Corrections passkeys et Mon compte
 
 ### Corrections
