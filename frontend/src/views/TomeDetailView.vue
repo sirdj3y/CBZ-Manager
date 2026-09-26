@@ -431,13 +431,11 @@ async function toggleRead() {
                 ><SvgIcon name="download" style="font-size:15px" /></a>
               </Hint>
               <DropdownMenu v-if="canMoreMenu" v-model:open="showMoreMenu" :modal="false">
-                <Hint label="Plus d'options">
-                  <DropdownMenuTrigger as-child>
-                    <button class="hero-btn hero-btn-outline hero-btn-icon">
-                      <SvgIcon name="more-vertical" style="font-size:13px" />
-                    </button>
-                  </DropdownMenuTrigger>
-                </Hint>
+                <DropdownMenuTrigger as-child>
+                  <button title="Plus d'options" aria-label="Plus d'options" class="hero-btn hero-btn-outline hero-btn-icon">
+                    <SvgIcon name="more-vertical" style="font-size:13px" />
+                  </button>
+                </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" class="min-w-[200px]">
                   <DropdownMenuItem v-if="authStore.hasPermission('library.metadata_edit')" @select="openSearchMetadata">Rechercher les métadonnées</DropdownMenuItem>
                   <DropdownMenuItem v-if="authStore.hasPermission('library.rename')" @select="showRename = true">Renommer</DropdownMenuItem>

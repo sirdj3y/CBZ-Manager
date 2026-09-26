@@ -357,7 +357,7 @@ function searchTomeMetadata(tome) {
                   :tome="tome" :open="openMenuId === tome.id" @update:open="setMenuOpen(tome.id, $event)"
                   @edit="editTome" @search-metadata="searchTomeMetadata" @move="openMoveSingle" @delete="confirmDeleteTome = $event"
                 >
-                  <button class="overlay-btn book-more-btn" :class="{ 'overlay-btn-active': openMenuId === tome.id }">
+                  <button class="overlay-btn book-more-btn" title="Plus d'options" aria-label="Plus d'options" :class="{ 'overlay-btn-active': openMenuId === tome.id }">
                     <SvgIcon name="more-vertical" style="font-size:20px" />
                   </button>
                 </TomeActionsMenu>

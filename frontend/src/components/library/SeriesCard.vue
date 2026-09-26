@@ -96,7 +96,7 @@ watch(() => props.series.cover_url, (newUrl) => {
           @convert="$emit('convert', $event)" @download="$emit('download', $event)" @set-cover="$emit('set-cover', $event)"
           @toggle-hidden="$emit('toggle-hidden', $event)" @delete="$emit('delete', $event)"
         >
-          <button class="overlay-btn" :class="{ 'overlay-btn-active': menuOpen }">
+          <button class="overlay-btn" title="Plus d'options" aria-label="Plus d'options" :class="{ 'overlay-btn-active': menuOpen }">
             <SvgIcon name="more-vertical" style="font-size:20px" />
           </button>
         </SeriesActionsMenu>

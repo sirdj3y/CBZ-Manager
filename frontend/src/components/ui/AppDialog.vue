@@ -10,7 +10,8 @@
 //   avec translate(-50%), ce qui ferait de lui le repère de tout élément `position: fixed`
 //   de la modale (confirmations internes, etc.) au lieu de l'écran ;
 // - il laisse passer les clics (pointer-events: none, sauf sur la boîte) : un clic à côté de
-//   la boîte atteint le fond et ferme la modale, comme avant.
+//   la boîte atteint le fond et ferme la modale, comme avant. En !important : Reka pose
+//   pointer-events: auto en style inline sur le conteneur d'une Dialog modale.
 import { Dialog, DialogContent, DialogTitle } from '@/components/shadcn/dialog'
 
 const props = defineProps({
@@ -53,7 +54,7 @@ function onOpenAutoFocus(e) {
     <DialogContent
       :show-close-button="false"
       :aria-describedby="undefined"
-      class="top-0 left-0 inset-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 rounded-none border-0 bg-transparent p-4 shadow-none pointer-events-none sm:max-w-none [&>*]:pointer-events-auto"
+      class="top-0 left-0 inset-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 rounded-none border-0 bg-transparent p-4 shadow-none !pointer-events-none sm:max-w-none [&>*]:pointer-events-auto"
       @interact-outside="onInteractOutside"
       @escape-key-down="onEscape"
       @open-auto-focus="onOpenAutoFocus"

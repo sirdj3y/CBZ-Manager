@@ -4,7 +4,6 @@
 // par Reka UI.
 import { tomesApi } from '../../api/tomes'
 import { useAuthStore } from '../../stores/auth'
-import Hint from '../ui/Hint.vue'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/shadcn/dropdown-menu'
@@ -17,11 +16,9 @@ const authStore = useAuthStore()
 
 <template>
   <DropdownMenu v-model:open="open" :modal="false">
-    <Hint label="Plus d'options">
-      <DropdownMenuTrigger as-child>
-        <slot />
-      </DropdownMenuTrigger>
-    </Hint>
+    <DropdownMenuTrigger as-child>
+      <slot />
+    </DropdownMenuTrigger>
     <DropdownMenuContent align="start" class="min-w-[190px]">
       <template v-if="authStore.hasPermission('library.metadata_edit')">
         <DropdownMenuItem @select="$emit('edit', tome)">Éditer les métadonnées</DropdownMenuItem>

@@ -175,16 +175,14 @@ const hasActiveFilters = computed(() =>
 
       <!-- Sort -->
       <Popover v-model:open="sortOpen">
-        <Hint label="Trier">
-          <PopoverTrigger as-child>
-            <button
-              type="button"
-              :class="['btn btn-ghost btn-icon btn-sm sort-btn', { 'sort-btn-active': sortOpen }]"
-            >
-              <SvgIcon name="arrow-up-down" style="font-size:14px" />
-            </button>
-          </PopoverTrigger>
-        </Hint>
+        <PopoverTrigger as-child>
+          <button title="Trier" aria-label="Trier"
+            type="button"
+            :class="['btn btn-ghost btn-icon btn-sm sort-btn', { 'sort-btn-active': sortOpen }]"
+          >
+            <SvgIcon name="arrow-up-down" style="font-size:14px" />
+          </button>
+        </PopoverTrigger>
         <!-- Popover transparent : le panneau visible est le <div> intérieur, écrit dans ce
              fichier pour que son CSS scoped s'y applique (pas à la racine du Popover, rendue
              dans <body> par Reka UI). -->
@@ -213,15 +211,13 @@ const hasActiveFilters = computed(() =>
 
       <!-- Filter button -->
       <Popover v-if="showFilter" v-model:open="filterOpen">
-        <Hint label="Filtrer">
-          <PopoverTrigger as-child>
-            <button
-              :class="['btn btn-ghost btn-icon btn-sm filter-btn', { 'filter-btn-active': filterOpen || hasActiveFilters }]"
-            >
-              <SvgIcon :name="hasActiveFilters ? 'filter-off' : 'filter'" style="font-size:14px" :key="hasActiveFilters ? 'off' : 'on'" />
-            </button>
-          </PopoverTrigger>
-        </Hint>
+        <PopoverTrigger as-child>
+          <button title="Filtrer" aria-label="Filtrer"
+            :class="['btn btn-ghost btn-icon btn-sm filter-btn', { 'filter-btn-active': filterOpen || hasActiveFilters }]"
+          >
+            <SvgIcon :name="hasActiveFilters ? 'filter-off' : 'filter'" style="font-size:14px" :key="hasActiveFilters ? 'off' : 'on'" />
+          </button>
+        </PopoverTrigger>
         <PopoverContent align="end" :side-offset="6" class="w-auto border-0 bg-transparent p-0 shadow-none" @interact-outside="keepOpenForAutocomplete">
           <div class="filter-dropdown">
             <div class="filter-header">

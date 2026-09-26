@@ -508,13 +508,11 @@ async function deleteSingleTome() {
               </button>
             </Hint>
             <DropdownMenu v-if="canSeriesMoreMenu" v-model:open="showActionsMenu" :modal="false">
-              <Hint label="Plus d'options">
-                <DropdownMenuTrigger as-child>
-                  <button class="hero-btn hero-btn-outline hero-btn-icon" :class="{ 'toolbar-more-btn-active': showActionsMenu }">
-                    <SvgIcon name="more-vertical" style="font-size:13px" />
-                  </button>
-                </DropdownMenuTrigger>
-              </Hint>
+              <DropdownMenuTrigger as-child>
+                <button title="Plus d'options" aria-label="Plus d'options" class="hero-btn hero-btn-outline hero-btn-icon" :class="{ 'toolbar-more-btn-active': showActionsMenu }">
+                  <SvgIcon name="more-vertical" style="font-size:13px" />
+                </button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end" class="min-w-[190px]">
                 <DropdownMenuItem v-if="authStore.hasPermission('library.convert')" @select="showConverter = true">Convertir les fichiers</DropdownMenuItem>
                 <DropdownMenuItem v-if="authStore.hasPermission('library.rename')" @select="showRename = true">Renommer les fichiers</DropdownMenuItem>
@@ -570,13 +568,11 @@ async function deleteSingleTome() {
         <button v-if="authStore.hasPermission('library.metadata_edit')" class="btn btn-secondary btn-sm" @click="showBulkEdit = true">Éditer…</button>
         <a v-if="authStore.hasPermission('library.download')" class="btn btn-secondary btn-sm" :href="tomesApi.downloadBulkUrl([...selectedIds])">Télécharger</a>
         <DropdownMenu v-if="authStore.hasPermission('library.move') || authStore.hasPermission('library.delete')" v-model:open="showSelectionMenu" :modal="false">
-          <Hint label="Plus d'options">
-            <DropdownMenuTrigger as-child>
-              <button class="toolbar-more-btn" :class="{ 'toolbar-more-btn-active': showSelectionMenu }">
-                <SvgIcon name="more-vertical" style="font-size:18px" />
-              </button>
-            </DropdownMenuTrigger>
-          </Hint>
+          <DropdownMenuTrigger as-child>
+            <button title="Plus d'options" aria-label="Plus d'options" class="toolbar-more-btn" :class="{ 'toolbar-more-btn-active': showSelectionMenu }">
+              <SvgIcon name="more-vertical" style="font-size:18px" />
+            </button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="start" class="min-w-[160px]">
             <DropdownMenuItem v-if="authStore.hasPermission('library.move')" @select="openMoveSelection()">Déplacer</DropdownMenuItem>
             <DropdownMenuSeparator v-if="authStore.hasPermission('library.move') && authStore.hasPermission('library.delete')" />
@@ -643,7 +639,7 @@ async function deleteSingleTome() {
                   :tome="entry" :open="openMenuId === entry.id" @update:open="setMenuOpen(entry.id, $event)"
                   @edit="onEditTome" @search-metadata="onSearchTomeMetadata" @move="openMoveSingle" @delete="confirmDeleteTome = $event"
                 >
-                  <button class="overlay-btn tome-more-btn" :class="{ 'overlay-btn-active': openMenuId === entry.id }">
+                  <button class="overlay-btn tome-more-btn" title="Plus d'options" aria-label="Plus d'options" :class="{ 'overlay-btn-active': openMenuId === entry.id }">
                     <SvgIcon name="more-vertical" style="font-size:20px" />
                   </button>
                 </TomeActionsMenu>

@@ -397,13 +397,11 @@ function fmtRelative(iso) {
                   </router-link>
                   <div class="nav-inline-menu-wrap">
                     <DropdownMenu :open="smartListMenuId === sl.id" :modal="false" @update:open="setSmartListMenu(sl.id, $event)">
-                      <Hint label="Options">
-                        <DropdownMenuTrigger as-child>
-                          <button class="nav-header-btn nav-header-btn-sub">
-                            <SvgIcon name="more-vertical" style="font-size:13px" />
-                          </button>
-                        </DropdownMenuTrigger>
-                      </Hint>
+                      <DropdownMenuTrigger as-child>
+                        <button title="Options" aria-label="Options" class="nav-header-btn nav-header-btn-sub">
+                          <SvgIcon name="more-vertical" style="font-size:13px" />
+                        </button>
+                      </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" class="min-w-[180px]">
                         <DropdownMenuItem v-if="sl.can_edit" @select="openEditSmartList(sl)">Modifier</DropdownMenuItem>
                         <DropdownMenuItem :disabled="duplicatingSmartList" @select="duplicateSmartList(sl)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</DropdownMenuItem>
@@ -441,13 +439,11 @@ function fmtRelative(iso) {
               </router-link>
               <div class="nav-inline-menu-wrap">
                 <DropdownMenu :open="smartListMenuId === sl.id" :modal="false" @update:open="setSmartListMenu(sl.id, $event)">
-                  <Hint label="Options">
-                    <DropdownMenuTrigger as-child>
-                      <button class="nav-header-btn nav-header-btn-sub">
-                        <SvgIcon name="more-vertical" style="font-size:13px" />
-                      </button>
-                    </DropdownMenuTrigger>
-                  </Hint>
+                  <DropdownMenuTrigger as-child>
+                    <button title="Options" aria-label="Options" class="nav-header-btn nav-header-btn-sub">
+                      <SvgIcon name="more-vertical" style="font-size:13px" />
+                    </button>
+                  </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" class="min-w-[180px]">
                     <DropdownMenuItem v-if="sl.can_edit" @select="openEditSmartList(sl)">Modifier</DropdownMenuItem>
                     <DropdownMenuItem :disabled="duplicatingSmartList" @select="duplicateSmartList(sl)">{{ duplicatingSmartList ? 'Duplication…' : 'Dupliquer' }}</DropdownMenuItem>
@@ -565,17 +561,15 @@ function fmtRelative(iso) {
 
           <!-- Menu "Nouveautés" -->
           <DropdownMenu v-if="authStore.hasPermission('library.read')" v-model:open="showNotifMenu" :modal="false">
-            <Hint label="Nouveautés">
-              <DropdownMenuTrigger as-child>
-                <button
-                  class="btn btn-ghost btn-icon topbar-notif-trigger"
-                  :class="{ 'topbar-scan-btn-active': showNotifMenu }"
-                >
-                  <SvgIcon name="bell" style="font-size:18px" />
-                  <span v-if="newContentStore.count" class="topbar-notif-badge">{{ newContentStore.count > 99 ? '99+' : newContentStore.count }}</span>
-                </button>
-              </DropdownMenuTrigger>
-            </Hint>
+            <DropdownMenuTrigger as-child>
+              <button title="Nouveautés" aria-label="Nouveautés"
+                class="btn btn-ghost btn-icon topbar-notif-trigger"
+                :class="{ 'topbar-scan-btn-active': showNotifMenu }"
+              >
+                <SvgIcon name="bell" style="font-size:18px" />
+                <span v-if="newContentStore.count" class="topbar-notif-badge">{{ newContentStore.count > 99 ? '99+' : newContentStore.count }}</span>
+              </button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="max-h-[400px] w-[340px] max-w-[calc(100vw-16px)] overflow-y-auto">
               <div v-if="!newContentStore.items.length" class="notif-empty">Rien de nouveau pour l'instant.</div>
               <DropdownMenuItem v-for="item in newContentStore.items" :key="item.type + item.id" class="items-center gap-2.5 p-2" @select="openNotifItem(item)">
@@ -595,13 +589,11 @@ function fmtRelative(iso) {
 
           <!-- Menu "Scanner" -->
           <DropdownMenu v-if="authStore.hasPermission('library.scan') || authStore.hasPermission('library.missing_albums')" v-model:open="showScanMenu" :modal="false">
-            <Hint label="Scanner">
-              <DropdownMenuTrigger as-child>
-                <button class="btn btn-ghost topbar-scan-trigger" :class="{ 'topbar-scan-btn-active': showScanMenu }">
-                  <SvgIcon name="refresh" :class="{ spin: anyScanRunning }" style="font-size:18px" />
-                </button>
-              </DropdownMenuTrigger>
-            </Hint>
+            <DropdownMenuTrigger as-child>
+              <button title="Scanner" aria-label="Scanner" class="btn btn-ghost topbar-scan-trigger" :class="{ 'topbar-scan-btn-active': showScanMenu }">
+                <SvgIcon name="refresh" :class="{ spin: anyScanRunning }" style="font-size:18px" />
+              </button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="min-w-[260px]">
               <DropdownMenuItem v-if="authStore.hasPermission('library.scan')" :disabled="fileScanRunning" @select="triggerFileScan">
                 Scanner les fichiers de la bibliothèque
@@ -616,13 +608,11 @@ function fmtRelative(iso) {
 
           <!-- Menu "Mon compte" -->
           <DropdownMenu v-model:open="showAccountMenu" :modal="false">
-            <Hint label="Mon compte">
-              <DropdownMenuTrigger as-child>
-                <button class="btn btn-ghost topbar-account-trigger" :class="{ 'topbar-scan-btn-active': showAccountMenu }">
-                  <UserAvatar :size="32" />
-                </button>
-              </DropdownMenuTrigger>
-            </Hint>
+            <DropdownMenuTrigger as-child>
+              <button title="Mon compte" aria-label="Mon compte" class="btn btn-ghost topbar-account-trigger" :class="{ 'topbar-scan-btn-active': showAccountMenu }">
+                <UserAvatar :size="32" />
+              </button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="min-w-[220px]">
               <DropdownMenuItem @select="openAccountPage">Mon compte</DropdownMenuItem>
               <DropdownMenuItem @select="openChangePassword">Changer le mot de passe</DropdownMenuItem>

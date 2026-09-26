@@ -515,7 +515,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                     @edit="handleEdit" @enrich="handleEnrich" @rename="handleRename" @convert="handleConvert"
                     @download="handleDownload" @set-cover="handleSetCover" @toggle-hidden="handleToggleHidden" @delete="handleDelete"
                   >
-                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 'd_' + s.id }">
+                    <button class="overlay-btn" title="Plus d'options" aria-label="Plus d'options" :class="{ 'overlay-btn-active': openMenuId === 'd_' + s.id }">
                       <SvgIcon name="more-vertical" style="font-size:20px" />
                     </button>
                   </SeriesActionsMenu>
@@ -563,7 +563,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
                     @edit="handleEdit" @enrich="handleEnrich" @rename="handleRename" @convert="handleConvert"
                     @download="handleDownload" @set-cover="handleSetCover" @toggle-hidden="handleToggleHidden" @delete="handleDelete"
                   >
-                    <button class="overlay-btn" :class="{ 'overlay-btn-active': openMenuId === 's_' + s.id }">
+                    <button class="overlay-btn" title="Plus d'options" aria-label="Plus d'options" :class="{ 'overlay-btn-active': openMenuId === 's_' + s.id }">
                       <SvgIcon name="more-vertical" style="font-size:20px" />
                     </button>
                   </SeriesActionsMenu>
