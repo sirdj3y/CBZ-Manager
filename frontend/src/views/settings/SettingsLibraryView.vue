@@ -139,7 +139,7 @@ async function refreshBedethequeIndex() {
       bdPollTimer = null
       await refreshBdStatus()
       if (data.status === 'done') notif.success('Index Bedetheque à jour')
-      if (data.status === 'error') notif.error('Échec de la reconstruction de l\'index')
+      if (data.status === 'error') notif.error(data.error || 'Échec de la reconstruction de l\'index')
     }
   }, 2000)
 }

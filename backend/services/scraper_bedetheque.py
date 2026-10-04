@@ -156,26 +156,36 @@ async def build_index(letters: Optional[list[str]] = None) -> int:
     _build_progress = {"status": "running", "processed": 0, "total": len(letters)}
 
     index: dict[str, str] = {}
+    last_error: Optional[ServiceError] = None
     try:
         for i, letter in enumerate(letters):
             try:
                 resp = await BEDETHEQUE.get(f"{BASE}/bandes_dessinees_{letter}.html")
                 soup = BeautifulSoup(resp.text, "html.parser")
-                for li in soup.find_all("li"):
+                for li in soup.select("ul.bdt-liste > li"):
                     a = li.find("a", href=True)
-                    span = li.find("span", class_="libelle")
+                    span = li.find("span", class_="bdt-liste-libelle")
                     if a and span and "/serie-" in a["href"]:
                         name = _reorder_article(_clean_text(span.get_text()))
                         if name:
                             index[name] = a["href"]
-            except ServiceError:
-                pass  # une lettre en échec ne doit pas bloquer les suivantes
+            except ServiceError as e:
+                last_error = e  # une lettre en échec ne doit pas bloquer les suivantes
+                if e.kind == "blocked":
+                    break  # protection anti-robots : les lettres suivantes le seront aussi
             _build_progress["processed"] = i + 1
 
-        # Fusionne avec l'index existant plutôt que de l'écraser si on ne rafraîchit
-        # qu'un sous-ensemble de lettres
+        # Aucune série lue (site bloqué, en panne…) : on garde l'index existant tel quel.
+        # L'écraser par un index vide rendait toute recherche Bedetheque impossible.
+        if not index:
+            _build_progress["status"] = "error"
+            _build_progress["error"] = last_error.message if last_error else "Aucune série trouvée"
+            return 0
+
+        # Fusionne avec l'index existant plutôt que de l'écraser : rafraîchissement partiel
+        # (sous-ensemble de lettres) ou lettres en échec, dont on garde les anciennes séries
         dest = _index_path()
-        if letters != LETTERS and dest.exists():
+        if (letters != LETTERS or last_error is not None) and dest.exists():
             try:
                 existing = json.loads(dest.read_text(encoding="utf-8"))
                 existing.update(index)
@@ -212,46 +222,56 @@ def _search_series(query: str, index: dict[str, str], max_series: int = 3) -> li
 
 
 # ── Parsing d'une page série (tous les albums, un seul fetch) ──────────────────────
+#
+# Structure de Bedetheque.com depuis sa refonte d'octobre 2026 (relevée sur des pages
+# réelles, copies dans tests/fixtures/bedetheque/) : un <article class="bdt-edition"> par
+# album dans section#albums, infos en paires <dt>/<dd> dans dl.bdt-sheet.
 
-def _parse_album_block(side, main) -> Optional[dict]:
-    title_el = main.select_one("h3 span[itemprop=name]") or main.find("h3", class_="titre")
-    raw_title = _clean_text(title_el.get_text(" ", strip=True)) if title_el else ""
+def _sheet_fields(main) -> dict[str, str]:
+    """Paires libellé/valeur de dl.bdt-sheet. Les auteurs sont reformatés un par un (un
+    <dd> peut en contenir plusieurs, chacun « Nom, Prénom »)."""
+    fields: dict[str, str] = {}
+    for dt in main.select("dl.bdt-sheet > dt"):
+        dd = dt.find_next_sibling("dd")
+        if dd is None:
+            continue
+        label = _clean_text(dt.get_text())
+        if label in ("Scénario", "Dessin", "Couleurs"):
+            names = [_clean_text(el.get_text()) for el in dd.select("[itemprop]")] \
+                or [_clean_text(dd.get_text(" ", strip=True))]
+            value = ", ".join(dict.fromkeys(_reformat_author(n) for n in names if n))
+        else:
+            value = _clean_text(dd.get_text(" ", strip=True))
+        if value:
+            fields.setdefault(label, value)
+    return fields
+
+
+def _parse_album_block(main) -> Optional[dict]:
+    title_el = main.select_one("h3 [itemprop=name]")
+    # Séparateur vide : le numéro est découpé en « 7<span class="bdt-numa">a</span>. » ou
+    # « <span class="bdt-numa">HS1</span>. », qu'il faut recoller tel quel (« 7a », « HS1 »).
+    raw_title = _clean_text(title_el.get_text("")) if title_el else ""
     number = None
     m = re.match(r"^(\S+)\s*\.\s*(.*)$", raw_title)
     title = m.group(2) if m else raw_title
     if m:
         number = m.group(1)
 
-    url_el = main.select_one("h3 a.titre")
+    url_el = main.select_one("h3 a[itemprop=url]")
     album_url = url_el["href"] if url_el and url_el.get("href") else None
 
-    fields: dict[str, str] = {}
-    for li in main.select("ul.infos > li"):
-        label_el = li.find("label")
-        if not label_el:
-            continue
-        label = _clean_text(label_el.get_text()).rstrip(":").strip()
-        value = _clean_text(li.get_text(" ", strip=True))
-        value = value.replace(_clean_text(label_el.get_text()), "", 1).strip(": ").strip()
-        if label in ("Scénario", "Dessin", "Couleurs"):
-            value = _reformat_author(value)
-        fields.setdefault(label, value)
+    fields = _sheet_fields(main)
 
     year = None
-    if "Dépot légal" in fields:
-        ym = re.search(r"(19|20)\d{2}", fields["Dépot légal"])
-        if ym:
-            year = ym.group(0)
+    ym = re.search(r"(19|20)\d{2}", fields.get("Dépôt légal", ""))
+    if ym:
+        year = ym.group(0)
 
     cover_url = None
-    if side is not None:
-        # Certains albums (mis en avant ?) ont une icône de coin décorative
-        # (bdgest.com/skin/corner.top.left.png) en premier <img> de div.couv, avant la
-        # vraie couverture — sans cette exclusion, select_one("div.couv img") la prenait
-        # par erreur (premier match) au lieu de la couverture.
-        img = side.select_one("div.couv img:not(.corner-top-left)")
-        if img and img.get("src"):
-            cover_url = img["src"]
+    img = main.select_one("a.bdt-ecov img")
+    if img and img.get("src"):
+        cover_url = img["src"]
 
     if not title and not album_url:
         return None
@@ -259,7 +279,7 @@ def _parse_album_block(side, main) -> Optional[dict]:
     authors = [a for a in (fields.get("Scénario"), fields.get("Dessin")) if a]
     authors = list(dict.fromkeys(authors))  # dédoublonne (auteur complet scénario+dessin)
 
-    # Note communautaire — "Note: 4.7/5 (27 votes)" dans <p class="message"> sous le
+    # Note communautaire : "Note: 4.3/5 (125 votes)" dans <p class="message"> sous le
     # widget d'étoiles cliquables, dans le même bloc que le reste des infos de l'album.
     rating = None
     rating_count = None
@@ -279,11 +299,13 @@ def _parse_album_block(side, main) -> Optional[dict]:
         "authors": authors,
         "writer": fields.get("Scénario"),
         "penciller": fields.get("Dessin"),
-        "publisher": fields.get("Editeur"),
+        "publisher": fields.get("Éditeur"),
         "year": year,
         "cover_url": cover_url,
         "url": album_url,
-        "isbn": fields.get("ISBN") or None,
+        "isbn": fields.get("EAN/ISBN") or None,
+        # « Planches » (pages de BD) volontairement ignoré : repris tel quel dans le PageCount
+        # du ComicInfo.xml, qui doit rester le nombre réel d'images du fichier.
         "pages": None,
         "rating": rating,
         "rating_count": rating_count,
@@ -296,28 +318,20 @@ def _parse_series_info(html: str) -> dict:
     bien sur la page de base que sur la variante __10000.html (déjà récupérée pour la liste
     des albums, aucune requête supplémentaire nécessaire pour ces trois infos)."""
     soup = BeautifulSoup(html, "html.parser")
-    info = soup.select_one("div.bandeau-info.serie")
-    status = None
-    genre = None
-    if info is not None:
-        h3 = info.find("h3")
-        if h3 is not None:
-            icon = h3.find("i", class_="icon-info-sign")
-            if icon is not None and icon.parent is not None:
-                status = _clean_text(icon.parent.get_text(" ", strip=True))
-            genre_el = h3.find("span", class_="style")
-            if genre_el is not None:
-                genre = _clean_text(genre_el.get_text(" ", strip=True))
-    resume_el = soup.select_one("div.single-content.serie p")
+    status_el = soup.select_one("section.bdt-ah--serie .bdt-sh-parution")
+    status = _clean_text(status_el.get_text(" ", strip=True)) if status_el is not None else None
+    genres = [_clean_text(g.get_text(" ", strip=True)) for g in soup.select("section.bdt-ah--serie .bdt-sh-genre")]
+    genre = ", ".join(g for g in genres if g) or None
+    resume_el = soup.select_one("p.bdt-sh-resume")
     resume = _clean_text(_text_without_links(resume_el)) if resume_el is not None else None
-    return {"status": status, "genre": genre, "resume": resume or None}
+    return {"status": status or None, "genre": genre, "resume": resume or None}
 
 
 def _parse_album_summary(html: str) -> str | None:
     """Résumé d'un album — présent seulement sur sa page dédiée (pas sur la page série),
     donc une requête à part, jamais faite en masse (voir fetch_album_summary)."""
     soup = BeautifulSoup(html, "html.parser")
-    el = soup.select_one("div.bandeau-info.album p.auto-height span")
+    el = soup.select_one("p.bdt-ah-resume [itemprop=description]")
     if el is None:
         return None
     text = _clean_text(_text_without_links(el))
@@ -339,11 +353,9 @@ async def fetch_album_summary(album_url: str) -> str | None:
 
 def _parse_series_page(html: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
-    sides = soup.find_all("div", class_="album-side")
-    mains = soup.find_all("div", class_="album-main")
     results = []
-    for side, main in zip(sides, mains):
-        block = _parse_album_block(side, main)
+    for main in soup.select("#albums article.bdt-edition"):
+        block = _parse_album_block(main)
         if block:
             results.append(block)
     return results

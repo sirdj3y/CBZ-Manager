@@ -28,7 +28,7 @@ USER_AGENT = f"CBZManager/{APP_VERSION} (gestionnaire de bibliotheque BD personn
 
 
 class ServiceError(Exception):
-    """kind : "not_found" | "unavailable" | "quota" | "unauthorized"."""
+    """kind : "not_found" | "unavailable" | "quota" | "unauthorized" | "blocked"."""
 
     def __init__(self, service: str, kind: str, status: int | None = None, detail: str = ""):
         self.service, self.kind, self.status = service, kind, status
@@ -41,6 +41,7 @@ class ServiceError(Exception):
             "not_found": f"{self.service} : page ou ressource introuvable.",
             "quota": f"{self.service} : limite de requêtes atteinte. Réessayez plus tard.",
             "unauthorized": f"{self.service} : clé API refusée. Vérifiez-la dans les paramètres.",
+            "blocked": f"{self.service} bloque actuellement les requêtes automatiques (protection anti-robots). Réessayez plus tard.",
         }.get(self.kind, f"{self.service} ne répond pas pour le moment. Réessayez dans quelques minutes.")
 
 
@@ -88,6 +89,11 @@ class ThrottledClient:
                             return resp
                         if resp.status_code == 404:
                             raise ServiceError(self.service, "not_found", 404)
+                        # Challenge Cloudflare (« Just a moment… ») : le site exige un navigateur
+                        # qui exécute du JavaScript. Ni une clé refusée ni une panne : réessayer
+                        # tout de suite ne sert à rien, et on ne cherche pas à le contourner.
+                        if resp.headers.get("cf-mitigated") == "challenge":
+                            raise ServiceError(self.service, "blocked", resp.status_code)
                         if resp.status_code in (401, 403):
                             raise ServiceError(self.service, "unauthorized", resp.status_code)
                         if resp.status_code != 429 and resp.status_code < 500:

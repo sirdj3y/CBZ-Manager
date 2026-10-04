@@ -66,6 +66,22 @@ def test_cle_refusee():
     assert "clé API" in e.value.message
 
 
+def test_challenge_cloudflare_bloque_sans_reprise():
+    """Bedetheque.com derrière un challenge Cloudflare (403 + cf-mitigated) : message dédié,
+    pas « clé API refusée », et aucune nouvelle tentative inutile."""
+    calls = []
+
+    def handler(req):
+        calls.append(req)
+        return httpx.Response(403, headers={"cf-mitigated": "challenge"}, text="Just a moment...")
+
+    with pytest.raises(ServiceError) as e:
+        _run(_client(handler).get("https://exemple.test/"))
+    assert e.value.kind == "blocked"
+    assert "anti-robots" in e.value.message and "clé API" not in e.value.message
+    assert len(calls) == 1
+
+
 def test_quota_apres_reprises_et_retry_after():
     calls = []
 
@@ -165,3 +181,33 @@ def test_google_books_quota_message_clair(scanned, monkeypatch):
     r = scanned.post("/api/scrape/googlebooks", json={"query": "Blacksad"})
     assert r.status_code == 503
     assert "limite de requêtes" in r.json()["detail"] and "—" not in r.json()["detail"]
+
+
+def test_index_bedetheque_conserve_si_site_bloque(monkeypatch):
+    """Rafraîchir l'index pendant un blocage ne doit pas l'écraser par un index vide."""
+    import json
+    from backend.services import scraper_bedetheque as sb
+
+    calls = []
+
+    def handler(req):
+        calls.append(req)
+        return httpx.Response(403, headers={"cf-mitigated": "challenge"})
+
+    monkeypatch.setattr(http_client.BEDETHEQUE, "transport", httpx.MockTransport(handler))
+    monkeypatch.setattr(http_client.BEDETHEQUE, "min_interval", 0)
+    path = sb._index_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    before = path.read_text(encoding="utf-8") if path.exists() else None
+    path.write_text(json.dumps({"Blacksad": URL}), encoding="utf-8")
+    try:
+        assert _run(sb.build_index()) == 0
+        assert json.loads(path.read_text(encoding="utf-8")) == {"Blacksad": URL}
+        progress = sb.get_build_progress()
+        assert progress["status"] == "error" and "anti-robots" in progress["error"]
+        assert len(calls) == 1  # arrêt dès la première lettre bloquée
+    finally:
+        if before is None:
+            path.unlink()
+        else:
+            path.write_text(before, encoding="utf-8")
