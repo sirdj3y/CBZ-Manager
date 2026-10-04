@@ -2,6 +2,16 @@
 
 ---
 
+## v1.27.4 — 2026-10-04 — Bedetheque de nouveau compatible
+
+### Corrections
+
+- **Bedetheque : 0 album trouvé** : le site a changé la présentation de ses pages, et l'application ne retrouvait plus aucun album d'une série (import, Compléter, albums manquants). Les albums, les infos de la série (statut, genre, résumé) et le résumé d'un album sont de nouveau lus, y compris les numéros spéciaux (HS1, FL1, INT).
+- **Bedetheque bloqué par une protection anti-robots** : le message indiquait à tort « clé API refusée ». Il explique désormais que le site bloque temporairement les requêtes automatiques.
+- **Index Bedetheque** : un rafraîchissement pendant que le site est inaccessible vidait l'index, et plus aucune recherche ne fonctionnait. L'index existant est désormais conservé, et la raison de l'échec est affichée.
+
+---
+
 ## v1.27.3 — 2026-09-27 — Fenêtres modales sous Edge
 
 ### Corrections
