@@ -281,6 +281,7 @@ class BedethequeBulkAlbumOut(BaseModel):
     penciller: Optional[str] = None
     publisher: Optional[str] = None
     year: Optional[str] = None
+    url: Optional[str] = None  # fiche de l'album, recopiée dans le champ Web à l'import
 
 
 class BedethequeSuggestIn(BaseModel):

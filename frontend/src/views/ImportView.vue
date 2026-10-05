@@ -23,6 +23,7 @@ import Hint from '../components/ui/Hint.vue'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/shadcn/hover-card'
 import AppDialog from '../components/ui/AppDialog.vue'
 import { filesFromDataTransfer } from '../utils/droppedFiles'
+import { applyBulkAlbum, indexAlbumsByNumber, numberKey } from '../utils/bedethequeBulk'
 
 const router = useRouter()
 const route = useRoute()
@@ -581,21 +582,17 @@ async function completeFromBedetheque() {
   bedeBulkLoading.value = true
   try {
     const { data: albums } = await scraperApi.bedethequeBulk(source.url, source.seriesId)
-    const byNumber = {}
-    for (const a of albums) { if (a.number) byNumber[a.number] = a }
+    const byNumber = indexAlbumsByNumber(albums)
 
     let matched = 0
     for (const item of items.value) {
       const row = metaRows.value[item.originalName]
       if (!row) continue
-      const num = (row.Number || item.parsed?.number || '').trim()
-      const album = num ? byNumber[num] : null
+      const key = numberKey(row.Number || item.parsed?.number)
+      const album = key ? byNumber[key] : null
       if (!album) continue
       matched++
-      if (album.title)     row.Title     = album.title
-      if (album.writer)    row.Writer    = album.writer
-      if (album.penciller) row.Penciller = album.penciller
-      if (album.publisher) row.Publisher = album.publisher
+      applyBulkAlbum(row, album)
     }
     metaRows.value = { ...metaRows.value }
     notif.success(matched

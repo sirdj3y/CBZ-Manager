@@ -72,3 +72,15 @@ def test_index_alphabetique(monkeypatch):
             path.unlink()
         else:
             path.write_text(before, encoding="utf-8")
+
+
+def test_completion_globale_import(client, monkeypatch):
+    """Endpoint de complétion globale de l'import : année et fiche album renvoyées."""
+    monkeypatch.setattr(http_client.BEDETHEQUE, "transport",
+                        httpx.MockTransport(lambda req: httpx.Response(200, text=_html("serie.html"))))
+    monkeypatch.setattr(http_client.BEDETHEQUE, "min_interval", 0)
+    r = client.post("/api/scrape/bedetheque-bulk", json={"url": "https://www.bedetheque.com/serie-9623-BD-Lou.html"})
+    assert r.status_code == 200, r.text
+    t1 = r.json()[0]
+    assert t1["number"] == "1" and t1["year"] == "2004"
+    assert t1["url"] == "https://www.bedetheque.com/BD-Lou-Tome-1-Journal-Infime-37024.html"
