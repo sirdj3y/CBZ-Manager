@@ -625,8 +625,9 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
 
 <style scoped>
 .home-content {
+  --home-pad: 20px;
   flex: 1;
-  padding: 20px;
+  padding: var(--home-pad);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -946,9 +947,7 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
 
 /* Scroll row (horizontal scroll sections) — défilement toujours possible (molette/trackpad/
    glisser), juste sans ascenseur visible en dessous (retour utilisateur : surchargeait
-   visuellement ces rangées de cartes). Fondu sur le bord droit (mask-image plutôt qu'un
-   calque superposé : pas besoin de connaître la couleur de fond derrière, fonctionne pareil
-   en clair/sombre) pour signaler qu'il y a plus à découvrir au-delà de ce qui est visible. */
+   visuellement ces rangées de cartes). */
 /* overflow-x:auto force overflow-y:auto (règle CSS) sur ce même élément, qui rogne le pixel
    du haut de la bordure de tout enfant collé au bord (déjà rencontré sur les pastilles
    "Genres", puis sur les cards de card partout ailleurs dans ce fichier) — padding-top +
@@ -957,7 +956,11 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
    Même souci sur le bord GAUCHE, mais seulement visible sur la toute première carte de
    chaque rangée (scrollLeft ne peut jamais descendre sous 0 : rien à faire défiler avant
    elle, donc rien ne masque le rognage comme le fait le "gap" entre les cartes suivantes) —
-   même compensation padding-left/margin-left négatif, même principe. */
+   même compensation padding-left/margin-left négatif, même principe.
+   À droite, la rangée déborde dans la marge de la page jusqu'au bord de l'écran (issue #16) :
+   une carte coupée net par le bord signale mieux qu'on peut faire défiler que le fondu
+   d'avant. La marge intérieure du même montant garde un espace après la dernière carte en
+   fin de défilement. À gauche, rien ne change : la première carte reste alignée sur le titre. */
 .scroll-row {
   display: flex;
   flex-direction: row;
@@ -966,10 +969,10 @@ const totalAlbums = computed(() => library.series.reduce((s, x) => s + (x.tome_c
   margin-top: -4px;
   padding-left: 4px;
   margin-left: -4px;
+  padding-right: var(--home-pad);
+  margin-right: calc(-1 * var(--home-pad));
   overflow-x: auto;
   scrollbar-width: none;
-  mask-image: linear-gradient(to right, black calc(100% - 14px), rgba(0,0,0,0.6) 100%);
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 14px), rgba(0,0,0,0.6) 100%);
 }
 .scroll-row::-webkit-scrollbar { display: none; }
 
