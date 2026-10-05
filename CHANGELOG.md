@@ -2,6 +2,19 @@
 
 ---
 
+## v1.27.5 — 2026-10-05 — Accueil et import Bedetheque
+
+### Améliorations
+
+- **Accueil : rangées de cartes jusqu'au bord de l'écran** : les rangées défilantes vont désormais jusqu'au bord droit de l'écran au lieu de s'arrêter sur un fondu. Une carte coupée par le bord montre qu'on peut faire défiler. À gauche, la première carte reste alignée sur le titre.
+
+### Corrections
+
+- **Import : année non reprise depuis Bedetheque** : la complétion de tous les albums depuis la page de la série remplit désormais l'année et le lien vers la fiche de chaque album, comme la recherche album par album.
+- **Import : tomes 1 à 9 non associés** : « 01 » dans le tableau ne correspondait pas à « 1 » sur Bedetheque. Les numéros sont désormais comparés sans zéro initial.
+
+---
+
 ## v1.27.4 — 2026-10-04 — Bedetheque de nouveau compatible
 
 ### Corrections
