@@ -159,7 +159,7 @@ L'image est construite par GitHub Actions et publiée sur GHCR (`ghcr.io/sirdj3y
 
 Sur le NAS, Container Manager → **Projet → Créer**, avec `docker-compose.synology.yml` (prod, inclut Watchtower) ou `docker-compose.preprod.synology.yml` (préprod). Watchtower vérifie toutes les 5 minutes et redémarre l'app sur la nouvelle image.
 
-Prérequis, une fois en SSH : `sudo docker login ghcr.io -u <utilisateur>` avec un token GitHub *classic* `read:packages` (l'onglet Registre de Container Manager ne sait pas dialoguer avec ghcr.io, c'est normal).
+Prérequis, une fois en SSH : `sudo docker login ghcr.io -u <utilisateur>` avec un token GitHub *classic* `read:packages` (l'onglet Registre de Container Manager ne sait pas dialoguer avec ghcr.io, c'est normal), puis copier les identifiants là où Watchtower les lit, hors de `/root` qu'une mise à jour de DSM peut effacer : `sudo cp /root/.docker/config.json /volume1/docker/cbz-manager/ghcr-config.json && sudo chmod 600 /volume1/docker/cbz-manager/ghcr-config.json`.
 
 ### Sauvegarde automatique de la base
 

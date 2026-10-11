@@ -39,7 +39,7 @@ Images are built by GitHub Actions (`.github/workflows/docker.yml`, linux/amd64 
 - other branches / PRs → build only (checks the Dockerfile), nothing published
 - `*.md`, `docker-compose*.yml` changes don't trigger a build
 
-NAS projects (Container Manager → Projet): `/volume1/docker/cbz-manager` (`docker-compose.synology.yml`, includes Watchtower) and `/volume1/docker/cbz-manager-preprod` (`docker-compose.preprod.synology.yml`). The NAS pulls GHCR with `sudo docker login ghcr.io` credentials (`/root/.docker/config.json`, classic token `read:packages`) — Container Manager's Registre tab can't talk to ghcr.io, that's expected.
+NAS projects (Container Manager → Projet): `/volume1/docker/cbz-manager` (`docker-compose.synology.yml`, includes Watchtower) and `/volume1/docker/cbz-manager-preprod` (`docker-compose.preprod.synology.yml`). The NAS pulls GHCR with `sudo docker login ghcr.io` credentials (`/root/.docker/config.json`, classic token `read:packages`); Watchtower reads a copy at `/volume1/docker/cbz-manager/ghcr-config.json`, because DSM updates can wipe `/root/.docker/` — Container Manager's Registre tab can't talk to ghcr.io, that's expected.
 
 Local Docker (`docker-compose.yml`, arm64 on the Mac) is still fine for quick checks: `docker compose build && docker compose up -d --force-recreate`.
 

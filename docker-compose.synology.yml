@@ -4,6 +4,9 @@
 # L'image est construite par GitHub Actions à chaque push sur main et publiée sur GHCR.
 # Watchtower vérifie toutes les 5 minutes et redémarre cbz-manager sur la nouvelle image.
 # Prérequis (une fois, en SSH) : sudo docker login ghcr.io -u sirdj3y  (token classic read:packages)
+# puis copier les identifiants hors de /root, que les mises à jour de DSM peuvent effacer :
+#   sudo cp /root/.docker/config.json /volume1/docker/cbz-manager/ghcr-config.json
+#   sudo chmod 600 /volume1/docker/cbz-manager/ghcr-config.json
 
 services:
   cbz-manager:
@@ -35,8 +38,9 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # Identifiants GHCR enregistrés par le docker login (lecture seule)
-      - /root/.docker/config.json:/config.json:ro
+      # Identifiants GHCR (copie du docker login, voir en tête) : hors de /root, qu'une mise à
+      # jour de DSM a déjà effacé (« Bind mount failed: '/root/.docker/config.json' does not exist »).
+      - /volume1/docker/cbz-manager/ghcr-config.json:/config.json:ro
     environment:
       - TZ=Europe/Paris
       - WATCHTOWER_LABEL_ENABLE=true   # ne surveille que les conteneurs étiquetés (pas tout le NAS)
